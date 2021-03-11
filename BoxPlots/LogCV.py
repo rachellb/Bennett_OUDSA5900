@@ -11,7 +11,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import RepeatedStratifiedKFold
 
 # For Auc
-from sklearn.metrics import auc
 from sklearn.metrics import roc_curve
 from sklearn import metrics
 from imblearn.metrics import geometric_mean_score

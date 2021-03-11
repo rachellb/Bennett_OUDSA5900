@@ -47,13 +47,11 @@ from openpyxl import Workbook  # For storing results
 from openpyxl.utils.dataframe import dataframe_to_rows
 import openpyxl
 from openpyxl import load_workbook
-
+import os
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 from NeuralNetworkBase import NN
 
-import neptune
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNOklahoma')
 
 
 
@@ -96,8 +94,6 @@ def weighted_loss_persample(weights, batchSize):
 
 
     return loss
-
-
 
 
 def age_encoderTX(data):
@@ -1283,10 +1279,9 @@ class NoTune(fullNN):
                                tf.keras.metrics.Recall(),
                                tf.keras.metrics.AUC()])
 
-        from neptunecontrib.monitoring.keras import NeptuneMonitor
 
         self.history = self.model.fit(self.training_generator, epochs=epochs, validation_data=self.validation_generator,
-                                      verbose=2, class_weight=class_weight_dict,callbacks=[NeptuneMonitor()])
+                                      verbose=2, class_weight=class_weight_dict)
 
     def evaluateModel(self):
         wb = Workbook()
@@ -1471,7 +1466,6 @@ class NoGen(NoTune):
         neg = class_weight_dict[0]
 
         scalar = len(self.Y_train)
-
         class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
         class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
@@ -1506,7 +1500,7 @@ class NoGen(NoTune):
 
         self.history = self.model.fit(self.X_train, self.Y_train, batch_size=batchSize,
                                       epochs=epochs, validation_data=(self.X_val, self.Y_val),
-                                      verbose=2)
+                                      verbose=2, class_weight=class_weight_dict)
 
 if __name__ == "__main__":
 
@@ -1514,13 +1508,16 @@ if __name__ == "__main__":
               'momentum': 0.9,
               'epochs': 10,
               'batch_size': 4096}
-    neptune.create_experiment('OklahomaTest1')
 
-    neptune.log_image('matplotlib-fig', fig, image_name='streamplot')
-    filename = 'Results/Texas/Full/NoTune/CustomLoss/Test_fixedloss_1to5'
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
+
+
+    filename = 'Results/Texas/Full/NoTune/ClassWeights/Test_a5g175'
     modelWeighted = NoGen(filename)
     modelWeighted.prepData(age='Categorical',
-                           data='Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+                           data=path)
     modelWeighted.splitData(testSize=0.20, valSize=0.20)
     # modelWeighted.detectOutliers('lof', con=0.1)
     features = modelWeighted.featureSelection(numFeatures=20, method=2)
@@ -1535,117 +1532,117 @@ if __name__ == "__main__":
     # modelWeighted.buildModel(epochs=30)
 
     # For hand-tuning
-    modelWeighted.buildModel(features, batchSize=PARAMS['batch_size'], initializer='RandomUniform',
+    modelWeighted.buildModel(features, batchSize=PARAMS['batch_size'], alpha=0.5, gamma=1.75, initializer='RandomUniform',
                              biasInit=1, epochs=30)
+
     auc, gmean, precision, recall, specificity, tp, fp, tn, fn, loss = modelWeighted.evaluateModel()
 
 
 
-    """
-    wb = Workbook()
-    dest_filename = 'Results/Texas/Full/NoTune/ClassWeights/FocalTests/Results_AlphaGamma_Full.xlsx'
+    def storeResults():
+        wb = Workbook()
+        dest_filename = 'Results/Texas/Full/NoTune/ClassWeights/FocalTests/Results_AlphaGamma_Full.xlsx'
 
 
-    #initializers = ['RandomUniform', 'RandomNormal', 'he_uniform', 'he_normal', 'glorot_uniform', 'glorot_normal']
+        #initializers = ['RandomUniform', 'RandomNormal', 'he_uniform', 'he_normal', 'glorot_uniform', 'glorot_normal']
 
-    ws = wb.active
-    ws['B1'] = "AUC"
-    ws['C1'] = "Gmean"
-    ws['D1'] = "Precision"
-    ws['E1'] = "Recall"
-    ws['F1'] = "Specificity"
+        ws = wb.active
+        ws['B1'] = "AUC"
+        ws['C1'] = "Gmean"
+        ws['D1'] = "Precision"
+        ws['E1'] = "Recall"
+        ws['F1'] = "Specificity"
 
-    # This section is for testing out different combinations of alpha and gamma
+        # This section is for testing out different combinations of alpha and gamma
 
-    wsAUC = wb.active
-    wsAUC.title = "AUC"
-    wsGmean = wb.create_sheet(title="Gmean")
-    wsPrecision = wb.create_sheet(title="Precision")
-    wsRecall = wb.create_sheet(title="Recall")
-    wsSpecificity = wb.create_sheet(title="Specificity")
-    wstp = wb.create_sheet(title="True Positive")
-    wstn = wb.create_sheet(title="True Negative")
-    wsfp = wb.create_sheet(title="False Positive")
-    wsfn = wb.create_sheet(title="False Negative")
-
-
-    #Filling index and columns
-    ch = 'B'
-    alpha = 0.25
-    gamma = 1
-    for j in range(5):
-        wsAUC[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wsGmean[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wsPrecision[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wsRecall[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wsSpecificity[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wstp[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wstn[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wsfp[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-        wsfn[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
-
-        gamma = gamma + 0.25
-
-    for i in range(4):
-        wsAUC['A' + str(i+2)] = "Alpha= " + str(alpha)
-        wsGmean['A' + str(i+2)] = "Alpha= " + str(alpha)
-        wsPrecision['A' + str(i+2)] = "Alpha= " + str(alpha)
-        wsRecall['A' + str(i+2)] = "Alpha= " + str(alpha)
-        wsSpecificity['A' + str(i+2)] = "Alpha= " + str(alpha)
-        wstp['A' + str(i + 2)] = "Alpha= " + str(alpha)
-        wstn['A' + str(i + 2)] = "Alpha= " + str(alpha)
-        wsfp['A' + str(i + 2)] = "Alpha= " + str(alpha)
-        wsfn['A' + str(i + 2)] = "Alpha= " + str(alpha)
-
-        alpha = alpha + 0.25
+        wsAUC = wb.active
+        wsAUC.title = "AUC"
+        wsGmean = wb.create_sheet(title="Gmean")
+        wsPrecision = wb.create_sheet(title="Precision")
+        wsRecall = wb.create_sheet(title="Recall")
+        wsSpecificity = wb.create_sheet(title="Specificity")
+        wstp = wb.create_sheet(title="True Positive")
+        wstn = wb.create_sheet(title="True Negative")
+        wsfp = wb.create_sheet(title="False Positive")
+        wsfn = wb.create_sheet(title="False Negative")
 
 
-    ch = 'B' #Start at column B
-    alpha = 0.25
-    gamma = 1
-
-
-    for i in range(4):
-        # Reset gamma at the end of each loop
+        #Filling index and columns
+        ch = 'B'
+        alpha = 0.25
         gamma = 1
         for j in range(5):
-            filename = 'Results/Texas/Full/NoTune/ClassWeights/NoGen_30_a' + str(alpha) + "g" + str(gamma)
-            modelWeighted = NoGen(filename)
-            modelWeighted.prepData(age='Categorical',
-                                   data='Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
-            modelWeighted.splitData(testSize=0.10, valSize=0.10)
-            # modelWeighted.detectOutliers('lof', con=0.1)
-            features = modelWeighted.featureSelection(numFeatures=20, method=2)
-
-            
-            modelWeighted.hpTuning(features, batchSize=8192, tuner='Hyperband',
-                                   initializer='RandomUniform', biasInit=1,
-                                   MAX_TRIALS=5, epochs=30)
-    
-
-            # For hypertuning
-            # modelWeighted.buildModel(epochs=30)
-           
-            # For hand-tuning
-            modelWeighted.buildModel(features, batchSize=8192, alpha=alpha, gamma=gamma, initializer='RandomUniform',
-                                     biasInit=1, epochs=30)
-            auc, gmean, precision, recall, specificity, tp, fp, tn, fn, loss = modelWeighted.evaluateModel()
-
-            wsAUC[chr(ord(ch) + j) + str(i+2)] = auc
-            wsGmean[chr(ord(ch) + j) + str(i+2)] = gmean
-            wsPrecision[chr(ord(ch) + j) + str(i+2)] = precision
-            wsRecall[chr(ord(ch) + j) + str(i+2)] = recall
-            wsSpecificity[chr(ord(ch) + j) + str(i+2)] = specificity
-            wstp[chr(ord(ch) + j) + str(i + 2)] = tp
-            wsfp[chr(ord(ch) + j) + str(i + 2)] = fp
-            wstn[chr(ord(ch) + j) + str(i + 2)] = tn
-            wsfn[chr(ord(ch) + j) + str(i + 2)] = fn
+            wsAUC[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wsGmean[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wsPrecision[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wsRecall[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wsSpecificity[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wstp[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wstn[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wsfp[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
+            wsfn[chr(ord(ch) + j) + str(1)] = "Gamma= " + str(gamma)
 
             gamma = gamma + 0.25
-        alpha = alpha + 0.25
+
+        for i in range(4):
+            wsAUC['A' + str(i+2)] = "Alpha= " + str(alpha)
+            wsGmean['A' + str(i+2)] = "Alpha= " + str(alpha)
+            wsPrecision['A' + str(i+2)] = "Alpha= " + str(alpha)
+            wsRecall['A' + str(i+2)] = "Alpha= " + str(alpha)
+            wsSpecificity['A' + str(i+2)] = "Alpha= " + str(alpha)
+            wstp['A' + str(i + 2)] = "Alpha= " + str(alpha)
+            wstn['A' + str(i + 2)] = "Alpha= " + str(alpha)
+            wsfp['A' + str(i + 2)] = "Alpha= " + str(alpha)
+            wsfn['A' + str(i + 2)] = "Alpha= " + str(alpha)
+
+            alpha = alpha + 0.25
+
+
+        ch = 'B' #Start at column B
+        alpha = 0.25
+        gamma = 1
+
+
+        for i in range(4):
+            # Reset gamma at the end of each loop
+            gamma = 1
+            for j in range(5):
+                filename = 'Results/Texas/Full/NoTune/ClassWeights/NoGen_30_a' + str(alpha) + "g" + str(gamma)
+                modelWeighted = NoGen(filename)
+                modelWeighted.prepData(age='Categorical',
+                                       data='Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+                modelWeighted.splitData(testSize=0.10, valSize=0.10)
+                # modelWeighted.detectOutliers('lof', con=0.1)
+                features = modelWeighted.featureSelection(numFeatures=20, method=2)
+
+
+                modelWeighted.hpTuning(features, batchSize=8192, tuner='Hyperband',
+                                       initializer='RandomUniform', biasInit=1,
+                                       MAX_TRIALS=5, epochs=30)
+
+
+                # For hypertuning
+                # modelWeighted.buildModel(epochs=30)
+
+                # For hand-tuning
+                modelWeighted.buildModel(features, batchSize=8192, alpha=alpha, gamma=gamma, initializer='RandomUniform',
+                                         biasInit=1, epochs=30)
+                auc, gmean, precision, recall, specificity, tp, fp, tn, fn, loss = modelWeighted.evaluateModel()
+
+                wsAUC[chr(ord(ch) + j) + str(i+2)] = auc
+                wsGmean[chr(ord(ch) + j) + str(i+2)] = gmean
+                wsPrecision[chr(ord(ch) + j) + str(i+2)] = precision
+                wsRecall[chr(ord(ch) + j) + str(i+2)] = recall
+                wsSpecificity[chr(ord(ch) + j) + str(i+2)] = specificity
+                wstp[chr(ord(ch) + j) + str(i + 2)] = tp
+                wsfp[chr(ord(ch) + j) + str(i + 2)] = fp
+                wstn[chr(ord(ch) + j) + str(i + 2)] = tn
+                wsfn[chr(ord(ch) + j) + str(i + 2)] = fn
+
+                gamma = gamma + 0.25
+            alpha = alpha + 0.25
 
 
 
-    wb.save(filename=dest_filename)
+        wb.save(filename=dest_filename)
 
-    """

@@ -33,8 +33,8 @@ from imblearn.over_sampling import RandomOverSampler
 
 # For NN and tuning
 import tensorflow as tf
-import kerastuner
-from kerastuner.tuners import Hyperband, BayesianOptimization
+#import kerastuner
+#from kerastuner.tuners import Hyperband, BayesianOptimization
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 
 # For additional metrics
@@ -49,7 +49,7 @@ import openpyxl
 from openpyxl import load_workbook
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
-from NeuralNetworkBase import NN
+from .NeuralNetworkBase import NN
 
 import neptune
 from neptunecontrib.api.table import log_table
