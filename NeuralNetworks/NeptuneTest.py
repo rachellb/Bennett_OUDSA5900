@@ -5,6 +5,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import os
 
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.utils import class_weight
@@ -49,14 +50,15 @@ import openpyxl
 from openpyxl import load_workbook
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
-from .NeuralNetworkBase import NN
+from NeuralNetworkBase import NN
 
 import neptune
 from neptunecontrib.api.table import log_table
 from neptunecontrib.monitoring.keras import NeptuneMonitor
 
+from secret import api_
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNOklahoma')
+neptune.init(project_qualified_name='rachellb/NNOklahoma', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1269,7 +1271,7 @@ class NoTune(fullNN):
                                      value=bias)))  # kernel_initializer=initializer,
 
         # Loss Function
-        if alpha != None or gamma != None:
+        if self.PARAMS['focal'] == True:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=alpha, gamma=gamma)
             self.loss = "focal_loss"
         else:
@@ -1408,10 +1410,10 @@ class NoGen(NoTune):
         for i in range(self.PARAMS['num_layers']):
             self.model.add(
                 Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
-            if self.PARAMS['Dropout'] != None:
-                     self.model.add(Dropout(self.PARAMS['Dropout']))
-            if self.PARAMS['BatchMomentum'] != None:
-                     self.model.add(BatchNormalization(momentum=self.PARAMS['BatchMomentum']))
+            if self.PARAMS['Dropout']:
+                     self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+            if self.PARAMS['BatchNorm']:
+                     self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
@@ -1436,7 +1438,7 @@ class NoGen(NoTune):
         class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
         # Loss Function
-        if self.PARAMS['alpha'] != None or self.PARAMS['gamma'] != None:
+        if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
         else:
             loss = 'binary_crossentropy'
@@ -1558,24 +1560,39 @@ if __name__ == "__main__":
               'batch_size': 4096,
               'bias_init': 1,
               'epochs': 30,
-              'alpha': None,
-              'gamma': None,
+              'focal': True,
+              'alpha': 0.5,
+              'gamma': 1.25,
               'class_weights': True,
               'initializer': 'RandomUniform',
-              'Dropout': 0.20,
-              'BatchMomentum': 0.60,
-              'tuner': None,
-              'MAX_TRIALS': None}
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Generator': False,
+              'Tune': False,
+              'Tuner': 'Hyperband',
+              'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='NNTexas', params=PARAMS, send_hardware_metrics=True)
+    neptune.create_experiment(name='NNOklahoma', params=PARAMS, send_hardware_metrics=True,
+                              tags=['trainSize/classSize'],
+                              description='Testing Dropout vs. BatchNorm')
 
-    model = NoGen(PARAMS)
+    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS)
+
+        # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
+
     model.prepData(age='Categorical',
-                           data='Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+                           data=dataPath)
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=2)
 
-    if PARAMS['tuner'] != None:
+    if PARAMS['Tune'] == True:
         model.hpTuning(features)
         model.buildModel(features)
 

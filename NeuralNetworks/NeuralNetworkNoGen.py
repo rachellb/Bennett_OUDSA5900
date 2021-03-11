@@ -32,10 +32,6 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 import tensorflow_addons as tfa # For focal loss function
 from tensorflow.keras.regularizers import l2
 
-# For balancing batches
-from imblearn.keras import BalancedBatchGenerator
-from imblearn.over_sampling import RandomOverSampler
-
 #For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
@@ -504,10 +500,10 @@ class NoTune(NN):
         LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures].to_numpy()
-        self.Y_train = self.Y_train.to_numpy()
-        self.X_test = self.X_test[topFeatures].to_numpy()
-        self.Y_test = self.Y_test.to_numpy()
+        self.X_train = self.X_train[topFeatures]
+        self.Y_train = self.Y_train
+        self.X_test = self.X_test[topFeatures]
+        self.Y_test = self.Y_test
 
         inputSize = self.X_train.shape[1]
 
@@ -532,6 +528,10 @@ class NoTune(NN):
         neg = class_weight_dict[0]
 
         bias = np.log(pos / neg)
+
+        scalar = len(self.Y_train)
+        class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
         if biasInit == 0:
             # Final Layer
@@ -698,7 +698,7 @@ if __name__ == "__main__":
     dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
 
 
-    resultPath = os.path.join(parent, 'Results/Oklahoma/Full/NoTune/ClassWeights/Test_a5g175')
+    resultPath = os.path.join(parent, 'Results/Oklahoma/Full/NoTune/ClassWeights/Test_binary')
 
 
     modelWeighted = NoTune(resultPath)
@@ -717,7 +717,7 @@ if __name__ == "__main__":
     """
 
     # For hand-tuning
-    modelWeighted.buildModel(features, batchSize=4096, alpha=0.5, gamma=1.75, initializer='RandomUniform', biasInit=1, epochs=30)
+    modelWeighted.buildModel(features, batchSize=4096, initializer='RandomUniform', biasInit=1, epochs=30)
     auc, gmean, precision, recall, specificity, tp, fp, tn, fn, loss = modelWeighted.evaluateModel()
 
 
