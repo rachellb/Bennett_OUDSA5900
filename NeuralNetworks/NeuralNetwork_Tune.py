@@ -15,18 +15,18 @@ from statistics import mean
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
-#For Outlier Detection
-from sklearn.ensemble import IsolationForest
-from sklearn.covariance import EllipticEnvelope
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.svm import OneClassSVM
-
 # For feature selection
 from sklearn.feature_selection import SelectKBest, chi2
 from xgboost import XGBClassifier
 from matplotlib import pyplot
 from xgboost import plot_importance
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import mutual_info_classif
+from sklearn import preprocessing
+from sklearn.feature_selection import f_classif
+# import hyperopt
+# from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 # For balancing batches
 from imblearn.keras import BalancedBatchGenerator
@@ -34,6 +34,8 @@ from imblearn.over_sampling import RandomOverSampler
 
 # For NN and tuning
 import tensorflow as tf
+#import kerastuner
+#from kerastuner.tuners import Hyperband, BayesianOptimization
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 
 # For additional metrics
@@ -42,12 +44,17 @@ from sklearn.metrics import confusion_matrix
 import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
-import statistics
-from PIL import Image
+from openpyxl import Workbook  # For storing results
+from openpyxl.utils.dataframe import dataframe_to_rows
+import openpyxl
+from openpyxl import load_workbook
 
 
-# For Stratified Cross Validation
-from sklearn.model_selection import RepeatedStratifiedKFold
+#For Outlier Detection
+from sklearn.ensemble import IsolationForest
+from sklearn.covariance import EllipticEnvelope
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.svm import OneClassSVM
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
@@ -100,6 +107,7 @@ def weighted_loss_persample(weights, batchSize):
 
     return loss
 
+
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
                '07': 2, '08': 2, '09': 3,
@@ -121,6 +129,7 @@ def age_encoderTX(data):
 
     return data
 
+
 def age_encoderOK(data):
     age_map = {'10-14': 1, '15-19': 1, '20-24': 2,
                '25-29': 2, '30-34': 3, '35-39': 3,
@@ -141,6 +150,7 @@ def age_encoderOK(data):
                          'Age__4.0': 'Ages 40+'}, inplace=True)
 
     return data
+
 
 class fullNN():
 
@@ -1188,6 +1198,12 @@ class fullNN():
 
         return ok2017, ok2018
 
+    def prepData(self, age, data):
+
+        self.age = age
+
+        self.data = pd.read_csv(data)
+
     def imputeData(self, data1, data2=None):
         MI_Imp = IterativeImputer()  # Scikitlearn's Iterative imputer
 
@@ -1202,6 +1218,17 @@ class fullNN():
                 self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
             else:
                 self.data = data1
+
+    def splitData(self, testSize, valSize):
+        self.split1=5
+        self.split2=107
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
+        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
+                                                                                random_state=self.split1)
+        self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
+                                                                              stratify=self.Y_train, test_size=valSize,
+                                                                              random_state=self.split2)
 
     def detectOutliers(self, method, con):
 
@@ -1278,24 +1305,6 @@ class fullNN():
             mutualInfoFeatures = features['Feature_Name']
             self.MIFeatures = features
             return mutualInfoFeatures
-
-    def prepData(self, age, data):
-
-        self.age = age
-
-        data = pd.read_csv(data)
-
-        X = data.drop(columns='Preeclampsia/Eclampsia')
-        Y = data['Preeclampsia/Eclampsia']
-
-        return X, Y
-
-    def setData(self, X_train, X_test, Y_train, Y_test):
-
-        self.X_train = X_train
-        self.X_test = X_test
-        self.Y_train = Y_train
-        self.Y_test = Y_test
 
     def buildModel(self, topFeatures):
 
@@ -1417,25 +1426,29 @@ class fullNN():
 
         self.specificity = specificity_score(self.Y_test, y_predict)
 
-        gmean = geometric_mean_score(self.Y_test, y_predict)
+        self.gmean = geometric_mean_score(self.Y_test, y_predict)
 
         score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
+        self.loss = score[0]
+        self.accuracy = score[1]
+        self.AUC = score[4]
         self.predictedNo = y_predict.sum()
         self.trueNo = self.Y_test.sum()
+        self.recall = score[3]
+        self.precision = score[2]
         self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
 
-        Results = {"Loss": score[0],
-                   "Accuracy": score[1],
-                   "AUC": score[4],
-                   "Gmean": gmean,
-                   "Recall": score[3],
-                   "Precision": score[2],
-                   "Specificity": self.specificity,
-                   "True Positives": self.tp,
-                   "True Negatives": self.tn,
-                   "False Positives": self.fp,
-                   "False Negatives": self.fn,
-                   "History": self.history}
+        neptune.log_metric('loss', self.loss)
+        neptune.log_metric('accuracy', self.accuracy)
+        neptune.log_metric('AUC', self.AUC)
+        neptune.log_metric('specificity', self.specificity)
+        neptune.log_metric('recall', self.recall)
+        neptune.log_metric('precision', self.precision)
+        neptune.log_metric('gmean', self.gmean)
+        neptune.log_metric('True Positive', self.tp)
+        neptune.log_metric('True Negative', self.tn)
+        neptune.log_metric('False Positive', self.fp)
+        neptune.log_metric('False Negative', self.fn)
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -1448,8 +1461,9 @@ class fullNN():
 
         # Feature Selection
         if self.method == 1:
-            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
-            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+            # TODO: figure out how to load and save this image
+            img = openpyxl.drawing.image.Image(self.dataset + 'XGBoostTopFeatures.png')
+            img.anchor = 'A1'
 
         elif self.method == 2:
             log_table('Chi2features', self.Chi2features)
@@ -1461,7 +1475,7 @@ class fullNN():
 
         neptune.log_metric('minutes', mins)
 
-        return Results
+        return self.AUC, self.gmean, self.precision, self.recall, self.specificity, self.tp, self.fp, self.tn, self.fn, self.loss
 
 class NoGen(fullNN):
     def __init__(self, PARAMS):
@@ -1545,17 +1559,9 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 30,
-              'units_1': 36,
-              'units_2': 45,
-              'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
-              'learning_rate': 0.001,
-              'batch_size': 4096,
+    # TODO: All of this
+
+    PARAMS = {'batch_size': 4096,
               'bias_init': 1,
               'epochs': 30,
               'focal': True,
@@ -1567,6 +1573,7 @@ if __name__ == "__main__":
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
+              'Tuner': "Hyperband",
               'Generator': False,
               'MAX_TRIALS': 5}
 
@@ -1583,113 +1590,17 @@ if __name__ == "__main__":
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
 
-    rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=2, random_state=36851234)
+    model.prepData(age='Categorical',
+                           data=dataPath)
+    model.splitData(testSize=0.10, valSize=0.10)
+    features = model.featureSelection(numFeatures=20, method=2)
 
-    X, y = model.prepData(age='Categorical', data=dataPath)
-
-    aucList = []
-    gmeanList = []
-    accList = []
-    precisionList = []
-    recallList = []
-    specList = []
-    lossList = []
-    historyList = []
-
-    for train_index, test_index in rskf.split(X, y):
-        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-
-        model.setData(X_train, X_test, y_train, y_test)
-
-        features = model.featureSelection(numFeatures=20, method=2)
-        # For hand-tuning
+    if PARAMS['Tune'] == True:
+        model.hpTuning(features)
         model.buildModel(features)
 
-        Results = model.evaluateModel()
+    else:
+        model.buildModel(features)
 
-        aucList.append(Results["AUC"])
-        gmeanList.append(Results["Gmean"])
-        accList.append(Results["Accuracy"])
-        precisionList.append(Results["Precision"])
-        recallList.append(Results["Recall"])
-        specList.append(Results["Specificity"])
-        lossList.append(Results["Loss"])
-        historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
+    model.evaluateModel()
 
-
-    # Get Average Results
-    lossMean = statistics.mean(lossList)
-    aucMean = statistics.mean(aucList)
-    gmeanMean = statistics.mean(gmeanList)
-    accMean = statistics.mean(accList)
-    specMean = statistics.mean(specList)
-    recallMean = statistics.mean(recallList)
-    precMean = statistics.mean(precisionList)
-
-    neptune.log_metric('Mean loss', lossMean)
-    neptune.log_metric('Mean accuracy', accMean)
-    neptune.log_metric('Mean AUC', aucMean)
-    neptune.log_metric('Mean specificity', specMean)
-    neptune.log_metric('Mean recall', recallMean)
-    neptune.log_metric('Mean precision', precMean)
-    neptune.log_metric('Mean gmean', gmeanMean)
-
-
-    def plotAvg(historyList):
-        aucAvg = []
-        aucValAvg = []
-        lossAvg = []
-        lossValAvg = []
-
-        for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
-            # Clear list
-            auc = []
-            aucVal = []
-            loss = []
-            lossVal = []
-
-            for j in range(len(historyList)): # Iterate through each history object
-
-                # Append each model's measurement for epoch i
-                auc.append(historyList[j].history['auc'][i])
-                aucVal.append(historyList[j].history['val_auc'][i])
-                loss.append(historyList[j].history['loss'][i])
-                lossVal.append(historyList[j].history['val_loss'][i])
-
-            # Once get measurement for each model, get average measurement for that epoch
-            aucAvg.append(statistics.mean(auc))
-            aucValAvg.append(statistics.mean(aucVal))
-            lossAvg.append(statistics.mean(loss))
-            lossValAvg.append(statistics.mean(lossVal))
-
-        # Graphing results
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-
-        # plt.ylim(0.40, 0.66)
-        plt.plot(aucAvg)
-        plt.plot(aucValAvg)
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['training', 'validation'], loc='upper right')
-        neptune.log_image('Average AUC', auc, image_name='aucPlot')
-
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-        loss = plt.figure()
-        # plt.ylim(0.40, 0.66)
-        plt.plot(lossAvg)
-        plt.plot(lossValAvg)
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['training', 'validation'], loc='upper right')
-        neptune.log_image('Average Loss', loss, image_name='lossPlot')
-
-    plotAvg(historyList)

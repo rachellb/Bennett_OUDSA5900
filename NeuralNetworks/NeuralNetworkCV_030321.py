@@ -1591,6 +1591,7 @@ if __name__ == "__main__":
         # For hand-tuning
         modelWeighted.buildModel(features, batchSize=4096, initializer='RandomUniform',
                                  biasInit=1, epochs=100)
+
         auc, gmean, precision, recall, specificity, tp, fp, tn, fn, loss, history = modelWeighted.evaluateModel()
 
         aucList.append(auc)
