@@ -37,6 +37,7 @@ import tensorflow as tf
 #import kerastuner
 #from kerastuner.tuners import Hyperband, BayesianOptimization
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+import tensorflow.keras.backend as K
 
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
@@ -99,6 +100,24 @@ def weighted_loss_persample(weights, batchSize):
 
     return loss
 
+
+def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
+
+    assert 0 in weights
+    assert 1 in weights
+
+    def weighted_cross_entropy_fn(y_true, y_pred):
+        tf_y_true = tf.cast(y_true, dtype=tf.float64)
+        tf_y_pred = tf.cast(y_pred, dtype=tf.float64)
+
+        weights_v = tf.where(tf.equal(tf_y_true, 1), weights[1], weights[0])
+
+        ce = K.binary_crossentropy(tf_y_true, tf_y_pred, from_logits=from_logits)
+        loss = K.mean(tf.math.multiply(ce, weights_v))
+
+        return loss
+
+    return weighted_cross_entropy_fn
 
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
@@ -1279,9 +1298,11 @@ class NoTune(fullNN):
             loss = 'binary_crossentropy'
             self.loss = "binary-crossentropy"
 
+        neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
+
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.best_hps['learning_rate']),
-                           loss=loss,
+        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
+                           loss=tfa.losses.SigmoidFocalCrossEntropy(alpha=(1 / pos), gamma=0),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
@@ -1435,8 +1456,13 @@ class NoGen(NoTune):
 
         # Reset class weights for use in loss function
         scalar = len(self.Y_train)
-        class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
         # Loss Function
         if self.PARAMS['focal']:
@@ -1444,9 +1470,11 @@ class NoGen(NoTune):
         else:
             loss = 'binary_crossentropy'
 
+        neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
+
         # Compilation
         self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=loss,
+                           loss=weighted_binary_cross_entropy(class_weight_dict),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
@@ -1564,7 +1592,7 @@ if __name__ == "__main__":
               'batch_size': 4096,
               'bias_init': 1,
               'epochs': 30,
-              'focal': True,
+              'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
               'class_weights': True,
@@ -1578,14 +1606,17 @@ if __name__ == "__main__":
               'Tuner': 'Hyperband',
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='NNOklahoma', params=PARAMS, send_hardware_metrics=True,
-                              tags=['trainSize/classSize'],
-                              description='Testing Dropout vs. BatchNorm')
+    neptune.create_experiment(name='CustomWeight2', params=PARAMS, send_hardware_metrics=True,
+                              tags=['(1 / class)*(total)/2.0'],
+                              description='Testing custom loss with keras built-in')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
     if PARAMS['Generator'] == False:
         model = NoGen(PARAMS)
+
+    else:
+        model = fullNN(PARAMS)
 
         # Get data
     parent = os.path.dirname(os.getcwd())

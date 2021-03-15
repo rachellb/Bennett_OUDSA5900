@@ -51,7 +51,7 @@ import os
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 from NeuralNetworkBase import NN
 
-# Initialize the project
+
 
 
 
@@ -90,7 +90,11 @@ def weighted_loss_persample(weights, batchSize):
         # Add them back up and divide by batch size
         sum = losses_0 + losses_1
         total = sum/batchSize
-        return total
+
+        # anything you like to print
+        print_op = tf.print("\nDebug : ", tf.shape(y_pred))
+        with tf.control_dependencies([print_op]):  # this will force the print_op to be run
+            return total
 
 
     return loss
@@ -1514,7 +1518,7 @@ if __name__ == "__main__":
     path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
 
 
-    filename = 'Results/Texas/Full/NoTune/ClassWeights/Test_a5g175'
+    filename = 'Results/Oklahoma/Full/NoTune/ClassWeights/Test_a5g175'
     modelWeighted = NoGen(filename)
     modelWeighted.prepData(age='Categorical',
                            data=path)

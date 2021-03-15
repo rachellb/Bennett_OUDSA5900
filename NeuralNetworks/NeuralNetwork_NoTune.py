@@ -59,7 +59,7 @@ from secret import api_
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNOklahoma', api_token=api_)
+neptune.init(project_qualified_name='rachellb/OKCV', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1236,9 +1236,8 @@ class fullNN():
 
             # Save graph
             ax = plot_importance(model, max_num_features=numFeatures)
-            fig1 = pyplot.gcf()
-            #pyplot.show()
-            fig1.savefig(self.dataset + 'XGBoostTopFeatures.png', bbox_inches='tight')
+            image = pyplot.gcf()
+            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
             # Get and save best features
             feature_important = model.get_booster().get_fscore()
@@ -1299,8 +1298,6 @@ class fullNN():
 
     def buildModel(self, topFeatures):
 
-        self.start_time = time.time()
-
         LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
@@ -1319,7 +1316,7 @@ class fullNN():
                                                          sampler=RandomOverSampler(),
                                                          random_state=42)
 
-        self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
+        self.validation_generator = BalancedBatchGenerator(self.X_test, self.Y_test,
                                                            batch_size=self.PARAMS['batch_size'],
                                                            sampler=RandomOverSampler(),
                                                            random_state=42)
@@ -1389,11 +1386,10 @@ class fullNN():
         auc = plt.figure()
         # plt.ylim(0.40, 0.66)
         plt.plot(self.history.history['auc'])
-        plt.plot(self.history.history['val_auc'])
         plt.title('model auc')
         plt.ylabel('auc')
         plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
+        plt.legend(['train'], loc='upper right')
         neptune.log_image('AUC/Epochs', auc, image_name='aucPlot')
 
         plt.clf()
@@ -1403,11 +1399,10 @@ class fullNN():
         loss = plt.figure()
         # plt.ylim(0.0, 0.15)
         plt.plot(self.history.history['loss'])
-        plt.plot(self.history.history['val_loss'])
         plt.title('model loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
+        plt.legend(['train'], loc='upper right')
         neptune.log_image('Loss/Epochs', loss, image_name='lossPlot')
         # plt.show()
 
@@ -1444,22 +1439,14 @@ class fullNN():
         print(f'Test loss: {score[0]:.6f} / Test accuracy: {score[1]:.6f} / Test AUC: {score[4]:.6f}')
         print(f'Test Recall: {score[3]:.6f} / Test Precision: {score[2]:.6f}')
         print(f'Test Specificity: {self.specificity:.6f}')
-        print(f'Test Gmean: {self.gmean:.6f}')
+        print(f'Test Gmean: {gmean:.6f}')
 
         # Feature Selection
-        if self.method == 1:
-            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
-            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
-
-        elif self.method == 2:
+        if self.method == 2:
             log_table('Chi2features', self.Chi2features)
 
         elif self.method == 3:
             log_table('MIFeatures', self.MIFeatures)
-
-        mins = (time.time() - self.start_time) / 60  # Time in seconds
-
-        neptune.log_metric('minutes', mins)
 
         return Results
 
@@ -1470,15 +1457,11 @@ class NoGen(fullNN):
 
     def buildModel(self, topFeatures):
 
-        self.start_time = time.time()
-
         LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures]
         self.Y_train = self.Y_train
-        self.X_val = self.X_val[topFeatures]
-        self.Y_val = self.Y_val
         self.X_test = self.X_test[topFeatures]
         self.Y_test = self.Y_test
 
@@ -1502,8 +1485,10 @@ class NoGen(fullNN):
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
         class_weight_dict = dict(enumerate(class_weights))
-        pos = class_weight_dict[1]
-        neg = class_weight_dict[0]
+
+
+        pos = self.Y_train.value_counts()[0]
+        neg = self.Y_train.value_counts()[1]
         bias = np.log(pos / neg)
 
         if self.PARAMS['bias_init'] == 0:
@@ -1535,15 +1520,13 @@ class NoGen(fullNN):
                                     tf.keras.metrics.Recall(),
                                     tf.keras.metrics.AUC()])
 
-        #Question - Can you put a list in here?
-
-
-
         self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
-                                      epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
+                                      epochs=self.PARAMS['epochs'],
                                       verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
 
 if __name__ == "__main__":
+
+    start_time = time.time()
 
     PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
@@ -1556,9 +1539,9 @@ if __name__ == "__main__":
               'optimizer': 'Adam',
               'learning_rate': 0.001,
               'batch_size': 4096,
-              'bias_init': 1,
+              'bias_init': 0,
               'epochs': 30,
-              'focal': True,
+              'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
               'class_weights': True,
@@ -1570,20 +1553,20 @@ if __name__ == "__main__":
               'Generator': False,
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='NNOklahoma', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='NNOkCV', params=PARAMS, send_hardware_metrics=True,
                               tags=['trainSize/classSize'],
-                              description='Testing Dropout vs. BatchNorm')
+                              description='Compare Bias Initialization')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
     if PARAMS['Generator'] == False:
         model = NoGen(PARAMS)
 
-        # Get data
+    # Get data
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
 
-    rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=2, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
     X, y = model.prepData(age='Categorical', data=dataPath)
 
@@ -1638,9 +1621,7 @@ if __name__ == "__main__":
 
     def plotAvg(historyList):
         aucAvg = []
-        aucValAvg = []
         lossAvg = []
-        lossValAvg = []
 
         for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
             # Clear list
@@ -1653,43 +1634,41 @@ if __name__ == "__main__":
 
                 # Append each model's measurement for epoch i
                 auc.append(historyList[j].history['auc'][i])
-                aucVal.append(historyList[j].history['val_auc'][i])
                 loss.append(historyList[j].history['loss'][i])
-                lossVal.append(historyList[j].history['val_loss'][i])
 
             # Once get measurement for each model, get average measurement for that epoch
             aucAvg.append(statistics.mean(auc))
-            aucValAvg.append(statistics.mean(aucVal))
             lossAvg.append(statistics.mean(loss))
-            lossValAvg.append(statistics.mean(lossVal))
 
         # Graphing results
         plt.clf()
         plt.cla()
         plt.close()
 
-
+        avgauc = plt.figure()
         # plt.ylim(0.40, 0.66)
         plt.plot(aucAvg)
-        plt.plot(aucValAvg)
         plt.title('model auc')
         plt.ylabel('auc')
         plt.xlabel('epoch')
-        plt.legend(['training', 'validation'], loc='upper right')
-        neptune.log_image('Average AUC', auc, image_name='aucPlot')
+        plt.legend(['training'], loc='upper right')
+        neptune.log_image('Average AUC', avgauc, image_name='avgAucPlot')
 
         plt.clf()
         plt.cla()
         plt.close()
 
-        loss = plt.figure()
+        avgloss = plt.figure()
         # plt.ylim(0.40, 0.66)
         plt.plot(lossAvg)
-        plt.plot(lossValAvg)
         plt.title('model loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
-        plt.legend(['training', 'validation'], loc='upper right')
-        neptune.log_image('Average Loss', loss, image_name='lossPlot')
+        plt.legend(['training'], loc='upper right')
+        neptune.log_image('Average Loss', avgloss, image_name='avgLossPlot')
 
     plotAvg(historyList)
+
+    mins = (time.time() - start_time) / 60  # Time in seconds
+
+    neptune.log_metric('minutes', mins)

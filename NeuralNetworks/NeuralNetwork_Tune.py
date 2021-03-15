@@ -62,7 +62,7 @@ from secret import api_
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNOklahoma', api_token=api_)
+neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1347,10 +1347,10 @@ class fullNN():
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
-                    self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                    model.add(Dropout(self.PARAMS['Dropout_Rate']))
 
                 if self.PARAMS['BatchNorm']:
-                    self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                    model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
             final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
 
@@ -1472,13 +1472,13 @@ class fullNN():
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
 
-        y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
+        y_predict = (self.best_model.predict(self.X_test) > 0.5).astype("int32")
 
         self.specificity = specificity_score(self.Y_test, y_predict)
 
         self.gmean = geometric_mean_score(self.Y_test, y_predict)
 
-        score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
+        score = self.best_model.evaluate(self.X_test, self.Y_test, verbose=0)
         self.loss = score[0]
         self.accuracy = score[1]
         self.AUC = score[4]
@@ -1564,16 +1564,16 @@ class NoGen(fullNN):
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
-                    self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                    model.add(Dropout(self.PARAMS['Dropout_Rate']))
 
                 if self.PARAMS['BatchNorm']:
-                    self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                    model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
             final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
 
             if self.PARAMS['bias_init']:
                 model.add(Dense(1, activation=final_activation))
-            elif self.PARAMS['bias_init']:
+            elif not self.PARAMS['bias_init']:
                 model.add(
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
@@ -1597,11 +1597,11 @@ class NoGen(fullNN):
             else:
                 loss = 'binary_crossentropy'
 
-            # tfa.losses.SigmoidFocalCrossEntropy(alpha=(1/pos), gamma=0)
-
+            #tfa.losses.SigmoidFocalCrossEntropy(alpha=(1/pos), gamma=0)
+            neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
             # Compilation
             model.compile(optimizer=optimizer,
-                          loss=loss,
+                          loss=tfa.losses.SigmoidFocalCrossEntropy(alpha=(1/pos), gamma=0),
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
@@ -1638,10 +1638,10 @@ class NoGen(fullNN):
                 logger=npt_utils.NeptuneLogger()
             )
 
-        self.tuner.search(self.training_generator,
+        self.tuner.search(self.X_train, self.Y_train,
                           epochs=self.PARAMS['epochs'],
                           verbose=2,
-                          validation_data=(self.validation_generator),
+                          validation_data=(self.X_val, self.Y_val),
                           callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
@@ -1660,7 +1660,7 @@ class NoGen(fullNN):
 if __name__ == "__main__":
 
     PARAMS = {'batch_size': 4096,
-              'bias_init': True,
+              'bias_init': False,
               'epochs': 30,
               'focal': False,
               'alpha': 0.5,
@@ -1677,8 +1677,8 @@ if __name__ == "__main__":
               'MAX_TRIALS': 5}
 
     neptune.create_experiment(name='NNOklahoma', params=PARAMS, send_hardware_metrics=True,
-                              tags=['trainSize/classSize'],
-                              description='Testing Dropout vs. BatchNorm')
+                              tags=['HPTuneWeights'],
+                              description='Tuning class weights as hyperparameters')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -1697,12 +1697,7 @@ if __name__ == "__main__":
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=2)
 
-    if PARAMS['Tune'] == True:
-        model.hpTuning(features)
-        model.buildModel(features)
-
-    else:
-        model.buildModel(features)
+    model.hpTuning(features)
 
     model.evaluateModel()
 
