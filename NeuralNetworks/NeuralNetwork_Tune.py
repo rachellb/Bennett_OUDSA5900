@@ -63,7 +63,7 @@ from secret import api_
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
+neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
 
 
 
@@ -1573,19 +1573,15 @@ class NoGen(fullNN):
 
         bias = np.log(pos / neg)
 
-        #scalar = len(self.Y_train)
+        scalar = len(self.Y_train)
         #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
         #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
-        class_weight_dict[0] = 1 / self.Y_train.value_counts()[0]
-        class_weight_dict[1] = 1 / self.Y_train.value_counts()[1]
 
 
-
-        #weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
-        #weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
-
-        #class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
         def build_model(hp):
             # define the keras model
@@ -1633,7 +1629,7 @@ class NoGen(fullNN):
                 loss = 'binary_crossentropy'
 
             #tfa.losses.SigmoidFocalCrossEntropy(alpha=(1/pos), gamma=0)
-            neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
+            #neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
             # Compilation
             model.compile(optimizer=optimizer,
                           loss=weighted_binary_cross_entropy(class_weight_dict),
@@ -1746,7 +1742,7 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
     model.prepData(age='Categorical',
                            data=dataPath)
