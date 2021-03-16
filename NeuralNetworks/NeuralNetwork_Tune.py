@@ -32,6 +32,7 @@ from imblearn.over_sampling import RandomOverSampler
 
 # For NN and tuning
 import tensorflow as tf
+import tensorflow.keras.backend as K
 import kerastuner
 from kerastuner.tuners import Hyperband, BayesianOptimization, RandomSearch
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
@@ -63,6 +64,8 @@ from secret import api_
 
 # Initialize the project
 neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
+
+
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -103,6 +106,24 @@ def weighted_loss_persample(weights, batchSize):
 
     return loss
 
+
+def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
+
+    assert 0 in weights
+    assert 1 in weights
+
+    def weighted_cross_entropy_fn(y_true, y_pred):
+        tf_y_true = tf.cast(y_true, dtype=tf.float64)
+        tf_y_pred = tf.cast(y_pred, dtype=tf.float64)
+
+        weights_v = tf.where(tf.equal(tf_y_true, 1), weights[1], weights[0])
+
+        ce = K.binary_crossentropy(tf_y_true, tf_y_pred, from_logits=from_logits)
+        loss = K.mean(tf.math.multiply(ce, weights_v))
+
+        return loss
+
+    return weighted_cross_entropy_fn
 
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
@@ -1552,6 +1573,20 @@ class NoGen(fullNN):
 
         bias = np.log(pos / neg)
 
+        #scalar = len(self.Y_train)
+        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+
+        class_weight_dict[0] = 1 / self.Y_train.value_counts()[0]
+        class_weight_dict[1] = 1 / self.Y_train.value_counts()[1]
+
+
+
+        #weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        #weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+
+        #class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+
         def build_model(hp):
             # define the keras model
             model = tf.keras.models.Sequential()
@@ -1578,7 +1613,7 @@ class NoGen(fullNN):
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
             # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop', 'SGD'])
+            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -1601,7 +1636,7 @@ class NoGen(fullNN):
             neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
             # Compilation
             model.compile(optimizer=optimizer,
-                          loss=tfa.losses.SigmoidFocalCrossEntropy(alpha=(1/pos), gamma=0),
+                          loss=weighted_binary_cross_entropy(class_weight_dict),
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
@@ -1609,23 +1644,43 @@ class NoGen(fullNN):
 
             return model
 
+        # Tuners don't tune batch_size, need to subclass in order to change that.
+        class MyBayes(kerastuner.tuners.BayesianOptimization):
+            def run_trial(self, trial, *args, **kwargs):
+                # You can add additional HyperParameters for preprocessing and custom training loops
+                # via overriding `run_trial`
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=[2048, 4096, 8192])
+                #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
+                super(MyBayes, self).run_trial(trial, *args, **kwargs)
+
+        class MyHB(kerastuner.tuners.Hyperband):
+            def run_trial(self, trial, *args, **kwargs):
+                # You can add additional HyperParameters for preprocessing and custom training loops
+                # via overriding `run_trial`
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=[2048, 4096, 8192])
+                #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
+                super(MyHB, self).run_trial(trial, *args, **kwargs)
+
+        #neptune.log_text('Tuner', 'words')
+
         if self.PARAMS['Tuner'] == 'Hyperband':
-            self.tuner = Hyperband(build_model,
+            self.tuner = MyHB(build_model,
                                    objective=kerastuner.Objective('val_auc', direction="max"),
                                    max_epochs=self.PARAMS['epochs'],
+                                   hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
                                    seed=1234,
                                    factor=3,
                                    overwrite=True,
                                    logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
-            self.tuner = BayesianOptimization(build_model,
-                                              objective=kerastuner.Objective('val_auc', direction="max"),
-                                              overwrite=True,
-                                              max_trials=self.PARAMS['MAX_TRIALS'],
-                                              seed=1234,
-                                              executions_per_trial=2,
-                                              logger=npt_utils.NeptuneLogger())
+            self.tuner = MyBayes(build_model,
+                                 objective=kerastuner.Objective('val_auc', direction="max"),
+                                 overwrite=True,
+                                 max_trials=self.PARAMS['MAX_TRIALS'],
+                                 seed=1234,
+                                 executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                                 logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
             self.tuner = RandomSearch(
@@ -1640,6 +1695,7 @@ class NoGen(fullNN):
 
         self.tuner.search(self.X_train, self.Y_train,
                           epochs=self.PARAMS['epochs'],
+                          batch_size=self.PARAMS['batch_size'],
                           verbose=2,
                           validation_data=(self.X_val, self.Y_val),
                           callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
@@ -1661,7 +1717,7 @@ if __name__ == "__main__":
 
     PARAMS = {'batch_size': 4096,
               'bias_init': False,
-              'epochs': 30,
+              'epochs': 100,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -1669,16 +1725,16 @@ if __name__ == "__main__":
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': False,
+              'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Hyperband",
-              'EXECUTIONS_PER_TRIAL': 2,
-              'MAX_TRIALS': 5}
+              'EXECUTIONS_PER_TRIAL': 5,
+              'MAX_TRIALS': 100}
 
-    neptune.create_experiment(name='NNOklahoma', params=PARAMS, send_hardware_metrics=True,
-                              tags=['HPTuneWeights'],
-                              description='Tuning class weights as hyperparameters')
+    neptune.create_experiment(name='CustomWeight2', params=PARAMS, send_hardware_metrics=True,
+                              tags=['HPTuneWeights', '1/classSize'],
+                              description='Reduced back to 5 iterations')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
