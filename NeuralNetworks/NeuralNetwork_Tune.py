@@ -1573,19 +1573,21 @@ class NoGen(fullNN):
 
         bias = np.log(pos / neg)
 
-        #scalar = len(self.Y_train)
+        scalar = len(self.Y_train)
         #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
         #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
-        class_weight_dict[0] = 1 / self.Y_train.value_counts()[0]
-        class_weight_dict[1] = 1 / self.Y_train.value_counts()[1]
+        #class_weight_dict[0] = 1 / self.Y_train.value_counts()[0]
+        #class_weight_dict[1] = 1 / self.Y_train.value_counts()[1]
 
 
 
-        #weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
-        #weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
 
         #class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+
+        neptune.log_text('Loss Function', '(1/classSize) * (len/2)')
 
         def build_model(hp):
             # define the keras model
@@ -1595,8 +1597,10 @@ class NoGen(fullNN):
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-
-                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
+                #deep_activation = 'relu'
+                model.add(Dense(units=units, activation=deep_activation))
+                                #kernel_regularizer=tf.keras.regularizers.l2(0.0000001),
+                                #activity_regularizer=tf.keras.regularizers.l2(0.0000001)))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
                     model.add(Dropout(self.PARAMS['Dropout_Rate']))
@@ -1613,7 +1617,7 @@ class NoGen(fullNN):
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
             # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
+            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop', 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -1633,7 +1637,7 @@ class NoGen(fullNN):
                 loss = 'binary_crossentropy'
 
             #tfa.losses.SigmoidFocalCrossEntropy(alpha=(1/pos), gamma=0)
-            neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
+
             # Compilation
             model.compile(optimizer=optimizer,
                           loss=weighted_binary_cross_entropy(class_weight_dict),
@@ -1661,6 +1665,14 @@ class NoGen(fullNN):
                 #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyHB, self).run_trial(trial, *args, **kwargs)
 
+        class MyRand(kerastuner.tuners.RandomSearch):
+            def run_trial(self, trial, *args, **kwargs):
+                # You can add additional HyperParameters for preprocessing and custom training loops
+                # via overriding `run_trial`
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=[2048, 4096, 8192])
+                #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
+                super(MyRand, self).run_trial(trial, *args, **kwargs)
+
         #neptune.log_text('Tuner', 'words')
 
         if self.PARAMS['Tuner'] == 'Hyperband':
@@ -1683,13 +1695,13 @@ class NoGen(fullNN):
                                  logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
-            self.tuner = RandomSearch(
+            self.tuner = MyRand(
                 build_model,
                 objective=kerastuner.Objective('val_auc', direction="max"),
                 overwrite=True,
-                seed=1234,
+                seed=5678,
                 max_trials=self.PARAMS['MAX_TRIALS'],
-                executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
+                executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
                 logger=npt_utils.NeptuneLogger()
             )
 
@@ -1728,13 +1740,13 @@ if __name__ == "__main__":
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Hyperband",
+              'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 100}
 
     neptune.create_experiment(name='CustomWeight2', params=PARAMS, send_hardware_metrics=True,
-                              tags=['HPTuneWeights', '1/classSize'],
-                              description='Reduced back to 5 iterations')
+                              tags=['HPTuneWeights'],
+                              description='Changed seed on Random')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
