@@ -1,156 +1,109 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-# For handling data
+import os
 import pandas as pd
 import numpy as np
-from datetime import datetime
-import os
 
-from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler
-from sklearn.utils import class_weight
-from statistics import mean
+# This code all for cleaning the various datasets, each returns a pandas dataframe, missing values intact.
+from sklearn.preprocessing import OrdinalEncoder
 
-# For imputing data
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
+def cleanBC():
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Breastcancer/breast-cancer-wisconsin.data')
 
-#For Outlier Detection
-from sklearn.ensemble import IsolationForest
-from sklearn.covariance import EllipticEnvelope
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.svm import OneClassSVM
+    df = pd.read_csv(dataPath, header=None)
+    df.columns = ['SampleCodeNumber','ClumpThickness','UniformityOfCellSize','UniformityOfCellShape',
+                    'MarinalAdhesion', 'SingleEpithelialCellSize','BareNuclei','BlandChromatin',
+                    'NormalNucleoli','Mitosis','Class']
 
-# For feature selection
-from sklearn.feature_selection import SelectKBest, chi2
-from xgboost import XGBClassifier
-from matplotlib import pyplot
-from xgboost import plot_importance
-from sklearn.feature_selection import mutual_info_classif
+    # Replace question marks with NaN for easier imputing
+    df.replace(to_replace='?', value=np.NaN, inplace=True)
 
-# For balancing batches
-from imblearn.keras import BalancedBatchGenerator
-from imblearn.over_sampling import RandomOverSampler
+    df['Class'] = np.where(df['Class'] == 2, 0, df['Class'])  # Change to 0 if 2, otherwise leave as is
+    df['Class'] = np.where(df['Class'] == 4, 1, df['Class'])  # Change to 1 if 4, otherwise leave as is
 
-# For NN and tuning
-import tensorflow as tf
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+    df.rename(columns={"Class": "Label"})
 
-# For additional metrics
-from imblearn.metrics import geometric_mean_score, specificity_score
-from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
-import time
-import matplotlib.pyplot as plt
-import statistics
-from PIL import Image
+    return df
+
+def cleanPima():
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Pima/diabetes.csv')
+
+    df = pd.read_csv(dataPath)
+
+    # Since several patients have value of 0 for variables and I assume they're not dead, set to missing
+    for col in df.columns:
+        df[col] = np.where(df[col] == 0, np.NaN, df[col])
+
+    # Fix Outcome and Pregnancies, which I assume are correctly labeled
+    df['Outcome'] = np.where(df['Outcome'].isnull(), 0, df['Outcome'])
+    df['Pregnancies'] = np.where(df['Pregnancies'].isnull(), 0, df['Pregnancies'])
+
+    df.rename(columns={"Outcome": "Label"}, inplace=True)
+
+    return df
+
+def cleanSpect():
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    trainPath = os.path.join(parent, 'Data/Spect/SPECT.train')
+    testPath = os.path.join(parent, 'Data/Spect/SPECT.test')
+
+    train = pd.read_csv(trainPath, header=None)
+    test = pd.read_csv(testPath, header=None)
+
+    frames = [train, test]
+    df = pd.concat(frames)
+
+    df.rename(columns={0: "Label"}, inplace=True)
+
+    return df
+
+def cleanHepatitis():
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Hepatitis/hepatitis.data')
+
+    df = pd.read_csv(dataPath, header=None)
+    # What do spiders have to do with hepatitis?
+    df.columns = ['Label', 'Age', 'Sex', 'Steroid', 'Antivirals', 'Fatigue',
+                  'Malaise', 'Anorexia', 'LiverBig', 'LiverFirm', 'SpleenPalpable',
+                  'Spiders', 'Ascites', 'Varices', 'Bilirubin', 'AlkPhosphate', 'Sgot',
+                  'Albumin', 'Protime', 'Histology']
+
+    df.replace(to_replace='?', value=np.NaN, inplace=True)
+    df.replace(to_replace=2, value=1, inplace=True)  # Binary variables set yes=2 for some reason
+    df.replace(to_replace=1, value=0, inplace=True)  # Binary variables set no=1 for some reason
 
 
-# For Stratified Cross Validation
-from sklearn.model_selection import RepeatedStratifiedKFold
+    return df
 
-date = datetime.today().strftime('%m%d%y')  # For labelling purposes
+def cleanHeartDisease():
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/HeartDisease/reprocessed.hungarian.data')
+    df = pd.read_csv(dataPath, header=None, delim_whitespace=True)
 
-# For recording results
-import neptune
-from neptunecontrib.api.table import log_table
-from neptunecontrib.monitoring.keras import NeptuneMonitor
-from secret import api_
+    df.replace(to_replace=-9.0, value=np.NaN, inplace=True) # Missing coded as -9.0
+    df['num'] = np.where(df['num'].isin([1, 2, 3, 4]), 1, df['num'])  # Collapse smaller classes into one class
 
+    df.rename(columns={"num ": "Label"})
 
-# Initialize the project
-neptune.init(project_qualified_name='rachellb/OKCV', api_token=api_)
+    return df
 
+def cleanTransfusion():
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Transfusion/transfusion.data')
 
-def weighted_loss_persample(weights, batchSize):
-    def loss(y_true, y_pred):
-        # The masks for the true and false values
+    df = pd.read_csv(dataPath)
 
-        idx_1 = y_true == 1.
-        idx_0 = y_true == 0.
+    df.rename(columns={"whether he/she donated blood in March 2007": "Label"})
 
-        pred_1 = tf.boolean_mask(y_pred, idx_1)
-        pred_1 = tf.expand_dims(pred_1, 1)
+    return df
 
-        true_1 = tf.boolean_mask(y_true, idx_1)
-        true_1 = tf.expand_dims(true_1, 1)
-
-        pred_0 = tf.boolean_mask(y_pred, idx_0)
-        pred_0 = tf.expand_dims(pred_0, 1)
-
-        true_0 = tf.boolean_mask(y_true, idx_0)
-        true_0 = tf.expand_dims(true_0, 1)
-
-        bce = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-
-        # The losses for the 0 classes
-        losses_0 = bce(pred_0, true_0)
-        losses_0 = tf.reduce_sum(losses_0, 0)  # Add back up
-        losses_0 = losses_0 * weights[0]
-
-        # The losses for the 1 classes
-        losses_1 = bce(pred_1, true_1)
-        losses_1 = tf.reduce_sum(losses_1, 0)  # Add back up
-        losses_1 = losses_1 * weights[1]
-
-        # Add them back up and divide by batch size
-        sum = losses_0 + losses_1
-        total = sum / batchSize
-        return total
-
-    return loss
-
-def age_encoderTX(data):
-    age_map = {'04': 1, '05': 1, '06': 1,
-               '07': 2, '08': 2, '09': 3,
-               '10': 3, '11': 4, '12': 4, '13': 4}
-
-    data['PAT_AGE'] = data['PAT_AGE'].map(age_map)
-
-    data = pd.get_dummies(data, prefix_sep="__", dummy_na=True,
-                          columns=['PAT_AGE'])
-
-    data.loc[data["PAT_AGE__nan"] == 1, data.columns.str.startswith("PAT_AGE__")] = np.nan
-
-    data = data.drop(['PAT_AGE__nan'], axis=1)
-
-    data.rename(columns={'PAT_AGE__1.0': 'Ages 10-19',
-                         'PAT_AGE__3.0': 'Ages 30-39',
-                         'PAT_AGE__2.0': 'Ages 20-29',
-                         'PAT_AGE__4.0': 'Ages 40+'}, inplace=True)
-
-    return data
-
-def age_encoderOK(data):
-    age_map = {'10-14': 1, '15-19': 1, '20-24': 2,
-               '25-29': 2, '30-34': 3, '35-39': 3,
-               '40-44': 4, '45-49': 4, '50-54': 4}
-
-    data['Age'] = data['Age'].map(age_map)
-
-    data = pd.get_dummies(data, prefix_sep="__", dummy_na=True,
-                          columns=['Age'])
-
-    data.loc[data["Age__nan"] == 1, data.columns.str.startswith("Age__")] = np.nan
-
-    data = data.drop(['Age__nan'], axis=1)
-
-    data.rename(columns={'Age__1.0': 'Ages 10-19',
-                         'Age__3.0': 'Ages 30-39',
-                         'Age__2.0': 'Ages 20-29',
-                         'Age__4.0': 'Ages 40+'}, inplace=True)
-
-    return data
-
-class fullNN():
-
-    def __init__(self, PARAMS):
-
-        self.PARAMS = PARAMS
-
-    def cleanDataTX(self, age):
-
-        self.age = age
+def cleanDataTX(age):
 
         quarter1 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
@@ -757,11 +710,11 @@ class fullNN():
 
         African_Am = year2013.loc[year2013['RACE'] == '3']
         African_Am.drop(columns=['RACE'], inplace=True)
-        African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
+        #African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
 
         Native_Am = year2013.loc[year2013['RACE'] == '1']
         Native_Am.drop(columns=['RACE'], inplace=True)
-        Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
+        #Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
 
         # One hot encoding race
         year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -813,15 +766,11 @@ class fullNN():
         year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
                                'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
 
-        year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
+        #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
 
         return year2013, African_Am, Native_Am
 
-    def cleanDataOK(self, dropMetro, age='Ordinal'):
-
-        self.age = age
-
-        self.dropMetro = dropMetro
+def cleanDataOK(dropMetro, age='Ordinal'):
 
         ok2017 = pd.read_csv(
             r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2017%20IP/pudf_cd.txt",
@@ -1127,8 +1076,8 @@ class fullNN():
                              'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14',
                              'px15', 'county name'], inplace=True)
 
-        # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
-        # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
+       # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
+       # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
 
         ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
         ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
@@ -1188,493 +1137,45 @@ class fullNN():
 
         return ok2017, ok2018
 
-    def normalizeData(self, data):
+def age_encoderTX(data):
+    age_map = {'04': 1, '05': 1, '06': 1,
+               '07': 2, '08': 2, '09': 3,
+               '10': 3, '11': 4, '12': 4, '13': 4}
 
-        scaler = MinMaxScaler()
-        data = scaler.fit_transform(data)
-        return data
+    data['PAT_AGE'] = data['PAT_AGE'].map(age_map)
 
-    def imputeData(self, data1, data2=None):
-        MI_Imp = IterativeImputer()  # Scikitlearn's Iterative imputer
+    data = pd.get_dummies(data, prefix_sep="__", dummy_na=True,
+                          columns=['PAT_AGE'])
 
-        if (data2 is not None):  # If running both datasets
-            if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
-                data = data1.append(data2)
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data)), columns=data.columns)
-            else:
-                self.data = data1.append(data2)
-        else:
-            if (data1.isnull().values.any() == True):
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
-            else:
-                self.data = data1
+    data.loc[data["PAT_AGE__nan"] == 1, data.columns.str.startswith("PAT_AGE__")] = np.nan
 
-    def detectOutliers(self, method, con):
+    data = data.drop(['PAT_AGE__nan'], axis=1)
 
-        print(self.X_train.shape, self.Y_train.shape)
+    data.rename(columns={'PAT_AGE__1.0': 'Ages 10-19',
+                         'PAT_AGE__3.0': 'Ages 30-39',
+                         'PAT_AGE__2.0': 'Ages 20-29',
+                         'PAT_AGE__4.0': 'Ages 40+'}, inplace=True)
 
-        if method == 'iso':
-            out = IsolationForest(contamination=con)
-        elif method == 'lof':
-            out = LocalOutlierFactor(contamination=con)
-        elif method == 'ocsvm':
-            out = OneClassSVM(nu=0.01)
-        elif method == 'ee':
-            out = EllipticEnvelope(contamination=con)
+    return data
 
-        yhat = out.fit_predict(self.X_train)
+def age_encoderOK(data):
 
-        # select all rows that are not outliers
-        mask = (yhat != -1)
+    age_map = {'10-14': 1, '15-19': 1, '20-24': 2,
+               '25-29': 2, '30-34': 3, '35-39': 3,
+               '40-44': 4, '45-49': 4, '50-54': 4}
 
-        self.X_train = self.X_train.loc[mask]
-        self.Y_train = self.Y_train.loc[mask]
+    data['Age'] = data['Age'].map(age_map)
 
-        print(self.X_train.shape, self.Y_train.shape)
+    data = pd.get_dummies(data, prefix_sep="__", dummy_na=True,
+                            columns=['Age'])
 
-    def featureSelection(self, numFeatures, method):
-        numFeatures = min(numFeatures, (self.X_train.shape[1]))
-        self.method = method
+    data.loc[data["Age__nan"] == 1, data.columns.str.startswith("Age__")] = np.nan
 
-        if method == 1:
-            model = XGBClassifier()
-            model.fit(self.X_train, self.Y_train)
+    data = data.drop(['Age__nan'], axis=1)
 
-            # Save graph
-            ax = plot_importance(model, max_num_features=numFeatures)
-            image = pyplot.gcf()
-            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+    data.rename(columns={'Age__1.0': 'Ages 10-19',
+                         'Age__3.0': 'Ages 30-39',
+                         'Age__2.0': 'Ages 20-29',
+                         'Age__4.0': 'Ages 40+'}, inplace=True)
 
-            # Get and save best features
-            feature_important = model.get_booster().get_fscore()
-            keys = list(feature_important.keys())
-            values = list(feature_important.values())
-
-            data = pd.DataFrame(data=values, index=keys, columns=["score"]).sort_values(by="score", ascending=False)
-            XGBoostFeatures = list(data.index[0:numFeatures])
-            return XGBoostFeatures
-
-        if method == 2:
-            # instantiate SelectKBest to determine 20 best features
-            fs = SelectKBest(score_func=chi2, k=numFeatures)
-            fs.fit(self.X_train, self.Y_train)
-            df_scores = pd.DataFrame(fs.scores_)
-            df_columns = pd.DataFrame(self.X_train.columns)
-            # concatenate dataframes
-            feature_scores = pd.concat([df_columns, df_scores], axis=1)
-            feature_scores.columns = ['Feature_Name', 'Chi2 Score']  # name output columns
-            feature_scores.sort_values(by=['Chi2 Score'], ascending=False, inplace=True)
-            features = feature_scores.iloc[0:numFeatures]
-            chi2Features = features['Feature_Name']
-            self.Chi2features = features
-            return chi2Features
-
-        if method == 3:
-            # Mutual Information features
-            fs = SelectKBest(score_func=mutual_info_classif, k=numFeatures)
-            fs.fit(self.X_train, self.Y_train)
-            df_scores = pd.DataFrame(fs.scores_)
-            df_columns = pd.DataFrame(self.X_train.columns)
-            # concatenate dataframes
-            feature_scores = pd.concat([df_columns, df_scores], axis=1)
-            feature_scores.columns = ['Feature_Name', 'MI Score']  # name output columns
-            feature_scores.sort_values(by=['MI Score'], ascending=False, inplace=True)
-            features = feature_scores.iloc[0:numFeatures]
-            mutualInfoFeatures = features['Feature_Name']
-            self.MIFeatures = features
-            return mutualInfoFeatures
-
-    def prepData(self, age, data):
-
-        self.age = age
-
-        data = pd.read_csv(data)
-
-        X = data.drop(columns='Preeclampsia/Eclampsia')
-        Y = data['Preeclampsia/Eclampsia']
-
-        return X, Y
-
-    def setData(self, X_train, X_test, Y_train, Y_test):
-
-        self.X_train = X_train
-        self.X_test = X_test
-        self.Y_train = Y_train
-        self.Y_test = Y_test
-
-    def buildModel(self, topFeatures):
-
-        LOG_DIR = f"{int(time.time())}"
-
-        # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures].to_numpy()
-        self.Y_train = self.Y_train.to_numpy()
-        self.X_val = self.X_val[topFeatures].to_numpy()
-        self.Y_val = self.Y_val.to_numpy()
-        self.X_test = self.X_test[topFeatures].to_numpy()
-        self.Y_test = self.Y_test.to_numpy()
-
-        inputSize = self.X_train.shape[1]
-
-
-        self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
-                                                         batch_size=self.PARAMS['batch_size'],
-                                                         sampler=RandomOverSampler(),
-                                                         random_state=42)
-
-        self.validation_generator = BalancedBatchGenerator(self.X_test, self.Y_test,
-                                                           batch_size=self.PARAMS['batch_size'],
-                                                           sampler=RandomOverSampler(),
-                                                           random_state=42)
-        # define the keras model
-        tf.keras.backend.clear_session()
-        self.model = tf.keras.models.Sequential()
-        self.model.add(tf.keras.Input(shape=(inputSize,)))
-
-        # Hidden Layers
-        for i in range(self.PARAMS['num_layers']):
-            self.model.add(
-                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
-            if self.PARAMS['Dropout']:
-                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
-            if self.PARAMS['BatchNorm']:
-                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
-
-        # Class weights
-        class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
-        class_weight_dict = dict(enumerate(class_weights))
-        pos = class_weight_dict[1]
-        neg = class_weight_dict[0]
-        bias = np.log(pos / neg)
-
-        if self.PARAMS['bias_init'] == 0:
-            # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
-
-        elif self.PARAMS['bias_init'] == 1:
-            # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
-                                 bias_initializer=tf.keras.initializers.Constant(
-                                     value=bias)))
-
-        # Reset class weights for use in loss function
-        scalar = len(self.Y_train)
-        class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
-
-        # Loss Function
-        if self.PARAMS['focal']:
-            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
-        else:
-            loss = 'binary_crossentropy'
-
-        # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=loss,
-                           metrics=['accuracy',
-                                    tf.keras.metrics.Precision(),
-                                    tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
-
-        # Question - Can you put a list in here?
-
-        self.history = self.model.fit(self.training_generator,
-                                      epochs=self.PARAMS['epochs'], validation_data=(self.validation_generator),
-                                      verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
-
-    def evaluateModel(self):
-
-        # Graphing results
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-        auc = plt.figure()
-        # plt.ylim(0.40, 0.66)
-        plt.plot(self.history.history['auc'])
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['train'], loc='upper right')
-        neptune.log_image('AUC/Epochs', auc, image_name='aucPlot')
-
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-        loss = plt.figure()
-        # plt.ylim(0.0, 0.15)
-        plt.plot(self.history.history['loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train'], loc='upper right')
-        neptune.log_image('Loss/Epochs', loss, image_name='lossPlot')
-        # plt.show()
-
-        # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
-
-        y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
-
-        self.specificity = specificity_score(self.Y_test, y_predict)
-
-        gmean = geometric_mean_score(self.Y_test, y_predict)
-
-        score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
-        self.predictedNo = y_predict.sum()
-        self.trueNo = self.Y_test.sum()
-        self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
-
-        Results = {"Loss": score[0],
-                   "Accuracy": score[1],
-                   "AUC": score[4],
-                   "Gmean": gmean,
-                   "Recall": score[3],
-                   "Precision": score[2],
-                   "Specificity": self.specificity,
-                   "True Positives": self.tp,
-                   "True Negatives": self.tn,
-                   "False Positives": self.fp,
-                   "False Negatives": self.fn,
-                   "History": self.history}
-
-        print(f'Total Cases: {len(y_predict)}')
-        print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
-        print(f'True Positives #: {self.tp} / True Negatives # {self.tn}')
-        print(f'False Positives #: {self.fp} / False Negatives # {self.fn}')
-        print(f'Test loss: {score[0]:.6f} / Test accuracy: {score[1]:.6f} / Test AUC: {score[4]:.6f}')
-        print(f'Test Recall: {score[3]:.6f} / Test Precision: {score[2]:.6f}')
-        print(f'Test Specificity: {self.specificity:.6f}')
-        print(f'Test Gmean: {gmean:.6f}')
-
-        # Feature Selection
-        if self.method == 2:
-            log_table('Chi2features', self.Chi2features)
-
-        elif self.method == 3:
-            log_table('MIFeatures', self.MIFeatures)
-
-        return Results
-
-class NoGen(fullNN):
-    def __init__(self, PARAMS):
-
-        self.PARAMS = PARAMS
-
-    def buildModel(self, topFeatures):
-
-        LOG_DIR = f"{int(time.time())}"
-
-        # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures]
-        self.Y_train = self.Y_train
-        self.X_test = self.X_test[topFeatures]
-        self.Y_test = self.Y_test
-
-        inputSize = self.X_train.shape[1]
-
-
-        # define the keras model
-        tf.keras.backend.clear_session()
-        self.model = tf.keras.models.Sequential()
-        self.model.add(tf.keras.Input(shape=(inputSize,)))
-
-        # Hidden Layers
-        for i in range(self.PARAMS['num_layers']):
-            self.model.add(
-                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
-            if self.PARAMS['Dropout']:
-                     self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
-            if self.PARAMS['BatchNorm']:
-                     self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
-
-        # Class weights
-        class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
-        class_weight_dict = dict(enumerate(class_weights))
-
-
-        pos = self.Y_train.value_counts()[0]
-        neg = self.Y_train.value_counts()[1]
-        bias = np.log(pos / neg)
-
-        if self.PARAMS['bias_init'] == 0:
-            # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
-
-        elif self.PARAMS['bias_init'] == 1:
-            # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
-                                 bias_initializer=tf.keras.initializers.Constant(
-                                     value=bias)))
-
-        # Reset class weights for use in loss function
-        scalar = len(self.Y_train)
-        class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
-
-        # Loss Function
-        if self.PARAMS['focal']:
-            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
-        else:
-            loss = 'binary_crossentropy'
-
-        # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=loss,
-                           metrics=['accuracy',
-                                    tf.keras.metrics.Precision(),
-                                    tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
-
-        self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
-                                      epochs=self.PARAMS['epochs'],
-                                      verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
-
-if __name__ == "__main__":
-
-    start_time = time.time()
-
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 30,
-              'units_1': 36,
-              'units_2': 45,
-              'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
-              'learning_rate': 0.001,
-              'batch_size': 4096,
-              'bias_init': 0,
-              'epochs': 30,
-              'focal': False,
-              'alpha': 0.5,
-              'gamma': 1.25,
-              'class_weights': True,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.20,
-              'BatchNorm': False,
-              'Momentum': 0.60,
-              'Generator': False,
-              'MAX_TRIALS': 5}
-
-    neptune.create_experiment(name='NNOkCV', params=PARAMS, send_hardware_metrics=True,
-                              tags=['trainSize/classSize'],
-                              description='Compare Bias Initialization')
-
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
-
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS)
-
-    # Get data
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
-
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
-
-    X, y = model.prepData(age='Categorical', data=dataPath)
-
-    aucList = []
-    gmeanList = []
-    accList = []
-    precisionList = []
-    recallList = []
-    specList = []
-    lossList = []
-    historyList = []
-
-    for train_index, test_index in rskf.split(X, y):
-        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-
-        model.setData(X_train, X_test, y_train, y_test)
-
-        features = model.featureSelection(numFeatures=20, method=2)
-        # For hand-tuning
-        model.buildModel(features)
-
-        Results = model.evaluateModel()
-
-        aucList.append(Results["AUC"])
-        gmeanList.append(Results["Gmean"])
-        accList.append(Results["Accuracy"])
-        precisionList.append(Results["Precision"])
-        recallList.append(Results["Recall"])
-        specList.append(Results["Specificity"])
-        lossList.append(Results["Loss"])
-        historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
-
-
-    # Get Average Results
-    lossMean = statistics.mean(lossList)
-    aucMean = statistics.mean(aucList)
-    gmeanMean = statistics.mean(gmeanList)
-    accMean = statistics.mean(accList)
-    specMean = statistics.mean(specList)
-    recallMean = statistics.mean(recallList)
-    precMean = statistics.mean(precisionList)
-
-    neptune.log_metric('Mean loss', lossMean)
-    neptune.log_metric('Mean accuracy', accMean)
-    neptune.log_metric('Mean AUC', aucMean)
-    neptune.log_metric('Mean specificity', specMean)
-    neptune.log_metric('Mean recall', recallMean)
-    neptune.log_metric('Mean precision', precMean)
-    neptune.log_metric('Mean gmean', gmeanMean)
-
-
-    def plotAvg(historyList):
-        aucAvg = []
-        lossAvg = []
-
-        for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
-            # Clear list
-            auc = []
-            aucVal = []
-            loss = []
-            lossVal = []
-
-            for j in range(len(historyList)): # Iterate through each history object
-
-                # Append each model's measurement for epoch i
-                auc.append(historyList[j].history['auc'][i])
-                loss.append(historyList[j].history['loss'][i])
-
-            # Once get measurement for each model, get average measurement for that epoch
-            aucAvg.append(statistics.mean(auc))
-            lossAvg.append(statistics.mean(loss))
-
-        # Graphing results
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-        avgauc = plt.figure()
-        # plt.ylim(0.40, 0.66)
-        plt.plot(aucAvg)
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['training'], loc='upper right')
-        neptune.log_image('Average AUC', avgauc, image_name='avgAucPlot')
-
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-        avgloss = plt.figure()
-        # plt.ylim(0.40, 0.66)
-        plt.plot(lossAvg)
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['training'], loc='upper right')
-        neptune.log_image('Average Loss', avgloss, image_name='avgLossPlot')
-
-    plotAvg(historyList)
-
-    mins = (time.time() - start_time) / 60  # Time in seconds
-
-    neptune.log_metric('minutes', mins)
+    return data
