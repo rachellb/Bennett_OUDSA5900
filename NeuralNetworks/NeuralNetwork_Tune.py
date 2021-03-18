@@ -512,10 +512,11 @@ class NoGen(fullNN):
             model.add(tf.keras.Input(shape=(inputSize,)))
 
             for i in range(hp.Int('num_layers', 2, 8)):
-                units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
-                deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                #deep_activation = 'relu'
-                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
+                with hp.conditionaLscope('num_layers', i): # Testing out conditional scope
+                    units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
+                    deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
+                    #deep_activation = 'relu'
+                    model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
                     model.add(Dropout(self.PARAMS['Dropout_Rate']))
@@ -646,7 +647,7 @@ if __name__ == "__main__":
 
     PARAMS = {'batch_size': 4096,
               'bias_init': False,
-              'epochs': 100,
+              'epochs': 20,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -658,12 +659,12 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Hyperband",
-              'EXECUTIONS_PER_TRIAL': 10,
-              'MAX_TRIALS': 100}
+              'EXECUTIONS_PER_TRIAL': 5,
+              'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='CustomWeight2', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
                               tags=['Weights = (1/classSize) * (1/len)*2'],
-                              description='Testing pima')
+                              description='Testing bc')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -681,7 +682,7 @@ if __name__ == "__main__":
     model.prepData(age='Categorical',
                            data=dataPath)
     """
-    data = cleanPima()
+    data = cleanBC()
 
     data = model.normalizeData(data)
     model.imputeData(data)

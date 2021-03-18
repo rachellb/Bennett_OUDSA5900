@@ -9,11 +9,10 @@ def cleanBC():
     # Get data
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Breastcancer/breast-cancer-wisconsin.data')
-
     df = pd.read_csv(dataPath, header=None)
-    df.columns = ['SampleCodeNumber','ClumpThickness','UniformityOfCellSize','UniformityOfCellShape',
-                    'MarinalAdhesion', 'SingleEpithelialCellSize','BareNuclei','BlandChromatin',
-                    'NormalNucleoli','Mitosis','Class']
+    df.columns = ['SampleCodeNumber', 'ClumpThickness', 'UniformityOfCellSize', 'UniformityOfCellShape',
+                    'MarinalAdhesion', 'SingleEpithelialCellSize', 'BareNuclei', 'BlandChromatin',
+                    'NormalNucleoli', 'Mitosis', 'Class']
 
     # Replace question marks with NaN for easier imputing
     df.replace(to_replace='?', value=np.NaN, inplace=True)
@@ -21,7 +20,10 @@ def cleanBC():
     df['Class'] = np.where(df['Class'] == 2, 0, df['Class'])  # Change to 0 if 2, otherwise leave as is
     df['Class'] = np.where(df['Class'] == 4, 1, df['Class'])  # Change to 1 if 4, otherwise leave as is
 
-    df.rename(columns={"Class": "Label"})
+    # Drop the IDs
+    df.drop(columns='SampleCodeNumber', inplace=True)
+
+    df.rename(columns={"Class": "Label"}, inplace=True)
 
     return df
 
