@@ -512,11 +512,10 @@ class NoGen(fullNN):
             model.add(tf.keras.Input(shape=(inputSize,)))
 
             for i in range(hp.Int('num_layers', 2, 8)):
-                with hp.conditionaLscope('num_layers', i): # Testing out conditional scope
-                    units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
-                    deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                    #deep_activation = 'relu'
-                    model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
+                units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
+                deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
+                #deep_activation = 'relu'
+                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
                     model.add(Dropout(self.PARAMS['Dropout_Rate']))
@@ -682,7 +681,7 @@ if __name__ == "__main__":
     model.prepData(age='Categorical',
                            data=dataPath)
     """
-    data = cleanBC()
+    data = cleanSpect()
 
     data = model.normalizeData(data)
     model.imputeData(data)
