@@ -62,7 +62,7 @@ from Cleaning.Clean import *
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
+neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
 
 def weighted_loss_persample(weights, batchSize):
     def loss(y_true, y_pred):
@@ -522,6 +522,7 @@ class NoGen(fullNN):
 
         bias = np.log(pos / neg)
 
+
         scalar = len(self.Y_train)
         #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
         #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
@@ -540,8 +541,8 @@ class NoGen(fullNN):
 
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
-                #deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                deep_activation = 'relu'
+                deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
+                #deep_activation = 'relu'
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
@@ -578,9 +579,8 @@ class NoGen(fullNN):
             else:
                 loss = 'binary_crossentropy'
 
-            weight_for_0 = hp.Int('Weight0', 1, 25, step=1)
-            weight_for_1 = hp.Int('Weight1', 1, 25, step=1)
-
+            weight_for_0 = hp.Float('Weight0', 0, 25, step=0.25)
+            weight_for_1 = hp.Float('Weight1', 0, 25, step=0.25)
             class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
 
@@ -677,7 +677,7 @@ if __name__ == "__main__":
 
     PARAMS = {'batch_size': 4096,
               'bias_init': False,
-              'epochs': 100,
+              'epochs': 30,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -688,7 +688,7 @@ if __name__ == "__main__":
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Bayesian",
+              'Tuner': "Hyperband",
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 
@@ -707,7 +707,7 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

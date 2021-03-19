@@ -59,15 +59,18 @@ class LogReg():
 
 if __name__ == "__main__":
 
+    name = 'Oklahoma'
+    weight = True
+
     parent = os.path.dirname(os.getcwd())
 
-    pathOK = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
-    pathTX = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+    if name == 'Oklahoma':
+        path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
+    else:
+        path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
-    name = 'Texas'
-    weight = True
     model = LogReg()
-    X, y = model.prepData(data=pathOK)
+    X, y = model.prepData(data=path)
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 

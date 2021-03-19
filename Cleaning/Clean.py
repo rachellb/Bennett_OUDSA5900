@@ -1141,7 +1141,6 @@ def cleanDataOK(dropMetro, age='Ordinal'):
 
         return ok2017, ok2018
 
-
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
                '07': 2, '08': 2, '09': 3,

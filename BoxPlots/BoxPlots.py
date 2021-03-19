@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -7,29 +8,33 @@ data = 'Oklahoma'
 logAUC = np.load('AUC/' + data + '/log_auc.npy')
 logWeightAUC = np.load('AUC/' + data + '/logWeight_auc.npy')
 
-#self.svmLinAUC = np.load('Predictions/' + self.data + '/svmLin_pred.npy')
-#self.svmLinWeightAUC = np.load('Predictions/' + self.data + '/svmLinWeight_pred.npy')
+svmLinAUC = np.load('AUC/' + data + '/SVMLin_auc.npy')
+svmLinWeightAUC = np.load('AUC/' + data + '/SVMLinWeight_auc.npy')
 
 svmRBFAUC = np.load('AUC/' + data + '/SVMRBF_auc.npy')
 svmRBFWeightAUC = np.load('AUC/' + data + '/SVMRBFWeight_auc.npy')
 
-"""
-self.Scores = {"LR": self.logAUC,
-          "WLR": self.logWeightAUC,
-          #"SVM-Lin": self.svmLin,
-          #"WSVM-Lin": self.svmLinWeight,
-          "SVM-RBF": self.svmRBFAUC,
-          "WSVM-RBF": self.svmRBFWeightAUC}
-          #"DNN": self.nn,
-          #"CSDNN": self.nnWeight}
+DNN = np.load('AUC/' + data + '/DNN_auc.npy')
+CSDNN = np.load('AUC/' + data + '/CSDNN_auc.npy')
+
+AUCs = pd.DataFrame({"LR": logAUC,
+          "WLR": logWeightAUC,
+          "SVM-Lin": svmLinAUC,
+          "WSVM-Lin": svmLinWeightAUC,
+          "SVM-RBF": svmRBFAUC,
+          "WSVM-RBF": svmRBFWeightAUC,
+          "DNN": DNN,
+          "CSDNN": CSDNN})
+
 
 """
-
 all_arr = [logAUC,
            logWeightAUC,
            svmRBFAUC,
            svmRBFWeightAUC]
-
-g = sns.boxplot(data=all_arr)
-g.set(xticks=["LR", "WLR", "SVMRBF", "WSVMRBF"])
+"""
+g = sns.boxplot(data=AUCs, color='cornflowerblue')
+g.set_title('AUC Ranges')
+g.set_ylabel('AUC')
+g.set_xticklabels(g.get_xticklabels(),rotation=30)
 plt.show()

@@ -120,7 +120,7 @@ class NeuralNetwork():
                                     tf.keras.metrics.Recall(),
                                     tf.keras.metrics.AUC()])
 
-        self.model.fit(self.training_generator, epochs=epochs, validation_data=(self.validation_generator), verbose=2, class_weight=)
+        self.model.fit(self.training_generator, epochs=epochs, validation_data=(self.validation_generator), verbose=2, class_weight=class_weight_dict)
 
         y_pred_keras = self.model.predict(self.X_test).ravel()
 
