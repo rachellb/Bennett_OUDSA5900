@@ -92,7 +92,7 @@ def cleanHeartDisease():
     df.replace(to_replace=-9.0, value=np.NaN, inplace=True) # Missing coded as -9.0
     df['num'] = np.where(df['num'].isin([1, 2, 3, 4]), 1, df['num'])  # Collapse smaller classes into one class
 
-    df.rename(columns={"num ": "Label"})
+    df.rename(columns={"num": "Label"}, inplace=True)
 
     return df
 
@@ -103,7 +103,7 @@ def cleanTransfusion():
 
     df = pd.read_csv(dataPath)
 
-    df.rename(columns={"whether he/she donated blood in March 2007": "Label"})
+    df.rename(columns={"whether he/she donated blood in March 2007": "Label"}, inplace=True)
 
     return df
 
@@ -1140,6 +1140,7 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         # ok2018.to_csv('Data/Oklahoma_Clean/ok2018_Incomplete.csv', index=False)
 
         return ok2017, ok2018
+
 
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
