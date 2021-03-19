@@ -2,14 +2,10 @@
 # -*- coding: utf-8 -*-
 
 # For handling data
-import pandas as pd
-import numpy as np
 from datetime import datetime
 import os
 
-from sklearn.preprocessing import OrdinalEncoder
 from sklearn.utils import class_weight
-from statistics import mean
 
 # For imputing data
 from sklearn.experimental import enable_iterative_imputer
@@ -20,7 +16,6 @@ from sklearn.feature_selection import SelectKBest, chi2
 from xgboost import XGBClassifier
 from matplotlib import pyplot
 from xgboost import plot_importance
-from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.preprocessing import MinMaxScaler
@@ -336,8 +331,37 @@ class fullNN():
 
             return model
 
+        batches = [32, 64, 128, 256]
+
+        # Tuners don't tune batch_size, need to subclass in order to change that.
+        class MyBayes(kerastuner.tuners.BayesianOptimization):
+            def run_trial(self, trial, *args, **kwargs):
+                # You can add additional HyperParameters for preprocessing and custom training loops
+                # via overriding `run_trial`
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=[2048, 4096, 8192])
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
+                super(MyBayes, self).run_trial(trial, *args, **kwargs)
+
+        class MyHB(kerastuner.tuners.Hyperband):
+            def run_trial(self, trial, *args, **kwargs):
+                # You can add additional HyperParameters for preprocessing and custom training loops
+                # via overriding `run_trial`
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=[2048, 4096, 8192])
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
+                super(MyHB, self).run_trial(trial, *args, **kwargs)
+
+        class MyRand(kerastuner.tuners.Hyperband):
+            def run_trial(self, trial, *args, **kwargs):
+                # You can add additional HyperParameters for preprocessing and custom training loops
+                # via overriding `run_trial`
+                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
+                super(MyRand, self).run_trial(trial, *args, **kwargs)
+
         if self.PARAMS['Tuner'] == 'Hyperband':
-            self.tuner = Hyperband(build_model,
+            self.tuner = MyHB(build_model,
                                    objective=kerastuner.Objective('val_auc', direction="max"),
                                    max_epochs=self.PARAMS['epochs'],
                                    seed=1234,
@@ -346,7 +370,7 @@ class fullNN():
                                    logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
-            self.tuner = BayesianOptimization(build_model,
+            self.tuner = MyBayes(build_model,
                                               objective=kerastuner.Objective('val_auc', direction="max"),
                                               overwrite=True,
                                               max_trials=self.PARAMS['MAX_TRIALS'],
@@ -355,7 +379,7 @@ class fullNN():
                                               logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
-            self.tuner = RandomSearch(
+            self.tuner = MyRand(
                 build_model,
                 objective=kerastuner.Objective('val_auc', direction="max"),
                 overwrite=True,
@@ -618,7 +642,7 @@ class NoGen(fullNN):
                 overwrite=True,
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
-                executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
+                executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
                 logger=npt_utils.NeptuneLogger()
             )
 
@@ -657,13 +681,13 @@ if __name__ == "__main__":
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Hyperband",
+              'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='Spect', params=PARAMS, send_hardware_metrics=True,
                               tags=['Weights = (1/classSize) * (1/len)*2'],
-                              description='Testing bc')
+                              description='Comparing datasets')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -688,6 +712,5 @@ if __name__ == "__main__":
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=2)
     model.hpTuning(features)
-
     model.evaluateModel()
 
