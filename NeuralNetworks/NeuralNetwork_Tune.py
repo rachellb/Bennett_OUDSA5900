@@ -62,7 +62,7 @@ from Cleaning.Clean import *
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/Comparisons', api_token=api_)
+neptune.init(project_qualified_name='rachellb/NNTexas', api_token=api_)
 
 def weighted_loss_persample(weights, batchSize):
     def loss(y_true, y_pred):
@@ -130,7 +130,9 @@ class fullNN():
 
         self.age = age
 
-        self.data = pd.read_csv(data)
+        data = pd.read_csv(data)
+
+        return data
 
     def normalizeData(self, data):
 
@@ -157,8 +159,8 @@ class fullNN():
     def splitData(self, testSize, valSize):
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Label')
-        Y = self.data['Label']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
                                                                                 random_state=self.split1)
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
@@ -525,10 +527,11 @@ class NoGen(fullNN):
         #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
 
+        #weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        #weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+        #class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
-        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
-        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
-        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+
 
         def build_model(hp):
             # define the keras model
@@ -575,8 +578,11 @@ class NoGen(fullNN):
             else:
                 loss = 'binary_crossentropy'
 
-            #tfa.losses.SigmoidFocalCrossEntropy(alpha=(1/pos), gamma=0)
-            #neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
+            weight_for_0 = hp.Float('Weight0', 0, 25, step=0.25)
+            weight_for_1 = hp.Float('Weight1', 0, 25, step=0.25)
+            class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+
+
             # Compilation
             model.compile(optimizer=optimizer,
                           loss=weighted_binary_cross_entropy(class_weight_dict),
@@ -587,7 +593,7 @@ class NoGen(fullNN):
 
             return model
 
-        batches = [32, 64, 128, 256]
+        batches = [2048, 4096, 8192]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
         class MyBayes(kerastuner.tuners.BayesianOptimization):
@@ -670,7 +676,7 @@ if __name__ == "__main__":
 
     PARAMS = {'batch_size': 4096,
               'bias_init': False,
-              'epochs': 20,
+              'epochs': 100,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -685,9 +691,9 @@ if __name__ == "__main__":
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='HeartDisease', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weights = (1/classSize) * (1/len)*2'],
-                              description='Comparing datasets')
+    neptune.create_experiment(name='TxHPTune', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Tuned Weights'],
+                              description='Testing HP Tuning of Weights')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -697,17 +703,14 @@ if __name__ == "__main__":
     else:
         model = fullNN(PARAMS)
 
-    """
+
     # Get data
-    #parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
-    model.prepData(age='Categorical',
+    data = model.prepData(age='Categorical',
                            data=dataPath)
-    """
-    data = cleanHeartDisease()
 
-    data = model.normalizeData(data)
     model.imputeData(data)
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=2)
