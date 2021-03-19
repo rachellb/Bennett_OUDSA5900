@@ -86,6 +86,8 @@ def cleanHeartDisease():
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/HeartDisease/reprocessed.hungarian.data')
     df = pd.read_csv(dataPath, header=None, delim_whitespace=True)
+    df.columns = ['Age', 'Sex', 'CP', 'Trestbps', 'chol', 'fbs', 'restecg',
+                  'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal', 'num']
 
     df.replace(to_replace=-9.0, value=np.NaN, inplace=True) # Missing coded as -9.0
     df['num'] = np.where(df['num'].isin([1, 2, 3, 4]), 1, df['num'])  # Collapse smaller classes into one class
