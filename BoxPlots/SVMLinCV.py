@@ -84,7 +84,7 @@ if __name__ == "__main__":
     start_time = time.time()
     parent = os.path.dirname(os.getcwd())
 
-    name = 'Texas'
+    name = 'Oklahoma'
 
     if name == 'Oklahoma':
         path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
@@ -92,7 +92,7 @@ if __name__ == "__main__":
         path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
 
-    weight = False
+    weight = True
     model = SVMRBF()
     X, y = model.prepData(data=path)
 
