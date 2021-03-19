@@ -64,8 +64,8 @@ if __name__ == "__main__":
     pathOK = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
     pathTX = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
-    name = 'Oklahoma'
-    weight = False
+    name = 'Texas'
+    weight = True
     model = LogReg()
     X, y = model.prepData(data=pathOK)
 
