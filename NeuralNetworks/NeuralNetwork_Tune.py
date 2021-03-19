@@ -62,7 +62,7 @@ from Cleaning.Clean import *
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNTexas', api_token=api_)
+neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
 
 def weighted_loss_persample(weights, batchSize):
     def loss(y_true, y_pred):
@@ -540,8 +540,8 @@ class NoGen(fullNN):
 
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
-                deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                #deep_activation = 'relu'
+                #deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
+                deep_activation = 'relu'
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
@@ -578,8 +578,9 @@ class NoGen(fullNN):
             else:
                 loss = 'binary_crossentropy'
 
-            weight_for_0 = hp.Float('Weight0', 0, 25, step=0.25)
-            weight_for_1 = hp.Float('Weight1', 0, 25, step=0.25)
+            weight_for_0 = hp.Int('Weight0', 1, 25, step=1)
+            weight_for_1 = hp.Int('Weight1', 1, 25, step=1)
+
             class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
 
@@ -687,7 +688,7 @@ if __name__ == "__main__":
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Hyperband",
+              'Tuner': "Bayesian",
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 

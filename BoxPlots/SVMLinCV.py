@@ -84,7 +84,7 @@ if __name__ == "__main__":
     start_time = time.time()
     parent = os.path.dirname(os.getcwd())
 
-    name = 'Oklahoma'
+    name = 'Texas'
 
     if name == 'Oklahoma':
         path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
@@ -114,9 +114,11 @@ if __name__ == "__main__":
         aucList.append(auc)
         gmeanList.append(gmean)
 
+
     if weight:
         np.save('AUC/' + name + '/SVMLinWeight_auc', aucList)
         np.save('Gmean/' + name + '/SVMLinWeight_gmean', gmeanList)
+
     else:
         np.save('AUC/' + name + '/SVMLin_auc', aucList)
         np.save('Gmean/' + name + '/SVMLin_gmean', gmeanList)
