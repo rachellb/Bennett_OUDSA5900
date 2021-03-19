@@ -92,7 +92,7 @@ if __name__ == "__main__":
         path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
 
-    weight = True
+    weight = False
     model = SVMRBF()
     X, y = model.prepData(data=path)
 
