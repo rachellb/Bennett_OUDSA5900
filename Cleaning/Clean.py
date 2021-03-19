@@ -75,8 +75,8 @@ def cleanHepatitis():
                   'Albumin', 'Protime', 'Histology']
 
     df.replace(to_replace='?', value=np.NaN, inplace=True)
-    df.replace(to_replace=2, value=1, inplace=True)  # Binary variables set yes=2 for some reason
     df.replace(to_replace=1, value=0, inplace=True)  # Binary variables set no=1 for some reason
+    df.replace(to_replace=2, value=1, inplace=True)  # Binary variables set yes=2 for some reason
 
 
     return df

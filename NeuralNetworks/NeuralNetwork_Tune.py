@@ -681,11 +681,11 @@ if __name__ == "__main__":
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Random",
+              'Tuner': "Hyperband",
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='Spect', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='Hepatitis', params=PARAMS, send_hardware_metrics=True,
                               tags=['Weights = (1/classSize) * (1/len)*2'],
                               description='Comparing datasets')
 
@@ -705,7 +705,7 @@ if __name__ == "__main__":
     model.prepData(age='Categorical',
                            data=dataPath)
     """
-    data = cleanSpect()
+    data = cleanHepatitis()
 
     data = model.normalizeData(data)
     model.imputeData(data)
