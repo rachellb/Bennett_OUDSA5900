@@ -606,7 +606,7 @@ class NoGen(fullNN):
                 #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyHB, self).run_trial(trial, *args, **kwargs)
 
-        class MyRand(kerastuner.tuners.Hyperband):
+        class MyRand(kerastuner.tuners.RandomSearch):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
