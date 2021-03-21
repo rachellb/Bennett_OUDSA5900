@@ -35,13 +35,14 @@ def cleanPima():
     df = pd.read_csv(dataPath)
 
     # Since several patients have value of 0 for variables and I assume they're not dead, set to missing
+    """
     for col in df.columns:
         df[col] = np.where(df[col] == 0, np.NaN, df[col])
 
     # Fix Outcome and Pregnancies, which I assume are correctly labeled
     df['Outcome'] = np.where(df['Outcome'].isnull(), 0, df['Outcome'])
     df['Pregnancies'] = np.where(df['Pregnancies'].isnull(), 0, df['Pregnancies'])
-
+    """
     df.rename(columns={"Outcome": "Label"}, inplace=True)
 
     return df
@@ -108,680 +109,693 @@ def cleanTransfusion():
     return df
 
 def cleanDataTX(age):
+    parent = os.path.dirname(os.getcwd())
+    dataPathq1 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt")
+    dataPathq2 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_2q2013_tab.txt")
+    dataPathq3 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_3q2013_tab.txt")
+    dataPathq4 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_4q2013_tab.txt")
 
-        quarter1 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
-                                                                                                     'DISCHARGE',
-                                                                                                     'SOURCE_OF_ADMISSION',
-                                                                                                     'PAT_STATUS',
-                                                                                                     'PAT_STATE',
-                                                                                                     'COUNTY',
-                                                                                                     'SEX_CODE',
-                                                                                                     'RACE',
-                                                                                                     'ETHNICITY',
-                                                                                                     'PAT_AGE',
-                                                                                                     'FIRST_PAYMENT_SRC',
-                                                                                                     'SECONDARY_PAYMENT_SRC',
-                                                                                                     'LENGTH_OF_STAY',
-                                                                                                     'ADMITTING_DIAGNOSIS',
-                                                                                                     'PRINC_DIAG_CODE',
-                                                                                                     'OTH_DIAG_CODE_1',
-                                                                                                     'OTH_DIAG_CODE_2',
-                                                                                                     'OTH_DIAG_CODE_3',
-                                                                                                     'OTH_DIAG_CODE_4',
-                                                                                                     'OTH_DIAG_CODE_5',
-                                                                                                     'OTH_DIAG_CODE_6',
-                                                                                                     'OTH_DIAG_CODE_7',
-                                                                                                     'OTH_DIAG_CODE_8',
-                                                                                                     'OTH_DIAG_CODE_9',
-                                                                                                     'OTH_DIAG_CODE_10',
-                                                                                                     'OTH_DIAG_CODE_11',
-                                                                                                     'OTH_DIAG_CODE_12',
-                                                                                                     'OTH_DIAG_CODE_13',
-                                                                                                     'OTH_DIAG_CODE_14',
-                                                                                                     'OTH_DIAG_CODE_15',
-                                                                                                     'OTH_DIAG_CODE_16',
-                                                                                                     'OTH_DIAG_CODE_17',
-                                                                                                     'OTH_DIAG_CODE_18',
-                                                                                                     'OTH_DIAG_CODE_19',
-                                                                                                     'OTH_DIAG_CODE_20',
-                                                                                                     'OTH_DIAG_CODE_21',
-                                                                                                     'OTH_DIAG_CODE_22',
-                                                                                                     'OTH_DIAG_CODE_23',
-                                                                                                     'OTH_DIAG_CODE_24', ],
-                               dtype={'RECORD_ID': object,
-                                      'DISCHARGE': object,
-                                      'PAT_STATUS': object,
-                                      'PAT_STATE': str,
-                                      'COUNTY': str,
-                                      'SOURCE_OF_ADMISSION': object,
-                                      'SEX_CODE': object,
-                                      'RACE': object,
-                                      'ETHNICITY': object,
-                                      'PAT_AGE': object,
-                                      'FIRST_PAYMENT_SRC': object,
-                                      'SECONDARY_PAYMENT_SRC': object,
-                                      'LENGTH_OF_STAY': float,
-                                      'ADMITTING_DIAGNOSIS': str,
-                                      'PRINC_DIAG_CODE': str,
-                                      'OTH_DIAG_CODE_1': str,
-                                      'OTH_DIAG_CODE_2': str,
-                                      'OTH_DIAG_CODE_3': str,
-                                      'OTH_DIAG_CODE_4': str,
-                                      'OTH_DIAG_CODE_5': str,
-                                      'OTH_DIAG_CODE_6': str,
-                                      'OTH_DIAG_CODE_7': str,
-                                      'OTH_DIAG_CODE_8': str,
-                                      'OTH_DIAG_CODE_9': str,
-                                      'OTH_DIAG_CODE_10': str,
-                                      'OTH_DIAG_CODE_11': str,
-                                      'OTH_DIAG_CODE_12': str,
-                                      'OTH_DIAG_CODE_13': str,
-                                      'OTH_DIAG_CODE_14': str,
-                                      'OTH_DIAG_CODE_15': str,
-                                      'OTH_DIAG_CODE_16': str,
-                                      'OTH_DIAG_CODE_17': str,
-                                      'OTH_DIAG_CODE_18': str,
-                                      'OTH_DIAG_CODE_19': str,
-                                      'OTH_DIAG_CODE_20': str,
-                                      'OTH_DIAG_CODE_21': str,
-                                      'OTH_DIAG_CODE_22': str,
-                                      'OTH_DIAG_CODE_23': str,
-                                      'OTH_DIAG_CODE_24': str})
 
-        quarter2 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_2q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
-                                                                                                     'DISCHARGE',
-                                                                                                     'SOURCE_OF_ADMISSION',
-                                                                                                     'PAT_STATUS',
-                                                                                                     'PAT_STATE',
-                                                                                                     'COUNTY',
-                                                                                                     'SEX_CODE',
-                                                                                                     'RACE',
-                                                                                                     'ETHNICITY',
-                                                                                                     'PAT_AGE',
-                                                                                                     'FIRST_PAYMENT_SRC',
-                                                                                                     'SECONDARY_PAYMENT_SRC',
-                                                                                                     'LENGTH_OF_STAY',
-                                                                                                     'ADMITTING_DIAGNOSIS',
-                                                                                                     'PRINC_DIAG_CODE',
-                                                                                                     'OTH_DIAG_CODE_1',
-                                                                                                     'OTH_DIAG_CODE_2',
-                                                                                                     'OTH_DIAG_CODE_3',
-                                                                                                     'OTH_DIAG_CODE_4',
-                                                                                                     'OTH_DIAG_CODE_5',
-                                                                                                     'OTH_DIAG_CODE_6',
-                                                                                                     'OTH_DIAG_CODE_7',
-                                                                                                     'OTH_DIAG_CODE_8',
-                                                                                                     'OTH_DIAG_CODE_9',
-                                                                                                     'OTH_DIAG_CODE_10',
-                                                                                                     'OTH_DIAG_CODE_11',
-                                                                                                     'OTH_DIAG_CODE_12',
-                                                                                                     'OTH_DIAG_CODE_13',
-                                                                                                     'OTH_DIAG_CODE_14',
-                                                                                                     'OTH_DIAG_CODE_15',
-                                                                                                     'OTH_DIAG_CODE_16',
-                                                                                                     'OTH_DIAG_CODE_17',
-                                                                                                     'OTH_DIAG_CODE_18',
-                                                                                                     'OTH_DIAG_CODE_19',
-                                                                                                     'OTH_DIAG_CODE_20',
-                                                                                                     'OTH_DIAG_CODE_21',
-                                                                                                     'OTH_DIAG_CODE_22',
-                                                                                                     'OTH_DIAG_CODE_23',
-                                                                                                     'OTH_DIAG_CODE_24', ],
-                               dtype={'RECORD_ID': object,
-                                      'DISCHARGE': object,
-                                      'SOURCE_OF_ADMISSION': object,
-                                      'PAT_STATUS': object,
-                                      'PAT_STATE': str,
-                                      'COUNTY': str,
-                                      'SEX_CODE': object,
-                                      'RACE': object,
-                                      'ETHNICITY': object,
-                                      'PAT_AGE': object,
-                                      'FIRST_PAYMENT_SRC': object,
-                                      'SECONDARY_PAYMENT_SRC': object,
-                                      'LENGTH_OF_STAY': float,
-                                      'ADMITTING_DIAGNOSIS': str,
-                                      'PRINC_DIAG_CODE': str,
-                                      'OTH_DIAG_CODE_1': str,
-                                      'OTH_DIAG_CODE_2': str,
-                                      'OTH_DIAG_CODE_3': str,
-                                      'OTH_DIAG_CODE_4': str,
-                                      'OTH_DIAG_CODE_5': str,
-                                      'OTH_DIAG_CODE_6': str,
-                                      'OTH_DIAG_CODE_7': str,
-                                      'OTH_DIAG_CODE_8': str,
-                                      'OTH_DIAG_CODE_9': str,
-                                      'OTH_DIAG_CODE_10': str,
-                                      'OTH_DIAG_CODE_11': str,
-                                      'OTH_DIAG_CODE_12': str,
-                                      'OTH_DIAG_CODE_13': str,
-                                      'OTH_DIAG_CODE_14': str,
-                                      'OTH_DIAG_CODE_15': str,
-                                      'OTH_DIAG_CODE_16': str,
-                                      'OTH_DIAG_CODE_17': str,
-                                      'OTH_DIAG_CODE_18': str,
-                                      'OTH_DIAG_CODE_19': str,
-                                      'OTH_DIAG_CODE_20': str,
-                                      'OTH_DIAG_CODE_21': str,
-                                      'OTH_DIAG_CODE_22': str,
-                                      'OTH_DIAG_CODE_23': str,
-                                      'OTH_DIAG_CODE_24': str})
+    quarter1 = pd.read_csv('file://' + dataPathq1, delimiter="\t", usecols=['RECORD_ID',
+                                                                                                 'DISCHARGE',
+                                                                                                 'SOURCE_OF_ADMISSION',
+                                                                                                 'PAT_STATUS',
+                                                                                                 'PAT_STATE',
+                                                                                                 'COUNTY',
+                                                                                                 'SEX_CODE',
+                                                                                                 'RACE',
+                                                                                                 'ETHNICITY',
+                                                                                                 'PAT_AGE',
+                                                                                                 'FIRST_PAYMENT_SRC',
+                                                                                                 'SECONDARY_PAYMENT_SRC',
+                                                                                                 'LENGTH_OF_STAY',
+                                                                                                 'ADMITTING_DIAGNOSIS',
+                                                                                                 'PRINC_DIAG_CODE',
+                                                                                                 'OTH_DIAG_CODE_1',
+                                                                                                 'OTH_DIAG_CODE_2',
+                                                                                                 'OTH_DIAG_CODE_3',
+                                                                                                 'OTH_DIAG_CODE_4',
+                                                                                                 'OTH_DIAG_CODE_5',
+                                                                                                 'OTH_DIAG_CODE_6',
+                                                                                                 'OTH_DIAG_CODE_7',
+                                                                                                 'OTH_DIAG_CODE_8',
+                                                                                                 'OTH_DIAG_CODE_9',
+                                                                                                 'OTH_DIAG_CODE_10',
+                                                                                                 'OTH_DIAG_CODE_11',
+                                                                                                 'OTH_DIAG_CODE_12',
+                                                                                                 'OTH_DIAG_CODE_13',
+                                                                                                 'OTH_DIAG_CODE_14',
+                                                                                                 'OTH_DIAG_CODE_15',
+                                                                                                 'OTH_DIAG_CODE_16',
+                                                                                                 'OTH_DIAG_CODE_17',
+                                                                                                 'OTH_DIAG_CODE_18',
+                                                                                                 'OTH_DIAG_CODE_19',
+                                                                                                 'OTH_DIAG_CODE_20',
+                                                                                                 'OTH_DIAG_CODE_21',
+                                                                                                 'OTH_DIAG_CODE_22',
+                                                                                                 'OTH_DIAG_CODE_23',
+                                                                                                 'OTH_DIAG_CODE_24', ],
+                           dtype={'RECORD_ID': object,
+                                  'DISCHARGE': object,
+                                  'PAT_STATUS': object,
+                                  'PAT_STATE': str,
+                                  'COUNTY': str,
+                                  'SOURCE_OF_ADMISSION': object,
+                                  'SEX_CODE': object,
+                                  'RACE': object,
+                                  'ETHNICITY': object,
+                                  'PAT_AGE': object,
+                                  'FIRST_PAYMENT_SRC': object,
+                                  'SECONDARY_PAYMENT_SRC': object,
+                                  'LENGTH_OF_STAY': float,
+                                  'ADMITTING_DIAGNOSIS': str,
+                                  'PRINC_DIAG_CODE': str,
+                                  'OTH_DIAG_CODE_1': str,
+                                  'OTH_DIAG_CODE_2': str,
+                                  'OTH_DIAG_CODE_3': str,
+                                  'OTH_DIAG_CODE_4': str,
+                                  'OTH_DIAG_CODE_5': str,
+                                  'OTH_DIAG_CODE_6': str,
+                                  'OTH_DIAG_CODE_7': str,
+                                  'OTH_DIAG_CODE_8': str,
+                                  'OTH_DIAG_CODE_9': str,
+                                  'OTH_DIAG_CODE_10': str,
+                                  'OTH_DIAG_CODE_11': str,
+                                  'OTH_DIAG_CODE_12': str,
+                                  'OTH_DIAG_CODE_13': str,
+                                  'OTH_DIAG_CODE_14': str,
+                                  'OTH_DIAG_CODE_15': str,
+                                  'OTH_DIAG_CODE_16': str,
+                                  'OTH_DIAG_CODE_17': str,
+                                  'OTH_DIAG_CODE_18': str,
+                                  'OTH_DIAG_CODE_19': str,
+                                  'OTH_DIAG_CODE_20': str,
+                                  'OTH_DIAG_CODE_21': str,
+                                  'OTH_DIAG_CODE_22': str,
+                                  'OTH_DIAG_CODE_23': str,
+                                  'OTH_DIAG_CODE_24': str})
 
-        quarter3 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_3q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
-                                                                                                     'DISCHARGE',
-                                                                                                     'SOURCE_OF_ADMISSION',
-                                                                                                     'PAT_STATUS',
-                                                                                                     'PAT_STATE',
-                                                                                                     'COUNTY',
-                                                                                                     'SEX_CODE',
-                                                                                                     'RACE',
-                                                                                                     'ETHNICITY',
-                                                                                                     'PAT_AGE',
-                                                                                                     'FIRST_PAYMENT_SRC',
-                                                                                                     'SECONDARY_PAYMENT_SRC',
-                                                                                                     'LENGTH_OF_STAY',
-                                                                                                     'ADMITTING_DIAGNOSIS',
-                                                                                                     'PRINC_DIAG_CODE',
-                                                                                                     'OTH_DIAG_CODE_1',
-                                                                                                     'OTH_DIAG_CODE_2',
-                                                                                                     'OTH_DIAG_CODE_3',
-                                                                                                     'OTH_DIAG_CODE_4',
-                                                                                                     'OTH_DIAG_CODE_5',
-                                                                                                     'OTH_DIAG_CODE_6',
-                                                                                                     'OTH_DIAG_CODE_7',
-                                                                                                     'OTH_DIAG_CODE_8',
-                                                                                                     'OTH_DIAG_CODE_9',
-                                                                                                     'OTH_DIAG_CODE_10',
-                                                                                                     'OTH_DIAG_CODE_11',
-                                                                                                     'OTH_DIAG_CODE_12',
-                                                                                                     'OTH_DIAG_CODE_13',
-                                                                                                     'OTH_DIAG_CODE_14',
-                                                                                                     'OTH_DIAG_CODE_15',
-                                                                                                     'OTH_DIAG_CODE_16',
-                                                                                                     'OTH_DIAG_CODE_17',
-                                                                                                     'OTH_DIAG_CODE_18',
-                                                                                                     'OTH_DIAG_CODE_19',
-                                                                                                     'OTH_DIAG_CODE_20',
-                                                                                                     'OTH_DIAG_CODE_21',
-                                                                                                     'OTH_DIAG_CODE_22',
-                                                                                                     'OTH_DIAG_CODE_23',
-                                                                                                     'OTH_DIAG_CODE_24', ],
-                               dtype={'RECORD_ID': object,
-                                      'DISCHARGE': object,
-                                      'SOURCE_OF_ADMISSION': object,
-                                      'PAT_STATUS': object,
-                                      'PAT_STATE': str,
-                                      'COUNTY': str,
-                                      'SEX_CODE': object,
-                                      'RACE': object,
-                                      'ETHNICITY': object,
-                                      'PAT_AGE': object,
-                                      'FIRST_PAYMENT_SRC': object,
-                                      'SECONDARY_PAYMENT_SRC': object,
-                                      'LENGTH_OF_STAY': float,
-                                      'ADMITTING_DIAGNOSIS': str,
-                                      'PRINC_DIAG_CODE': str,
-                                      'OTH_DIAG_CODE_1': str,
-                                      'OTH_DIAG_CODE_2': str,
-                                      'OTH_DIAG_CODE_3': str,
-                                      'OTH_DIAG_CODE_4': str,
-                                      'OTH_DIAG_CODE_5': str,
-                                      'OTH_DIAG_CODE_6': str,
-                                      'OTH_DIAG_CODE_7': str,
-                                      'OTH_DIAG_CODE_8': str,
-                                      'OTH_DIAG_CODE_9': str,
-                                      'OTH_DIAG_CODE_10': str,
-                                      'OTH_DIAG_CODE_11': str,
-                                      'OTH_DIAG_CODE_12': str,
-                                      'OTH_DIAG_CODE_13': str,
-                                      'OTH_DIAG_CODE_14': str,
-                                      'OTH_DIAG_CODE_15': str,
-                                      'OTH_DIAG_CODE_16': str,
-                                      'OTH_DIAG_CODE_17': str,
-                                      'OTH_DIAG_CODE_18': str,
-                                      'OTH_DIAG_CODE_19': str,
-                                      'OTH_DIAG_CODE_20': str,
-                                      'OTH_DIAG_CODE_21': str,
-                                      'OTH_DIAG_CODE_22': str,
-                                      'OTH_DIAG_CODE_23': str,
-                                      'OTH_DIAG_CODE_24': str})
+    quarter2 = pd.read_csv('file://' + dataPathq2, delimiter="\t", usecols=['RECORD_ID',
+                                                                                                 'DISCHARGE',
+                                                                                                 'SOURCE_OF_ADMISSION',
+                                                                                                 'PAT_STATUS',
+                                                                                                 'PAT_STATE',
+                                                                                                 'COUNTY',
+                                                                                                 'SEX_CODE',
+                                                                                                 'RACE',
+                                                                                                 'ETHNICITY',
+                                                                                                 'PAT_AGE',
+                                                                                                 'FIRST_PAYMENT_SRC',
+                                                                                                 'SECONDARY_PAYMENT_SRC',
+                                                                                                 'LENGTH_OF_STAY',
+                                                                                                 'ADMITTING_DIAGNOSIS',
+                                                                                                 'PRINC_DIAG_CODE',
+                                                                                                 'OTH_DIAG_CODE_1',
+                                                                                                 'OTH_DIAG_CODE_2',
+                                                                                                 'OTH_DIAG_CODE_3',
+                                                                                                 'OTH_DIAG_CODE_4',
+                                                                                                 'OTH_DIAG_CODE_5',
+                                                                                                 'OTH_DIAG_CODE_6',
+                                                                                                 'OTH_DIAG_CODE_7',
+                                                                                                 'OTH_DIAG_CODE_8',
+                                                                                                 'OTH_DIAG_CODE_9',
+                                                                                                 'OTH_DIAG_CODE_10',
+                                                                                                 'OTH_DIAG_CODE_11',
+                                                                                                 'OTH_DIAG_CODE_12',
+                                                                                                 'OTH_DIAG_CODE_13',
+                                                                                                 'OTH_DIAG_CODE_14',
+                                                                                                 'OTH_DIAG_CODE_15',
+                                                                                                 'OTH_DIAG_CODE_16',
+                                                                                                 'OTH_DIAG_CODE_17',
+                                                                                                 'OTH_DIAG_CODE_18',
+                                                                                                 'OTH_DIAG_CODE_19',
+                                                                                                 'OTH_DIAG_CODE_20',
+                                                                                                 'OTH_DIAG_CODE_21',
+                                                                                                 'OTH_DIAG_CODE_22',
+                                                                                                 'OTH_DIAG_CODE_23',
+                                                                                                 'OTH_DIAG_CODE_24', ],
+                           dtype={'RECORD_ID': object,
+                                  'DISCHARGE': object,
+                                  'SOURCE_OF_ADMISSION': object,
+                                  'PAT_STATUS': object,
+                                  'PAT_STATE': str,
+                                  'COUNTY': str,
+                                  'SEX_CODE': object,
+                                  'RACE': object,
+                                  'ETHNICITY': object,
+                                  'PAT_AGE': object,
+                                  'FIRST_PAYMENT_SRC': object,
+                                  'SECONDARY_PAYMENT_SRC': object,
+                                  'LENGTH_OF_STAY': float,
+                                  'ADMITTING_DIAGNOSIS': str,
+                                  'PRINC_DIAG_CODE': str,
+                                  'OTH_DIAG_CODE_1': str,
+                                  'OTH_DIAG_CODE_2': str,
+                                  'OTH_DIAG_CODE_3': str,
+                                  'OTH_DIAG_CODE_4': str,
+                                  'OTH_DIAG_CODE_5': str,
+                                  'OTH_DIAG_CODE_6': str,
+                                  'OTH_DIAG_CODE_7': str,
+                                  'OTH_DIAG_CODE_8': str,
+                                  'OTH_DIAG_CODE_9': str,
+                                  'OTH_DIAG_CODE_10': str,
+                                  'OTH_DIAG_CODE_11': str,
+                                  'OTH_DIAG_CODE_12': str,
+                                  'OTH_DIAG_CODE_13': str,
+                                  'OTH_DIAG_CODE_14': str,
+                                  'OTH_DIAG_CODE_15': str,
+                                  'OTH_DIAG_CODE_16': str,
+                                  'OTH_DIAG_CODE_17': str,
+                                  'OTH_DIAG_CODE_18': str,
+                                  'OTH_DIAG_CODE_19': str,
+                                  'OTH_DIAG_CODE_20': str,
+                                  'OTH_DIAG_CODE_21': str,
+                                  'OTH_DIAG_CODE_22': str,
+                                  'OTH_DIAG_CODE_23': str,
+                                  'OTH_DIAG_CODE_24': str})
 
-        quarter4 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_4q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
-                                                                                                     'DISCHARGE',
-                                                                                                     'SOURCE_OF_ADMISSION',
-                                                                                                     'PAT_STATUS',
-                                                                                                     'PAT_STATE',
-                                                                                                     'COUNTY',
-                                                                                                     'SEX_CODE',
-                                                                                                     'RACE',
-                                                                                                     'ETHNICITY',
-                                                                                                     'PAT_AGE',
-                                                                                                     'FIRST_PAYMENT_SRC',
-                                                                                                     'SECONDARY_PAYMENT_SRC',
-                                                                                                     'LENGTH_OF_STAY',
-                                                                                                     'ADMITTING_DIAGNOSIS',
-                                                                                                     'PRINC_DIAG_CODE',
-                                                                                                     'OTH_DIAG_CODE_1',
-                                                                                                     'OTH_DIAG_CODE_2',
-                                                                                                     'OTH_DIAG_CODE_3',
-                                                                                                     'OTH_DIAG_CODE_4',
-                                                                                                     'OTH_DIAG_CODE_5',
-                                                                                                     'OTH_DIAG_CODE_6',
-                                                                                                     'OTH_DIAG_CODE_7',
-                                                                                                     'OTH_DIAG_CODE_8',
-                                                                                                     'OTH_DIAG_CODE_9',
-                                                                                                     'OTH_DIAG_CODE_10',
-                                                                                                     'OTH_DIAG_CODE_11',
-                                                                                                     'OTH_DIAG_CODE_12',
-                                                                                                     'OTH_DIAG_CODE_13',
-                                                                                                     'OTH_DIAG_CODE_14',
-                                                                                                     'OTH_DIAG_CODE_15',
-                                                                                                     'OTH_DIAG_CODE_16',
-                                                                                                     'OTH_DIAG_CODE_17',
-                                                                                                     'OTH_DIAG_CODE_18',
-                                                                                                     'OTH_DIAG_CODE_19',
-                                                                                                     'OTH_DIAG_CODE_20',
-                                                                                                     'OTH_DIAG_CODE_21',
-                                                                                                     'OTH_DIAG_CODE_22',
-                                                                                                     'OTH_DIAG_CODE_23',
-                                                                                                     'OTH_DIAG_CODE_24', ],
-                               dtype={'RECORD_ID': object,
-                                      'DISCHARGE': object,
-                                      'SOURCE_OF_ADMISSION': object,
-                                      'PAT_STATUS': object,
-                                      'PAT_STATE': str,
-                                      'COUNTY': str,
-                                      'SEX_CODE': object,
-                                      'RACE': object,
-                                      'ETHNICITY': object,
-                                      'PAT_AGE': object,
-                                      'FIRST_PAYMENT_SRC': object,
-                                      'SECONDARY_PAYMENT_SRC': object,
-                                      'LENGTH_OF_STAY': float,
-                                      'ADMITTING_DIAGNOSIS': str,
-                                      'PRINC_DIAG_CODE': str,
-                                      'OTH_DIAG_CODE_1': str,
-                                      'OTH_DIAG_CODE_2': str,
-                                      'OTH_DIAG_CODE_3': str,
-                                      'OTH_DIAG_CODE_4': str,
-                                      'OTH_DIAG_CODE_5': str,
-                                      'OTH_DIAG_CODE_6': str,
-                                      'OTH_DIAG_CODE_7': str,
-                                      'OTH_DIAG_CODE_8': str,
-                                      'OTH_DIAG_CODE_9': str,
-                                      'OTH_DIAG_CODE_10': str,
-                                      'OTH_DIAG_CODE_11': str,
-                                      'OTH_DIAG_CODE_12': str,
-                                      'OTH_DIAG_CODE_13': str,
-                                      'OTH_DIAG_CODE_14': str,
-                                      'OTH_DIAG_CODE_15': str,
-                                      'OTH_DIAG_CODE_16': str,
-                                      'OTH_DIAG_CODE_17': str,
-                                      'OTH_DIAG_CODE_18': str,
-                                      'OTH_DIAG_CODE_19': str,
-                                      'OTH_DIAG_CODE_20': str,
-                                      'OTH_DIAG_CODE_21': str,
-                                      'OTH_DIAG_CODE_22': str,
-                                      'OTH_DIAG_CODE_23': str,
-                                      'OTH_DIAG_CODE_24': str})
+    quarter3 = pd.read_csv('file://' + dataPathq3, delimiter="\t", usecols=['RECORD_ID',
+                                                                                                 'DISCHARGE',
+                                                                                                 'SOURCE_OF_ADMISSION',
+                                                                                                 'PAT_STATUS',
+                                                                                                 'PAT_STATE',
+                                                                                                 'COUNTY',
+                                                                                                 'SEX_CODE',
+                                                                                                 'RACE',
+                                                                                                 'ETHNICITY',
+                                                                                                 'PAT_AGE',
+                                                                                                 'FIRST_PAYMENT_SRC',
+                                                                                                 'SECONDARY_PAYMENT_SRC',
+                                                                                                 'LENGTH_OF_STAY',
+                                                                                                 'ADMITTING_DIAGNOSIS',
+                                                                                                 'PRINC_DIAG_CODE',
+                                                                                                 'OTH_DIAG_CODE_1',
+                                                                                                 'OTH_DIAG_CODE_2',
+                                                                                                 'OTH_DIAG_CODE_3',
+                                                                                                 'OTH_DIAG_CODE_4',
+                                                                                                 'OTH_DIAG_CODE_5',
+                                                                                                 'OTH_DIAG_CODE_6',
+                                                                                                 'OTH_DIAG_CODE_7',
+                                                                                                 'OTH_DIAG_CODE_8',
+                                                                                                 'OTH_DIAG_CODE_9',
+                                                                                                 'OTH_DIAG_CODE_10',
+                                                                                                 'OTH_DIAG_CODE_11',
+                                                                                                 'OTH_DIAG_CODE_12',
+                                                                                                 'OTH_DIAG_CODE_13',
+                                                                                                 'OTH_DIAG_CODE_14',
+                                                                                                 'OTH_DIAG_CODE_15',
+                                                                                                 'OTH_DIAG_CODE_16',
+                                                                                                 'OTH_DIAG_CODE_17',
+                                                                                                 'OTH_DIAG_CODE_18',
+                                                                                                 'OTH_DIAG_CODE_19',
+                                                                                                 'OTH_DIAG_CODE_20',
+                                                                                                 'OTH_DIAG_CODE_21',
+                                                                                                 'OTH_DIAG_CODE_22',
+                                                                                                 'OTH_DIAG_CODE_23',
+                                                                                                 'OTH_DIAG_CODE_24', ],
+                           dtype={'RECORD_ID': object,
+                                  'DISCHARGE': object,
+                                  'SOURCE_OF_ADMISSION': object,
+                                  'PAT_STATUS': object,
+                                  'PAT_STATE': str,
+                                  'COUNTY': str,
+                                  'SEX_CODE': object,
+                                  'RACE': object,
+                                  'ETHNICITY': object,
+                                  'PAT_AGE': object,
+                                  'FIRST_PAYMENT_SRC': object,
+                                  'SECONDARY_PAYMENT_SRC': object,
+                                  'LENGTH_OF_STAY': float,
+                                  'ADMITTING_DIAGNOSIS': str,
+                                  'PRINC_DIAG_CODE': str,
+                                  'OTH_DIAG_CODE_1': str,
+                                  'OTH_DIAG_CODE_2': str,
+                                  'OTH_DIAG_CODE_3': str,
+                                  'OTH_DIAG_CODE_4': str,
+                                  'OTH_DIAG_CODE_5': str,
+                                  'OTH_DIAG_CODE_6': str,
+                                  'OTH_DIAG_CODE_7': str,
+                                  'OTH_DIAG_CODE_8': str,
+                                  'OTH_DIAG_CODE_9': str,
+                                  'OTH_DIAG_CODE_10': str,
+                                  'OTH_DIAG_CODE_11': str,
+                                  'OTH_DIAG_CODE_12': str,
+                                  'OTH_DIAG_CODE_13': str,
+                                  'OTH_DIAG_CODE_14': str,
+                                  'OTH_DIAG_CODE_15': str,
+                                  'OTH_DIAG_CODE_16': str,
+                                  'OTH_DIAG_CODE_17': str,
+                                  'OTH_DIAG_CODE_18': str,
+                                  'OTH_DIAG_CODE_19': str,
+                                  'OTH_DIAG_CODE_20': str,
+                                  'OTH_DIAG_CODE_21': str,
+                                  'OTH_DIAG_CODE_22': str,
+                                  'OTH_DIAG_CODE_23': str,
+                                  'OTH_DIAG_CODE_24': str})
 
-        # Combining all the quarters into one dataframe
-        frames = [quarter1, quarter2, quarter3, quarter4]
-        year2013 = pd.concat(frames)
+    quarter4 = pd.read_csv('file://' + dataPathq4, delimiter="\t", usecols=['RECORD_ID',
+                                                                            'DISCHARGE',
+                                                                            'SOURCE_OF_ADMISSION',
+                                                                            'PAT_STATUS',
+                                                                            'PAT_STATE',
+                                                                            'COUNTY',
+                                                                            'SEX_CODE',
+                                                                            'RACE',
+                                                                            'ETHNICITY',
+                                                                            'PAT_AGE',
+                                                                            'FIRST_PAYMENT_SRC',
+                                                                            'SECONDARY_PAYMENT_SRC',
+                                                                            'LENGTH_OF_STAY',
+                                                                            'ADMITTING_DIAGNOSIS',
+                                                                            'PRINC_DIAG_CODE',
+                                                                            'OTH_DIAG_CODE_1',
+                                                                            'OTH_DIAG_CODE_2',
+                                                                            'OTH_DIAG_CODE_3',
+                                                                            'OTH_DIAG_CODE_4',
+                                                                            'OTH_DIAG_CODE_5',
+                                                                            'OTH_DIAG_CODE_6',
+                                                                            'OTH_DIAG_CODE_7',
+                                                                            'OTH_DIAG_CODE_8',
+                                                                            'OTH_DIAG_CODE_9',
+                                                                            'OTH_DIAG_CODE_10',
+                                                                            'OTH_DIAG_CODE_11',
+                                                                            'OTH_DIAG_CODE_12',
+                                                                            'OTH_DIAG_CODE_13',
+                                                                            'OTH_DIAG_CODE_14',
+                                                                            'OTH_DIAG_CODE_15',
+                                                                            'OTH_DIAG_CODE_16',
+                                                                            'OTH_DIAG_CODE_17',
+                                                                            'OTH_DIAG_CODE_18',
+                                                                            'OTH_DIAG_CODE_19',
+                                                                            'OTH_DIAG_CODE_20',
+                                                                            'OTH_DIAG_CODE_21',
+                                                                            'OTH_DIAG_CODE_22',
+                                                                            'OTH_DIAG_CODE_23',
+                                                                            'OTH_DIAG_CODE_24', ],
+                           dtype={'RECORD_ID': object,
+                                  'DISCHARGE': object,
+                                  'SOURCE_OF_ADMISSION': object,
+                                  'PAT_STATUS': object,
+                                  'PAT_STATE': str,
+                                  'COUNTY': str,
+                                  'SEX_CODE': object,
+                                  'RACE': object,
+                                  'ETHNICITY': object,
+                                  'PAT_AGE': object,
+                                  'FIRST_PAYMENT_SRC': object,
+                                  'SECONDARY_PAYMENT_SRC': object,
+                                  'LENGTH_OF_STAY': float,
+                                  'ADMITTING_DIAGNOSIS': str,
+                                  'PRINC_DIAG_CODE': str,
+                                  'OTH_DIAG_CODE_1': str,
+                                  'OTH_DIAG_CODE_2': str,
+                                  'OTH_DIAG_CODE_3': str,
+                                  'OTH_DIAG_CODE_4': str,
+                                  'OTH_DIAG_CODE_5': str,
+                                  'OTH_DIAG_CODE_6': str,
+                                  'OTH_DIAG_CODE_7': str,
+                                  'OTH_DIAG_CODE_8': str,
+                                  'OTH_DIAG_CODE_9': str,
+                                  'OTH_DIAG_CODE_10': str,
+                                  'OTH_DIAG_CODE_11': str,
+                                  'OTH_DIAG_CODE_12': str,
+                                  'OTH_DIAG_CODE_13': str,
+                                  'OTH_DIAG_CODE_14': str,
+                                  'OTH_DIAG_CODE_15': str,
+                                  'OTH_DIAG_CODE_16': str,
+                                  'OTH_DIAG_CODE_17': str,
+                                  'OTH_DIAG_CODE_18': str,
+                                  'OTH_DIAG_CODE_19': str,
+                                  'OTH_DIAG_CODE_20': str,
+                                  'OTH_DIAG_CODE_21': str,
+                                  'OTH_DIAG_CODE_22': str,
+                                  'OTH_DIAG_CODE_23': str,
+                                  'OTH_DIAG_CODE_24': str})
 
-        # Insurance Codes
-        medicare = ['16', 'MA', 'MB']
-        medicaid = ['MC']
-        sc = ['09', 'ZZ']
-        other = ['10', '11', 'AM', 'CI', 'LI',
-                 'LM', '12', '13', '14', '15',
-                 'BL', 'CH', 'HM', 'OF', 'WC',
-                 'DS', 'VA', 'TV']
+    # Combining all the quarters into one dataframe
+    frames = [quarter1, quarter2, quarter3, quarter4]
+    year2013 = pd.concat(frames)
 
-        # County Information ----------------------------------------------------------------------------
+    # Insurance Codes
+    medicare = ['16', 'MA', 'MB']
+    medicaid = ['MC']
+    sc = ['09', 'ZZ']
+    other = ['10', '11', 'AM', 'CI', 'LI',
+             'LM', '12', '13', '14', '15',
+             'BL', 'CH', 'HM', 'OF', 'WC',
+             'DS', 'VA', 'TV']
 
-        # fips code of each county in Border Area
-        on_border = ['043', '047', '061', '105',
-                     '109', '127', '131', '137',
-                     '141', '163', '215', '229',
-                     '243', '247', '261', '271',
-                     '283', '323', '311', '371',
-                     '377', '385', '389', '427',
-                     '435', '443', '463', '465',
-                     '479', '489', '505', '507']
+    # County Information ----------------------------------------------------------------------------
 
-        year2013['On Border'] = 0
-        year2013.loc[year2013['COUNTY'].isin(on_border), ['On Border']] = 1
-        # If the value is missing in county, set new value to missing
-        year2013['On Border'].loc[year2013['COUNTY'].isna()] = np.nan
+    # fips code of each county in Border Area
+    on_border = ['043', '047', '061', '105',
+                 '109', '127', '131', '137',
+                 '141', '163', '215', '229',
+                 '243', '247', '261', '271',
+                 '283', '323', '311', '371',
+                 '377', '385', '389', '427',
+                 '435', '443', '463', '465',
+                 '479', '489', '505', '507']
 
-        # Filter by hospital delivery
-        # Checks if a delivery-type code (V27*) is in any of the icd9 columns
-        year2013 = year2013.loc[(year2013['ADMITTING_DIAGNOSIS'].str.startswith('V27'))
-                                | year2013['PRINC_DIAG_CODE'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_1'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_2'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_3'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_4'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_5'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_6'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_7'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_8'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_9'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_10'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_11'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_12'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_13'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_14'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_15'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_16'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_17'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_18'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_19'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_20'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_21'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_22'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_23'].str.startswith('V27')
-                                | year2013['OTH_DIAG_CODE_24'].str.startswith('V27')]
+    year2013['On Border'] = 0
+    year2013.loc[year2013['COUNTY'].isin(on_border), ['On Border']] = 1
+    # If the value is missing in county, set new value to missing
+    year2013['On Border'].loc[year2013['COUNTY'].isna()] = np.nan
 
-        # Drop year2012
-        year2013 = year2013[year2013['DISCHARGE'] != '2012Q4']
+    # Filter by hospital delivery
+    # Checks if a delivery-type code (V27*) is in any of the icd9 columns
+    year2013 = year2013.loc[(year2013['ADMITTING_DIAGNOSIS'].str.startswith('V27'))
+                            | year2013['PRINC_DIAG_CODE'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_1'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_2'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_3'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_4'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_5'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_6'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_7'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_8'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_9'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_10'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_11'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_12'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_13'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_14'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_15'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_16'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_17'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_18'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_19'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_20'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_21'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_22'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_23'].str.startswith('V27')
+                            | year2013['OTH_DIAG_CODE_24'].str.startswith('V27')]
 
-        # Selecting appropriate age groups
-        year2013 = year2013.query('PAT_AGE >= "04" & PAT_AGE <= "13"')
+    # Drop year2012
+    year2013 = year2013[year2013['DISCHARGE'] != '2012Q4']
 
-        if age == 'Ordinal':
+    # Selecting appropriate age groups
+    year2013 = year2013.query('PAT_AGE >= "04" & PAT_AGE <= "13"')
 
-            # Encode variables
-            enc = OrdinalEncoder()
-            year2013[["PAT_AGE"]] = enc.fit_transform(year2013[["PAT_AGE"]])
+    if age == 'Ordinal':
 
-        elif age == 'Categorical':
-            year2013 = age_encoderTX(year2013)
+        # Encode variables
+        enc = OrdinalEncoder()
+        year2013[["PAT_AGE"]] = enc.fit_transform(year2013[["PAT_AGE"]])
 
-        # Drop Invalid gender rows
-        year2013 = year2013[year2013['SEX_CODE'] != 'U']
+    elif age == 'Categorical':
+        year2013 = age_encoderTX(year2013)
 
-        # Re-label Invalid gender rows
-        year2013['SEX_CODE'] = year2013['SEX_CODE'].replace('M', 'F')
+    # Drop Invalid gender rows
+    year2013 = year2013[year2013['SEX_CODE'] != 'U']
 
-        # Replace all tick marks with nan, either impute or drop later
-        year2013 = year2013.replace('`', np.NaN)
+    # Re-label Invalid gender rows
+    year2013['SEX_CODE'] = year2013['SEX_CODE'].replace('M', 'F')
 
-        # Replace sex code nan with F, since at this point we should have only females in the df
-        year2013['SEX_CODE'] = year2013['SEX_CODE'].replace(np.NaN, 'F')
+    # Replace all tick marks with nan, either impute or drop later
+    year2013 = year2013.replace('`', np.NaN)
 
-        # Changes payment sources from codes to corresponding categories
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicare, "Medicare")
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicaid, "Medicaid")
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc,
-                                                                              "Self-pay or Charity")
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other,
-                                                                              "Other Insurance")
+    # Replace sex code nan with F, since at this point we should have only females in the df
+    year2013['SEX_CODE'] = year2013['SEX_CODE'].replace(np.NaN, 'F')
 
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare,
-                                                                                      "Medicare")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid,
-                                                                                      "Medicaid")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc,
-                                                                                      "Self-pay or Charity")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other,
-                                                                                      "Other Insurance")
+    # Changes payment sources from codes to corresponding categories
+    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicare, "Medicare")
+    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicaid, "Medicaid")
+    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc,
+                                                                          "Self-pay or Charity")
+    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other,
+                                                                          "Other Insurance")
 
-        year2013 = pd.get_dummies(year2013, dummy_na=False,
-                                  columns=['FIRST_PAYMENT_SRC', 'SECONDARY_PAYMENT_SRC'])
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare,
+                                                                                  "Medicare")
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid,
+                                                                                  "Medicaid")
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc,
+                                                                                  "Self-pay or Charity")
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other,
+                                                                                  "Other Insurance")
 
-        # Create category columns
-        year2013['Medicaid'] = 0
-        year2013['Medicare'] = 0
-        year2013['Self-pay or Charity'] = 0
-        year2013['Other Insurance'] = 0
+    year2013 = pd.get_dummies(year2013, dummy_na=False,
+                              columns=['FIRST_PAYMENT_SRC', 'SECONDARY_PAYMENT_SRC'])
 
-        year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicaid'] == 1, 1,
-                                        year2013[
-                                            'Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicaid'] == 1, 1,
-                                        year2013['Medicaid'])
-        year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicare'] == 1, 1,
-                                        year2013['Medicare'])
-        year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicare'] == 1, 1,
-                                        year2013['Medicare'])
-        year2013['Self-pay or Charity'] = np.where(
-            year2013['FIRST_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
-            year2013['Self-pay or Charity'])
-        year2013['Self-pay or Charity'] = np.where(
-            year2013['SECONDARY_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
-            year2013['Self-pay or Charity'])
-        year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC_Other Insurance'] == 1, 1,
-                                               year2013['Other Insurance'])
-        year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Other Insurance'] == 1,
-                                               1, year2013['Other Insurance'])
+    # Create category columns
+    year2013['Medicaid'] = 0
+    year2013['Medicare'] = 0
+    year2013['Self-pay or Charity'] = 0
+    year2013['Other Insurance'] = 0
 
-        # Drop columns with dummies
-        year2013.drop(columns=['FIRST_PAYMENT_SRC_Medicaid',
-                               'SECONDARY_PAYMENT_SRC_Medicaid',
-                               'FIRST_PAYMENT_SRC_Medicare',
-                               'SECONDARY_PAYMENT_SRC_Medicare',
-                               'FIRST_PAYMENT_SRC_Self-pay or Charity',
-                               'SECONDARY_PAYMENT_SRC_Self-pay or Charity',
-                               'FIRST_PAYMENT_SRC_Other Insurance',
-                               'SECONDARY_PAYMENT_SRC_Other Insurance']
-                      , axis=1, inplace=True)
+    year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicaid'] == 1, 1,
+                                    year2013[
+                                        'Medicaid'])  # Change to 1 if 1, otherwise leave as is
+    year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicaid'] == 1, 1,
+                                    year2013['Medicaid'])
+    year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicare'] == 1, 1,
+                                    year2013['Medicare'])
+    year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicare'] == 1, 1,
+                                    year2013['Medicare'])
+    year2013['Self-pay or Charity'] = np.where(
+        year2013['FIRST_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
+        year2013['Self-pay or Charity'])
+    year2013['Self-pay or Charity'] = np.where(
+        year2013['SECONDARY_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
+        year2013['Self-pay or Charity'])
+    year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC_Other Insurance'] == 1, 1,
+                                           year2013['Other Insurance'])
+    year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Other Insurance'] == 1,
+                                           1, year2013['Other Insurance'])
 
-        # Rename Race columns
-        """
-        year2013['RACE'] = year2013['RACE'].replace('1', 'Native American')
-        year2013['RACE'] = year2013['RACE'].replace('2', 'Asian or Pacific Islander')
-        year2013['RACE'] = year2013['RACE'].replace('3', 'Black')
-        year2013['RACE'] = year2013['RACE'].replace('4', 'White')
-        year2013['RACE'] = year2013['RACE'].replace('5', 'Other Race')
-        """
+    # Drop columns with dummies
+    year2013.drop(columns=['FIRST_PAYMENT_SRC_Medicaid',
+                           'SECONDARY_PAYMENT_SRC_Medicaid',
+                           'FIRST_PAYMENT_SRC_Medicare',
+                           'SECONDARY_PAYMENT_SRC_Medicare',
+                           'FIRST_PAYMENT_SRC_Self-pay or Charity',
+                           'SECONDARY_PAYMENT_SRC_Self-pay or Charity',
+                           'FIRST_PAYMENT_SRC_Other Insurance',
+                           'SECONDARY_PAYMENT_SRC_Other Insurance']
+                  , axis=1, inplace=True)
 
-        # Columns for scanning ICD9 codes
-        diagnosisColumns = ['ADMITTING_DIAGNOSIS',
-                            'PRINC_DIAG_CODE',
-                            'OTH_DIAG_CODE_1',
-                            'OTH_DIAG_CODE_2',
-                            'OTH_DIAG_CODE_3',
-                            'OTH_DIAG_CODE_4',
-                            'OTH_DIAG_CODE_5',
-                            'OTH_DIAG_CODE_6',
-                            'OTH_DIAG_CODE_7',
-                            'OTH_DIAG_CODE_8',
-                            'OTH_DIAG_CODE_9',
-                            'OTH_DIAG_CODE_10',
-                            'OTH_DIAG_CODE_11',
-                            'OTH_DIAG_CODE_12',
-                            'OTH_DIAG_CODE_13',
-                            'OTH_DIAG_CODE_14',
-                            'OTH_DIAG_CODE_15',
-                            'OTH_DIAG_CODE_16',
-                            'OTH_DIAG_CODE_17',
-                            'OTH_DIAG_CODE_18',
-                            'OTH_DIAG_CODE_19',
-                            'OTH_DIAG_CODE_20',
-                            'OTH_DIAG_CODE_21',
-                            'OTH_DIAG_CODE_22',
-                            'OTH_DIAG_CODE_23',
-                            'OTH_DIAG_CODE_24']
+    # Rename Race columns
+    """
+    year2013['RACE'] = year2013['RACE'].replace('1', 'Native American')
+    year2013['RACE'] = year2013['RACE'].replace('2', 'Asian or Pacific Islander')
+    year2013['RACE'] = year2013['RACE'].replace('3', 'Black')
+    year2013['RACE'] = year2013['RACE'].replace('4', 'White')
+    year2013['RACE'] = year2013['RACE'].replace('5', 'Other Race')
+    """
 
-        # Creating a dictionary to hold keys and values
-        diseaseDictionary = {}
+    # Columns for scanning ICD9 codes
+    diagnosisColumns = ['ADMITTING_DIAGNOSIS',
+                        'PRINC_DIAG_CODE',
+                        'OTH_DIAG_CODE_1',
+                        'OTH_DIAG_CODE_2',
+                        'OTH_DIAG_CODE_3',
+                        'OTH_DIAG_CODE_4',
+                        'OTH_DIAG_CODE_5',
+                        'OTH_DIAG_CODE_6',
+                        'OTH_DIAG_CODE_7',
+                        'OTH_DIAG_CODE_8',
+                        'OTH_DIAG_CODE_9',
+                        'OTH_DIAG_CODE_10',
+                        'OTH_DIAG_CODE_11',
+                        'OTH_DIAG_CODE_12',
+                        'OTH_DIAG_CODE_13',
+                        'OTH_DIAG_CODE_14',
+                        'OTH_DIAG_CODE_15',
+                        'OTH_DIAG_CODE_16',
+                        'OTH_DIAG_CODE_17',
+                        'OTH_DIAG_CODE_18',
+                        'OTH_DIAG_CODE_19',
+                        'OTH_DIAG_CODE_20',
+                        'OTH_DIAG_CODE_21',
+                        'OTH_DIAG_CODE_22',
+                        'OTH_DIAG_CODE_23',
+                        'OTH_DIAG_CODE_24']
 
-        diseaseDictionary['Obesity'] = ['V853', 'V854', '27800', '27801', '27803', '6491']
-        # diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
-        diseaseDictionary['Cocaine dependence'] = ['3042', '3056']
-        diseaseDictionary['Amphetamine dependence'] = ['3044', '3057']
-        diseaseDictionary['Gestational diabetes mellitus'] = ['6488']
-        diseaseDictionary['Pre-existing diabetes mellitus'] = ['250', '6480']
-        diseaseDictionary['Anxiety'] = ['3000']
-        diseaseDictionary['Anemia NOS'] = ['2859']
-        diseaseDictionary['Iron deficiency anemia'] = ['280']
-        diseaseDictionary['Other anemia'] = ['281']
-        diseaseDictionary['Depression'] = ['311']
-        diseaseDictionary['Primigravidas at the extremes of maternal age'] = ['6595', 'V2381', 'V2383']
-        diseaseDictionary['Hemorrhagic disorders due to intrinsic circulating antibodies'] = ['2865']
-        diseaseDictionary['Systemic lupus erythematosus'] = ['7100']
-        diseaseDictionary['Lupus erythematosus'] = ['6954']
-        diseaseDictionary['Autoimmune disease not elsewhere classified'] = ['27949']
-        diseaseDictionary['Pure hypercholesterolemia'] = ['2720']
-        diseaseDictionary['Unspecified vitamin D deficiency'] = ['2689']
-        diseaseDictionary['Proteinuria'] = ['7910']
-        diseaseDictionary['Tobacco use disorder'] = ['3051', '6490']
-        diseaseDictionary['History of tobacco use'] = ['V1582']
-        diseaseDictionary['Hypertension'] = ['401']
-        diseaseDictionary['Hypertensive heart disease'] = ['402']
-        diseaseDictionary['Chronic venous hypertension'] = ['4593']
-        diseaseDictionary['Unspecified renal disease in pregnancy without mention of hypertension'] = ['6462']
-        diseaseDictionary['Chronic kidney disease'] = ['585']
-        diseaseDictionary['Hypertensive kidney disease'] = ['403']
-        diseaseDictionary['Hypertensive heart and chronic kidney disease'] = ['404']
-        diseaseDictionary['Renal failure not elsewhere classified'] = ['586']
-        diseaseDictionary['Infections of genitourinary tract in pregnancy'] = ['6466']
-        diseaseDictionary['UTI'] = ['5990']
-        diseaseDictionary['Personal history of trophoblastic disease'] = ['V131']
-        diseaseDictionary['Supervision of high-risk pregnancy with history of trophoblastic disease'] = ['V231']
-        diseaseDictionary['Thrombophilia'] = ['28981']
-        diseaseDictionary['History of premature delivery'] = ['V1321']
-        diseaseDictionary['Hemorrhage in early pregnancy'] = ['640']
-        diseaseDictionary[
-            'Congenital abnormalities of the uterus including those complicating pregnancy, childbirth, or the puerperium'] = [
-            '6540', '7522', '7523']
-        # diseaseDictionary['Multiple Gestations'] = ['651']
-        diseaseDictionary['Fetal Growth Restriction'] = ['764']
-        diseaseDictionary['Asthma'] = ['493']
-        diseaseDictionary['Obstructive Sleep Apnea'] = ['32723']
-        diseaseDictionary['Other cardiovascular diseases complicating pregnancy and childbirth or the puerperium'] = [
-            '6486']
-        diseaseDictionary['Sickle cell disease'] = ['28260']
-        diseaseDictionary['Thyroid Disease'] = ['240', '241', '242', '243', '244', '245', '246']
-        diseaseDictionary['Inadequate Prenatal Care'] = ['V237']
-        diseaseDictionary['Periodontal disease'] = ['523']
-        diseaseDictionary['Preeclampsia/Eclampsia'] = ['6424', '6425', '6426', '6427']
+    # Creating a dictionary to hold keys and values
+    diseaseDictionary = {}
 
-        # Adds Disease column
-        for disease in diseaseDictionary:
-            year2013[disease] = 0  # This is how to add columns and default to 0
+    diseaseDictionary['Obesity'] = ['V853', 'V854', '27800', '27801', '27803', '6491']
+    # diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
+    diseaseDictionary['Cocaine dependence'] = ['3042', '3056']
+    diseaseDictionary['Amphetamine dependence'] = ['3044', '3057']
+    diseaseDictionary['Gestational diabetes mellitus'] = ['6488']
+    diseaseDictionary['Pre-existing diabetes mellitus'] = ['250', '6480']
+    diseaseDictionary['Anxiety'] = ['3000']
+    diseaseDictionary['Anemia NOS'] = ['2859']
+    diseaseDictionary['Iron deficiency anemia'] = ['280']
+    diseaseDictionary['Other anemia'] = ['281']
+    diseaseDictionary['Depression'] = ['311']
+    diseaseDictionary['Primigravidas at the extremes of maternal age'] = ['6595', 'V2381', 'V2383']
+    diseaseDictionary['Hemorrhagic disorders due to intrinsic circulating antibodies'] = ['2865']
+    diseaseDictionary['Systemic lupus erythematosus'] = ['7100']
+    diseaseDictionary['Lupus erythematosus'] = ['6954']
+    diseaseDictionary['Autoimmune disease not elsewhere classified'] = ['27949']
+    diseaseDictionary['Pure hypercholesterolemia'] = ['2720']
+    diseaseDictionary['Unspecified vitamin D deficiency'] = ['2689']
+    diseaseDictionary['Proteinuria'] = ['7910']
+    diseaseDictionary['Tobacco use disorder'] = ['3051', '6490']
+    diseaseDictionary['History of tobacco use'] = ['V1582']
+    diseaseDictionary['Hypertension'] = ['401']
+    diseaseDictionary['Hypertensive heart disease'] = ['402']
+    diseaseDictionary['Chronic venous hypertension'] = ['4593']
+    diseaseDictionary['Unspecified renal disease in pregnancy without mention of hypertension'] = ['6462']
+    diseaseDictionary['Chronic kidney disease'] = ['585']
+    diseaseDictionary['Hypertensive kidney disease'] = ['403']
+    diseaseDictionary['Hypertensive heart and chronic kidney disease'] = ['404']
+    diseaseDictionary['Renal failure not elsewhere classified'] = ['586']
+    diseaseDictionary['Infections of genitourinary tract in pregnancy'] = ['6466']
+    diseaseDictionary['UTI'] = ['5990']
+    diseaseDictionary['Personal history of trophoblastic disease'] = ['V131']
+    diseaseDictionary['Supervision of high-risk pregnancy with history of trophoblastic disease'] = ['V231']
+    diseaseDictionary['Thrombophilia'] = ['28981']
+    diseaseDictionary['History of premature delivery'] = ['V1321']
+    diseaseDictionary['Hemorrhage in early pregnancy'] = ['640']
+    diseaseDictionary[
+        'Congenital abnormalities of the uterus including those complicating pregnancy, childbirth, or the puerperium'] = [
+        '6540', '7522', '7523']
+    # diseaseDictionary['Multiple Gestations'] = ['651']
+    diseaseDictionary['Fetal Growth Restriction'] = ['764']
+    diseaseDictionary['Asthma'] = ['493']
+    diseaseDictionary['Obstructive Sleep Apnea'] = ['32723']
+    diseaseDictionary['Other cardiovascular diseases complicating pregnancy and childbirth or the puerperium'] = [
+        '6486']
+    diseaseDictionary['Sickle cell disease'] = ['28260']
+    diseaseDictionary['Thyroid Disease'] = ['240', '241', '242', '243', '244', '245', '246']
+    diseaseDictionary['Inadequate Prenatal Care'] = ['V237']
+    diseaseDictionary['Periodontal disease'] = ['523']
+    diseaseDictionary['Preeclampsia/Eclampsia'] = ['6424', '6425', '6426', '6427']
 
-        # Filling out the diseases
-        for disease in diseaseDictionary:
-            for codes in diseaseDictionary[disease]:
-                for col in diagnosisColumns:
-                    year2013.loc[year2013[col].str.startswith(codes, na=False), [disease]] = 1
+    # Adds Disease column
+    for disease in diseaseDictionary:
+        year2013[disease] = 0  # This is how to add columns and default to 0
 
-        eclampExclude = ['64243', '64253', '64263', '64273']  # Exclude codes ending in 3
-        for codes in eclampExclude:
+    # Filling out the diseases
+    for disease in diseaseDictionary:
+        for codes in diseaseDictionary[disease]:
             for col in diagnosisColumns:
-                year2013.loc[
-                    year2013[col].str.startswith(codes, na=False), ['Preeclampsia/Eclampsia']] = 0
+                year2013.loc[year2013[col].str.startswith(codes, na=False), [disease]] = 1
 
-        # Drop columns with ICD-9 codes
-        year2013.drop(columns=
-                      ['ADMITTING_DIAGNOSIS', 'PRINC_DIAG_CODE', 'OTH_DIAG_CODE_1',
-                       'OTH_DIAG_CODE_2', 'OTH_DIAG_CODE_3', 'OTH_DIAG_CODE_4',
-                       'OTH_DIAG_CODE_5', 'OTH_DIAG_CODE_6', 'OTH_DIAG_CODE_7',
-                       'OTH_DIAG_CODE_8', 'OTH_DIAG_CODE_9', 'OTH_DIAG_CODE_10',
-                       'OTH_DIAG_CODE_11', 'OTH_DIAG_CODE_12', 'OTH_DIAG_CODE_13',
-                       'OTH_DIAG_CODE_14', 'OTH_DIAG_CODE_15', 'OTH_DIAG_CODE_16',
-                       'OTH_DIAG_CODE_17', 'OTH_DIAG_CODE_18', 'OTH_DIAG_CODE_19',
-                       'OTH_DIAG_CODE_20', 'OTH_DIAG_CODE_21', 'OTH_DIAG_CODE_22',
-                       'OTH_DIAG_CODE_23', 'OTH_DIAG_CODE_24'], axis=1, inplace=True)
+    eclampExclude = ['64243', '64253', '64263', '64273']  # Exclude codes ending in 3
+    for codes in eclampExclude:
+        for col in diagnosisColumns:
+            year2013.loc[
+                year2013[col].str.startswith(codes, na=False), ['Preeclampsia/Eclampsia']] = 0
 
-        # Drop the columns that will not be used
-        year2013.drop(
-            columns=['LENGTH_OF_STAY', 'SOURCE_OF_ADMISSION', 'RECORD_ID', 'SEX_CODE', 'COUNTY', 'PAT_STATE',
-                     'PAT_STATUS'], axis=1, inplace=True)
+    # Drop columns with ICD-9 codes
+    year2013.drop(columns=
+                  ['ADMITTING_DIAGNOSIS', 'PRINC_DIAG_CODE', 'OTH_DIAG_CODE_1',
+                   'OTH_DIAG_CODE_2', 'OTH_DIAG_CODE_3', 'OTH_DIAG_CODE_4',
+                   'OTH_DIAG_CODE_5', 'OTH_DIAG_CODE_6', 'OTH_DIAG_CODE_7',
+                   'OTH_DIAG_CODE_8', 'OTH_DIAG_CODE_9', 'OTH_DIAG_CODE_10',
+                   'OTH_DIAG_CODE_11', 'OTH_DIAG_CODE_12', 'OTH_DIAG_CODE_13',
+                   'OTH_DIAG_CODE_14', 'OTH_DIAG_CODE_15', 'OTH_DIAG_CODE_16',
+                   'OTH_DIAG_CODE_17', 'OTH_DIAG_CODE_18', 'OTH_DIAG_CODE_19',
+                   'OTH_DIAG_CODE_20', 'OTH_DIAG_CODE_21', 'OTH_DIAG_CODE_22',
+                   'OTH_DIAG_CODE_23', 'OTH_DIAG_CODE_24'], axis=1, inplace=True)
 
-        # year2013 = (year2013.loc[(year2013['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
+    # Drop the columns that will not be used
+    year2013.drop(
+        columns=['LENGTH_OF_STAY', 'SOURCE_OF_ADMISSION', 'RECORD_ID', 'SEX_CODE', 'COUNTY', 'PAT_STATE',
+                 'PAT_STATUS'], axis=1, inplace=True)
 
-        # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
-        year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
-                                  columns=['DISCHARGE', 'ETHNICITY'])
+    # year2013 = (year2013.loc[(year2013['Pregnancy resulting from assisted reproductive technology'] == 0)])
+    year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
 
-        # Propogates the missing values via the indicator columns
-        year2013.loc[year2013["DISCHARGE__nan"] == 1, year2013.columns.str.startswith("DISCHARGE__")] = np.nan
-        year2013.loc[year2013["ETHNICITY__nan"] == 1, year2013.columns.str.startswith("ETHNICITY__")] = np.nan
+    # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+    year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
+                              columns=['DISCHARGE', 'ETHNICITY'])
 
-        # Drops the missingness indicator columns
-        year2013 = year2013.drop(['DISCHARGE__nan'], axis=1)
-        year2013 = year2013.drop(['ETHNICITY__nan'], axis=1)
+    # Propogates the missing values via the indicator columns
+    year2013.loc[year2013["DISCHARGE__nan"] == 1, year2013.columns.str.startswith("DISCHARGE__")] = np.nan
+    year2013.loc[year2013["ETHNICITY__nan"] == 1, year2013.columns.str.startswith("ETHNICITY__")] = np.nan
 
-        """
-        year2013.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
-                        inplace=True)
-        """
+    # Drops the missingness indicator columns
+    year2013 = year2013.drop(['DISCHARGE__nan'], axis=1)
+    year2013 = year2013.drop(['ETHNICITY__nan'], axis=1)
 
-        African_Am = year2013.loc[year2013['RACE'] == '3']
-        African_Am.drop(columns=['RACE'], inplace=True)
-        #African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
+    """
+    year2013.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
+                    inplace=True)
+    """
 
-        Native_Am = year2013.loc[year2013['RACE'] == '1']
-        Native_Am.drop(columns=['RACE'], inplace=True)
-        #Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
+    African_Am = year2013.loc[year2013['RACE'] == '3']
+    African_Am.drop(columns=['RACE'], inplace=True)
+    #African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
 
-        # One hot encoding race
-        year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
-                                  columns=['RACE'])
-        year2013.loc[
-            year2013["RACE__nan"] == 1, year2013.columns.str.startswith("RACE__")] = np.nan
+    Native_Am = year2013.loc[year2013['RACE'] == '1']
+    Native_Am.drop(columns=['RACE'], inplace=True)
+    #Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
 
-        year2013 = year2013.drop(['RACE__nan'], axis=1)
+    # One hot encoding race
+    year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
+                              columns=['RACE'])
+    year2013.loc[
+        year2013["RACE__nan"] == 1, year2013.columns.str.startswith("RACE__")] = np.nan
 
-        # Create new combined race and ethnicity columns
-        year2013['White Hispanic'] = 0
-        year2013['Black Hispanic'] = 0
-        year2013['White Non-Hispanic'] = 0
-        year2013['Black Non-Hispanic'] = 0
-        year2013['Asian/Pacific Islander Hispanic'] = 0
-        year2013['American Indian/Eskimo/Aleut Hispanic'] = 0
-        year2013['Asian/Pacific Islander Non-Hispanic'] = 0
-        year2013['American Indian/Eskimo/Aleut Non-Hispanic'] = 0
-        year2013['Other Race Hispanic'] = 0
-        year2013['Other Race Non-Hispanic'] = 0
+    year2013 = year2013.drop(['RACE__nan'], axis=1)
 
-        # Fill out columns with appropriate numbers
-        year2013['White Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
-                                              year2013['White Hispanic'])
-        year2013['Black Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
-                                              year2013['Black Hispanic'])
-        year2013['Asian/Pacific Islander Hispanic'] = np.where(
-            ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
-            year2013['Asian/Pacific Islander Hispanic'])
-        year2013['American Indian/Eskimo/Aleut Hispanic'] = np.where(
-            ((year2013['RACE__1'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
-            year2013['American Indian/Eskimo/Aleut Hispanic'])
-        year2013['Other Race Hispanic'] = np.where(((year2013['RACE__5'] == 1) & (year2013['ETHNICITY__1'] == 1)),
-                                                   1, year2013['Other Race Hispanic'])
-        year2013['White Non-Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
-                                                  year2013['White Non-Hispanic'])
-        year2013['Black Non-Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
-                                                  year2013['Black Non-Hispanic'])
-        year2013['Asian/Pacific Islander Non-Hispanic'] = np.where(
-            ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
-            year2013['Asian/Pacific Islander Non-Hispanic'])
-        year2013['American Indian/Eskimo/Aleut Non-Hispanic'] = np.where(
-            ((year2013['RACE__1'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
-            year2013['American Indian/Eskimo/Aleut Non-Hispanic'])
-        year2013['Other Race Non-Hispanic'] = np.where(
-            ((year2013['RACE__5'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1, year2013['Other Race Non-Hispanic'])
+    # Create new combined race and ethnicity columns
+    year2013['White Hispanic'] = 0
+    year2013['Black Hispanic'] = 0
+    year2013['White Non-Hispanic'] = 0
+    year2013['Black Non-Hispanic'] = 0
+    year2013['Asian/Pacific Islander Hispanic'] = 0
+    year2013['American Indian/Eskimo/Aleut Hispanic'] = 0
+    year2013['Asian/Pacific Islander Non-Hispanic'] = 0
+    year2013['American Indian/Eskimo/Aleut Non-Hispanic'] = 0
+    year2013['Other Race Hispanic'] = 0
+    year2013['Other Race Non-Hispanic'] = 0
 
-        # Drop original race and ethnicity columns
-        year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
-                               'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
+    # Fill out columns with appropriate numbers
+    year2013['White Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
+                                          year2013['White Hispanic'])
+    year2013['Black Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
+                                          year2013['Black Hispanic'])
+    year2013['Asian/Pacific Islander Hispanic'] = np.where(
+        ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
+        year2013['Asian/Pacific Islander Hispanic'])
+    year2013['American Indian/Eskimo/Aleut Hispanic'] = np.where(
+        ((year2013['RACE__1'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
+        year2013['American Indian/Eskimo/Aleut Hispanic'])
+    year2013['Other Race Hispanic'] = np.where(((year2013['RACE__5'] == 1) & (year2013['ETHNICITY__1'] == 1)),
+                                               1, year2013['Other Race Hispanic'])
+    year2013['White Non-Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
+                                              year2013['White Non-Hispanic'])
+    year2013['Black Non-Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
+                                              year2013['Black Non-Hispanic'])
+    year2013['Asian/Pacific Islander Non-Hispanic'] = np.where(
+        ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
+        year2013['Asian/Pacific Islander Non-Hispanic'])
+    year2013['American Indian/Eskimo/Aleut Non-Hispanic'] = np.where(
+        ((year2013['RACE__1'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
+        year2013['American Indian/Eskimo/Aleut Non-Hispanic'])
+    year2013['Other Race Non-Hispanic'] = np.where(
+        ((year2013['RACE__5'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1, year2013['Other Race Non-Hispanic'])
 
-        #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
+    # Drop original race and ethnicity columns
+    year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
+                           'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
 
-        return year2013, African_Am, Native_Am
+    #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
+
+    return year2013, African_Am, Native_Am
 
 def cleanDataOK(dropMetro, age='Ordinal'):
-
+        """
         ok2017 = pd.read_csv(
             r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2017%20IP/pudf_cd.txt",
             sep=",")
         ok2018 = pd.read_csv(
             r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2018%20IP/pudf_cdv2.txt",
             sep=",")
+        """
+        parent = os.path.dirname(os.getcwd())
+        dataPath2017 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2017%20IP/pudf_cd.txt")
+        dataPath2018 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2018%20IP/pudf_cdv2.txt")
+
+        ok2017 = pd.read_csv('file://' + dataPath2017)
+        ok2018 = pd.read_csv('file://' + dataPath2018)
 
         # Dropping unneeded columns
         ok2017.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',
@@ -945,9 +959,10 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         ok2018['Race'].replace('I', 'Native American', inplace=True)
         ok2018['Race'].replace('O', 'Other/Unknown', inplace=True)
 
+
         # Read in list of Counties and their designation
         urbanRural = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/County%20Metropolitan%20Classification.csv")
+            r"file:///home/rachel/Documents/Preeclampsia_Research(old)/Data/County%20Metropolitan%20Classification.csv")
         urbanRural['county name'] = urbanRural['county name'].str.replace(' County', '')
         urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 'Urban')
         urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 'Rural')

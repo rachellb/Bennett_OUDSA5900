@@ -10,6 +10,11 @@ from sklearn.utils import class_weight
 # For imputing data
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
+from sklearn.linear_model import BayesianRidge
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.neighbors import KNeighborsRegressor
+
 
 # For feature selection
 from sklearn.feature_selection import SelectKBest, chi2
@@ -142,7 +147,20 @@ class fullNN():
         return X_imputed_df
 
     def imputeData(self, data1, data2=None):
-        MI_Imp = IterativeImputer()  # Scikitlearn's Iterative imputer
+        # Scikitlearn's Iterative imputer
+        # Default imputing method is Bayesian Ridge Regression
+
+
+        if self.PARAMS['estimator'] == "BayesianRidge":
+            estimator = BayesianRidge()
+        elif self.PARAMS['estimator'] == "DecisionTree":
+            estimator = DecisionTreeRegressor(max_features='sqrt', random_state=0)
+        elif self.PARAMS['estimator'] == "ExtraTrees":
+            estimator = ExtraTreesRegressor(n_estimators=10, random_state=0)
+        elif self.PARAMS['estimator'] == "KNN":
+            estimator = KNeighborsRegressor(n_neighbors=15)
+
+        MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
         if (data2 is not None):  # If running both datasets
             if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
@@ -159,8 +177,8 @@ class fullNN():
     def splitData(self, testSize, valSize):
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Preeclampsia/Eclampsia')
-        Y = self.data['Preeclampsia/Eclampsia']
+        X = self.data.drop(columns='Label')
+        Y = self.data['Label']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
                                                                                 random_state=self.split1)
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
@@ -260,15 +278,7 @@ class fullNN():
 
         inputSize = self.X_train.shape[1]
 
-        self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
-                                                         batch_size=self.PARAMS['batch_size'],
-                                                         sampler=RandomOverSampler(),
-                                                         random_state=42)
 
-        self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
-                                                           batch_size=self.PARAMS['batch_size'],
-                                                           sampler=RandomOverSampler(),
-                                                           random_state=42)
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
@@ -283,6 +293,17 @@ class fullNN():
             model = tf.keras.models.Sequential()
             model.add(tf.keras.Input(shape=(inputSize,)))
 
+            self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
+                                                             batch_size=self.PARAMS['batch_size'],
+                                                             sampler=RandomOverSampler(),
+                                                             random_state=42)
+
+            self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
+                                                               batch_size=self.PARAMS['batch_size'],
+                                                               sampler=RandomOverSampler(),
+                                                               random_state=42)
+
+
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
@@ -295,11 +316,12 @@ class fullNN():
                 if self.PARAMS['BatchNorm']:
                     model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
-            final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
+            #final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
+            final_activation = 'sigmoid'
 
             if self.PARAMS['bias_init']:
                 model.add(Dense(1, activation=final_activation))
-            elif self.PARAMS['bias_init']:
+            elif not self.PARAMS['bias_init']:
                 model.add(
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
@@ -333,37 +355,11 @@ class fullNN():
 
             return model
 
-        batches = [32, 64, 128, 256]
 
-        # Tuners don't tune batch_size, need to subclass in order to change that.
-        class MyBayes(kerastuner.tuners.BayesianOptimization):
-            def run_trial(self, trial, *args, **kwargs):
-                # You can add additional HyperParameters for preprocessing and custom training loops
-                # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=[2048, 4096, 8192])
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
-                super(MyBayes, self).run_trial(trial, *args, **kwargs)
 
-        class MyHB(kerastuner.tuners.Hyperband):
-            def run_trial(self, trial, *args, **kwargs):
-                # You can add additional HyperParameters for preprocessing and custom training loops
-                # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=[2048, 4096, 8192])
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
-                super(MyHB, self).run_trial(trial, *args, **kwargs)
-
-        class MyRand(kerastuner.tuners.Hyperband):
-            def run_trial(self, trial, *args, **kwargs):
-                # You can add additional HyperParameters for preprocessing and custom training loops
-                # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
-                super(MyRand, self).run_trial(trial, *args, **kwargs)
 
         if self.PARAMS['Tuner'] == 'Hyperband':
-            self.tuner = MyHB(build_model,
+            self.tuner = Hyperband(build_model,
                                    objective=kerastuner.Objective('val_auc', direction="max"),
                                    max_epochs=self.PARAMS['epochs'],
                                    seed=1234,
@@ -372,7 +368,7 @@ class fullNN():
                                    logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
-            self.tuner = MyBayes(build_model,
+            self.tuner = BayesianOptimization(build_model,
                                               objective=kerastuner.Objective('val_auc', direction="max"),
                                               overwrite=True,
                                               max_trials=self.PARAMS['MAX_TRIALS'],
@@ -381,7 +377,7 @@ class fullNN():
                                               logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
-            self.tuner = MyRand(
+            self.tuner = RandomSearch(
                 build_model,
                 objective=kerastuner.Objective('val_auc', direction="max"),
                 overwrite=True,
@@ -522,15 +518,14 @@ class NoGen(fullNN):
 
         bias = np.log(pos / neg)
 
-
         scalar = len(self.Y_train)
         #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
         #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
 
-        #weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
-        #weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
-        #class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
 
 
@@ -551,7 +546,8 @@ class NoGen(fullNN):
                 if self.PARAMS['BatchNorm']:
                     model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
-            final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
+            #final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
+            final_activation = 'sigmoid'
 
             if self.PARAMS['bias_init']:
                 model.add(Dense(1, activation=final_activation))
@@ -579,10 +575,11 @@ class NoGen(fullNN):
             else:
                 loss = 'binary_crossentropy'
 
-            weight_for_0 = hp.Float('Weight0', 0, 25, step=0.25)
-            weight_for_1 = hp.Float('Weight1', 0, 25, step=0.25)
+            """
+            weight_for_0 = hp.Float('Weight0', 1, 25, step=1)
+            weight_for_1 = hp.Float('Weight1', 1, 25, step=1)
             class_weight_dict = {0: weight_for_0, 1: weight_for_1}
-
+            """
 
             # Compilation
             model.compile(optimizer=optimizer,
@@ -594,9 +591,13 @@ class NoGen(fullNN):
 
             return model
 
-        batches = [2048, 4096, 8192]
+        batches = [32, 64, 128, 256]
+        #batches = [2048, 4096, 8192]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
+        # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
+        # it isn't advisable in that tuner.
+
         class MyBayes(kerastuner.tuners.BayesianOptimization):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
@@ -610,7 +611,6 @@ class NoGen(fullNN):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
                 kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyHB, self).run_trial(trial, *args, **kwargs)
 
         class MyRand(kerastuner.tuners.RandomSearch):
@@ -620,8 +620,6 @@ class NoGen(fullNN):
                 kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
                 # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyRand, self).run_trial(trial, *args, **kwargs)
-
-        #neptune.log_text('Tuner', 'words')
 
         if self.PARAMS['Tuner'] == 'Hyperband':
             self.tuner = MyHB(build_model,
@@ -675,26 +673,27 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 4096,
+    PARAMS = {'batch_size': 32,
               'bias_init': False,
-              'epochs': 30,
+              'estimator': "ExtraTrees",
+              'epochs': 50,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
-              'Dropout_Rate': 0.20,
+              'Dropout_Rate': 0.30,
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Hyperband",
-              'EXECUTIONS_PER_TRIAL': 5,
-              'MAX_TRIALS': 10}
+              'Tuner': "Bayesian",
+              'EXECUTIONS_PER_TRIAL': 30,
+              'MAX_TRIALS': 40}
 
-    neptune.create_experiment(name='TxHPTune', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Tuned Weights'],
-                              description='Testing HP Tuning of Weights')
+    neptune.create_experiment(name='OKFull', params=PARAMS, send_hardware_metrics=True,
+                              tags=['scikit-learn weigths'],
+                              description='Testing ExtraTrees imputation')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -704,16 +703,19 @@ if __name__ == "__main__":
     else:
         model = fullNN(PARAMS)
 
-
+    """
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
+    """
+    ok2017, ok2018 = cleanDataOK(dropMetro=True, age='Categorical')
+    #data = model.normalizeData(data)
 
-    model.imputeData(data)
-    model.splitData(testSize=0.10, valSize=0.10)
+    model.imputeData(ok2017, ok2018)
+    model.splitData(testSize=0.20, valSize=0.20)
     features = model.featureSelection(numFeatures=20, method=2)
     model.hpTuning(features)
     model.evaluateModel()
