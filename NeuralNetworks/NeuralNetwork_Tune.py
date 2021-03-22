@@ -249,6 +249,7 @@ class fullNN():
             features = feature_scores.iloc[0:numFeatures]
             chi2Features = features['Feature_Name']
             self.Chi2features = features
+
             return chi2Features
 
         if method == 3:
@@ -706,19 +707,25 @@ if __name__ == "__main__":
     else:
         model = fullNN(PARAMS)
 
-
+    """
     # Get data
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+
     data = model.prepData(age='Categorical',
                            data=dataPath)
-
-    #full, african, native = cleanDataTX(age='Categorical')
+    """
+    full, african, native = cleanDataTX(age='Categorical')
     #data = model.normalizeData(data)
 
-    data = model.imputeData(data)
+    data = model.imputeData(full)
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=2)
+
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+    features.append('Preeclampsia/Eclampsia') # Re-append Label Column
+    data[features].to_csv(dataPath, index=False)
 
     model.hpTuning(features)
     model.evaluateModel()
