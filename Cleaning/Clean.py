@@ -1,9 +1,13 @@
 import os
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 # This code all for cleaning the various datasets, each returns a pandas dataframe, missing values intact.
 from sklearn.preprocessing import OrdinalEncoder
+
+date = datetime.today().strftime('%m%d%y')  # For labelling purposes
+
 
 def cleanBC():
     # Get data
@@ -575,14 +579,6 @@ def cleanDataTX(age):
                            'SECONDARY_PAYMENT_SRC_Other Insurance']
                   , axis=1, inplace=True)
 
-    # Rename Race columns
-    """
-    year2013['RACE'] = year2013['RACE'].replace('1', 'Native American')
-    year2013['RACE'] = year2013['RACE'].replace('2', 'Asian or Pacific Islander')
-    year2013['RACE'] = year2013['RACE'].replace('3', 'Black')
-    year2013['RACE'] = year2013['RACE'].replace('4', 'White')
-    year2013['RACE'] = year2013['RACE'].replace('5', 'Other Race')
-    """
 
     # Columns for scanning ICD9 codes
     diagnosisColumns = ['ADMITTING_DIAGNOSIS',
@@ -616,7 +612,7 @@ def cleanDataTX(age):
     diseaseDictionary = {}
 
     diseaseDictionary['Obesity'] = ['V853', 'V854', '27800', '27801', '27803', '6491']
-    # diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
+    diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
     diseaseDictionary['Cocaine dependence'] = ['3042', '3056']
     diseaseDictionary['Amphetamine dependence'] = ['3044', '3057']
     diseaseDictionary['Gestational diabetes mellitus'] = ['6488']
@@ -654,7 +650,7 @@ def cleanDataTX(age):
     diseaseDictionary[
         'Congenital abnormalities of the uterus including those complicating pregnancy, childbirth, or the puerperium'] = [
         '6540', '7522', '7523']
-    # diseaseDictionary['Multiple Gestations'] = ['651']
+    diseaseDictionary['Multiple Gestations'] = ['651']
     diseaseDictionary['Fetal Growth Restriction'] = ['764']
     diseaseDictionary['Asthma'] = ['493']
     diseaseDictionary['Obstructive Sleep Apnea'] = ['32723']
@@ -699,9 +695,6 @@ def cleanDataTX(age):
         columns=['LENGTH_OF_STAY', 'SOURCE_OF_ADMISSION', 'RECORD_ID', 'SEX_CODE', 'COUNTY', 'PAT_STATE',
                  'PAT_STATUS'], axis=1, inplace=True)
 
-    # year2013 = (year2013.loc[(year2013['Pregnancy resulting from assisted reproductive technology'] == 0)])
-    year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
-
     # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
     year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
                               columns=['DISCHARGE', 'ETHNICITY'])
@@ -714,18 +707,20 @@ def cleanDataTX(age):
     year2013 = year2013.drop(['DISCHARGE__nan'], axis=1)
     year2013 = year2013.drop(['ETHNICITY__nan'], axis=1)
 
-    """
-    year2013.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
-                    inplace=True)
-    """
 
     African_Am = year2013.loc[year2013['RACE'] == '3']
     African_Am.drop(columns=['RACE'], inplace=True)
-    #African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
+    African_Am.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
+                    inplace=True)
+    #savepath = os.path.join(parent, r"Data/Processed/AfricanAmerican_" + date + ".csv")
+    #African_Am.to_csv(savepath, index=False)
 
     Native_Am = year2013.loc[year2013['RACE'] == '1']
     Native_Am.drop(columns=['RACE'], inplace=True)
-    #Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
+    Native_Am.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
+                      inplace=True)
+    #savepath = os.path.join(parent, 'Data/NativeAmerican_' + date + '.csv')
+    #Native_Am.to_csv(savepath, index=False)
 
     # One hot encoding race
     year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -737,9 +732,9 @@ def cleanDataTX(age):
 
     # Create new combined race and ethnicity columns
     year2013['White Hispanic'] = 0
-    year2013['Black Hispanic'] = 0
+    year2013['African American Hispanic'] = 0
     year2013['White Non-Hispanic'] = 0
-    year2013['Black Non-Hispanic'] = 0
+    year2013['African American Non-Hispanic'] = 0
     year2013['Asian/Pacific Islander Hispanic'] = 0
     year2013['American Indian/Eskimo/Aleut Hispanic'] = 0
     year2013['Asian/Pacific Islander Non-Hispanic'] = 0
@@ -750,8 +745,8 @@ def cleanDataTX(age):
     # Fill out columns with appropriate numbers
     year2013['White Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
                                           year2013['White Hispanic'])
-    year2013['Black Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
-                                          year2013['Black Hispanic'])
+    year2013['African American Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
+                                          year2013['African American Hispanic'])
     year2013['Asian/Pacific Islander Hispanic'] = np.where(
         ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
         year2013['Asian/Pacific Islander Hispanic'])
@@ -762,8 +757,8 @@ def cleanDataTX(age):
                                                1, year2013['Other Race Hispanic'])
     year2013['White Non-Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
                                               year2013['White Non-Hispanic'])
-    year2013['Black Non-Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
-                                              year2013['Black Non-Hispanic'])
+    year2013['African American Non-Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
+                                              year2013['African American Non-Hispanic'])
     year2013['Asian/Pacific Islander Non-Hispanic'] = np.where(
         ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
         year2013['Asian/Pacific Islander Non-Hispanic'])
@@ -777,7 +772,9 @@ def cleanDataTX(age):
     year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
                            'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
 
-    #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
+    #savepath = os.path.join(parent, 'Data/year2013_' + date + '.csv')
+
+    #year2013.to_csv(savepath, index=False)
 
     return year2013, African_Am, Native_Am
 
@@ -1045,6 +1042,9 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         diseaseDictionary['Periodontal disease'] = ['E08630', 'E09630', 'E10630', 'E11630', '13630', 'K05', 'K06',
                                                     'K08129']
         diseaseDictionary['Intrauterine Death'] = ['O364']
+        diseaseDictionary['Obstructive Sleep Apnea'] = ['G4733']
+        diseaseDictionary['Sickle cell disease'] = ['D57']
+        diseaseDictionary['Thyroid Disease'] = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07']
         diseaseDictionary['Preeclampsia/Eclampsia'] = ['O14', 'O15']
 
         # New Additions

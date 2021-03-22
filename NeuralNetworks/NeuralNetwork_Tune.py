@@ -67,7 +67,7 @@ from Cleaning.Clean import *
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
+neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
 
 def weighted_loss_persample(weights, batchSize):
     def loss(y_true, y_pred):
@@ -174,11 +174,13 @@ class fullNN():
             else:
                 self.data = data1
 
+        return self.data # Temporary, remove after processing
+
     def splitData(self, testSize, valSize):
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Label')
-        Y = self.data['Label']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
                                                                                 random_state=self.split1)
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
@@ -231,6 +233,7 @@ class fullNN():
 
             data = pd.DataFrame(data=values, index=keys, columns=["score"]).sort_values(by="score", ascending=False)
             XGBoostFeatures = list(data.index[0:numFeatures])
+
             return XGBoostFeatures
 
         if method == 2:
@@ -688,12 +691,12 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 30,
-              'MAX_TRIALS': 40}
+              'EXECUTIONS_PER_TRIAL': 5,
+              'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='OKFull', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='TXFull', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weigths'],
-                              description='Testing ExtraTrees imputation')
+                              description='Retesting Texas data')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -703,20 +706,20 @@ if __name__ == "__main__":
     else:
         model = fullNN(PARAMS)
 
-    """
+
     # Get data
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
-
     data = model.prepData(age='Categorical',
                            data=dataPath)
-    """
-    ok2017, ok2018 = cleanDataOK(dropMetro=True, age='Categorical')
+
+    #full, african, native = cleanDataTX(age='Categorical')
     #data = model.normalizeData(data)
 
-    model.imputeData(ok2017, ok2018)
-    model.splitData(testSize=0.20, valSize=0.20)
+    data = model.imputeData(data)
+    model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=2)
+
     model.hpTuning(features)
     model.evaluateModel()
 
