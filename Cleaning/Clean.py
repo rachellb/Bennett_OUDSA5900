@@ -42,11 +42,12 @@ def cleanPima():
     """
     for col in df.columns:
         df[col] = np.where(df[col] == 0, np.NaN, df[col])
-
+    
     # Fix Outcome and Pregnancies, which I assume are correctly labeled
     df['Outcome'] = np.where(df['Outcome'].isnull(), 0, df['Outcome'])
     df['Pregnancies'] = np.where(df['Pregnancies'].isnull(), 0, df['Pregnancies'])
     """
+
     df.rename(columns={"Outcome": "Label"}, inplace=True)
 
     return df

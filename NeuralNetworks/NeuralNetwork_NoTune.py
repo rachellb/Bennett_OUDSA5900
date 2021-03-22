@@ -1233,7 +1233,8 @@ class fullNN():
         print(self.X_train.shape, self.Y_train.shape)
 
     def featureSelection(self, numFeatures, method):
-        numFeatures = min(numFeatures, (self.X_train.shape[1]))
+
+
         self.method = method
 
         if method == 1:
@@ -1283,6 +1284,7 @@ class fullNN():
             mutualInfoFeatures = features['Feature_Name']
             self.MIFeatures = features
             return mutualInfoFeatures
+
 
     def prepData(self, age, data):
 

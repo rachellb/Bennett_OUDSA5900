@@ -15,7 +15,6 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.neighbors import KNeighborsRegressor
 
-
 # For feature selection
 from sklearn.feature_selection import SelectKBest, chi2
 from xgboost import XGBClassifier
@@ -46,8 +45,7 @@ import time
 import matplotlib.pyplot as plt
 from PIL import Image
 
-
-#For Outlier Detection
+# For Outlier Detection
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
@@ -62,12 +60,9 @@ from neptunecontrib.monitoring.keras import NeptuneMonitor
 from secret import api_
 from Cleaning.Clean import *
 
-
-
-
-
 # Initialize the project
 neptune.init(project_qualified_name='rachellb/Comparisons', api_token=api_)
+
 
 def weighted_loss_persample(weights, batchSize):
     def loss(y_true, y_pred):
@@ -107,8 +102,8 @@ def weighted_loss_persample(weights, batchSize):
 
     return loss
 
-def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
+def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
     assert 0 in weights
     assert 1 in weights
 
@@ -125,6 +120,7 @@ def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
     return weighted_cross_entropy_fn
 
+
 class fullNN():
 
     def __init__(self, PARAMS):
@@ -137,27 +133,48 @@ class fullNN():
 
         data = pd.read_csv(data)
 
-        return data
+        self.data = data
 
-    def normalizeData(self,  method):
+    def splitData(self,testSize, valSize, data1, data2=None):
+
+        if (data2 is not None):  # If running both datasets
+            self.data = data1.append(data2)
+        else:
+            self.data = data1
+        self.split1 = 5
+        self.split2 = 107
+        X = self.data.drop(columns='Label')
+        Y = self.data['Label']
+        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
+                                                                                random_state=self.split1)
+        self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
+                                                                              stratify=self.Y_train, test_size=valSize,
+                                                                              random_state=self.split2)
+
+    def normalizeData(self, method):
 
         if method == 'MinMax':
             scaler = MinMaxScaler()
         elif method == 'StandardScale':
             scaler = StandardScaler()
 
+        # Fit and transform training data, then transform val and test using info gained from fitting
+        X_train = scaler.fit_transform(self.X_train)
+        X_val = scaler.transform(self.X_val)
+        X_test = scaler.transform(self.X_test)
 
-        data_imputed = scaler.fit_transform(data.drop(['Label']))
-        X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
-        self.data = X_imputed_df
+        X_train_imputed = pd.DataFrame(X_train, columns=self.X_train.columns)
+        X_val_imputed = pd.DataFrame(X_val, columns=self.X_val.columns)
+        X_test_imputed = pd.DataFrame(X_test, columns=self.X_test.columns)
 
-
-        return X_imputed_df
+        # Save newly normalized data
+        self.X_train = X_train_imputed
+        self.X_val = X_val_imputed
+        self.X_test = X_test_imputed
 
     def imputeData(self, data1, data2=None):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
-
 
         if self.PARAMS['estimator'] == "BayesianRidge":
             estimator = BayesianRidge()
@@ -170,29 +187,11 @@ class fullNN():
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
-        if (data2 is not None):  # If running both datasets
-            if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
-                data = data1.append(data2)
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data)), columns=data.columns)
-            else:
-                self.data = data1.append(data2)
-        else:
-            if (data1.isnull().values.any() == True):
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
-            else:
-                self.data = data1
+        if self.data.isnull().values.any():
 
-
-    def splitData(self, testSize, valSize):
-        self.split1=5
-        self.split2=107
-        X = self.data.drop(columns='Label')
-        Y = self.data['Label']
-        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
-                                                                                random_state=self.split1)
-        self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
-                                                                              stratify=self.Y_train, test_size=valSize,
-                                                                              random_state=self.split2)
+            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=data.columns)
+            self.X_val = pd.DataFrame(np.round(MI_Imp.transform(self.X_val)), columns=data.columns)
+            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=data.columns)
 
     def detectOutliers(self, method, con):
 
@@ -230,7 +229,7 @@ class fullNN():
             # Save graph
             ax = plot_importance(model, max_num_features=numFeatures)
             fig1 = pyplot.gcf()
-            #pyplot.show()
+            # pyplot.show()
             fig1.savefig(self.dataset + 'XGBoostTopFeatures.png', bbox_inches='tight')
 
             # Get and save best features
@@ -293,8 +292,6 @@ class fullNN():
 
         inputSize = self.X_train.shape[1]
 
-
-
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
         class_weight_dict = dict(enumerate(class_weights))
@@ -318,7 +315,6 @@ class fullNN():
                                                                sampler=RandomOverSampler(),
                                                                random_state=42)
 
-
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
@@ -331,7 +327,7 @@ class fullNN():
                 if self.PARAMS['BatchNorm']:
                     model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
-            #final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
+            # final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
             final_activation = 'sigmoid'
 
             if self.PARAMS['bias_init']:
@@ -369,9 +365,6 @@ class fullNN():
                                    tf.keras.metrics.AUC()])
 
             return model
-
-
-
 
         if self.PARAMS['Tuner'] == 'Hyperband':
             self.tuner = Hyperband(build_model,
@@ -505,6 +498,7 @@ class fullNN():
 
         neptune.log_metric('minutes', mins)
 
+
 class NoGen(fullNN):
     def __init__(self, PARAMS):
 
@@ -534,15 +528,12 @@ class NoGen(fullNN):
         bias = np.log(pos / neg)
 
         scalar = len(self.Y_train)
-        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
-
+        # class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        # class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
         weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
         weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
         class_weight_dict = {0: weight_for_0, 1: weight_for_1}
-
-
 
         def build_model(hp):
             # define the keras model
@@ -552,7 +543,7 @@ class NoGen(fullNN):
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                #deep_activation = 'relu'
+                # deep_activation = 'relu'
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
@@ -561,7 +552,7 @@ class NoGen(fullNN):
                 if self.PARAMS['BatchNorm']:
                     model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
-            #final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
+            # final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
             final_activation = 'sigmoid'
 
             if self.PARAMS['bias_init']:
@@ -571,7 +562,7 @@ class NoGen(fullNN):
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
             # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
+            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])  # , 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -607,7 +598,8 @@ class NoGen(fullNN):
             return model
 
         batches = [32, 64, 128, 256]
-        #batches = [2048, 4096, 8192]
+
+        # batches = [2048, 4096, 8192]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
         # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
@@ -618,7 +610,7 @@ class NoGen(fullNN):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
                 kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
+                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyBayes, self).run_trial(trial, *args, **kwargs)
 
         class MyHB(kerastuner.tuners.Hyperband):
@@ -638,13 +630,13 @@ class NoGen(fullNN):
 
         if self.PARAMS['Tuner'] == 'Hyperband':
             self.tuner = MyHB(build_model,
-                                   objective=kerastuner.Objective('val_auc', direction="max"),
-                                   max_epochs=self.PARAMS['epochs'],
-                                   hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                   seed=1234,
-                                   factor=3,
-                                   overwrite=True,
-                                   logger=npt_utils.NeptuneLogger())
+                              objective=kerastuner.Objective('val_auc', direction="max"),
+                              max_epochs=self.PARAMS['epochs'],
+                              hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                              seed=1234,
+                              factor=3,
+                              overwrite=True,
+                              logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
             self.tuner = MyBayes(build_model,
@@ -703,14 +695,14 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 5,
-              'MAX_TRIALS': 10}
+              'EXECUTIONS_PER_TRIAL': 15,
+              'MAX_TRIALS': 20}
 
     neptune.create_experiment(name='Pima', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weigths'],
                               description='Testing different imputation')
 
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+    # neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
     if PARAMS['Generator'] == False:
         model = NoGen(PARAMS)
@@ -728,10 +720,10 @@ if __name__ == "__main__":
     """
 
     data = cleanPima()
+    # Split first, then normalize/impute
+    model.splitData(testSize=0.10, valSize=0.10, data1=data)
     model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
-
-    model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=4)
     model.hpTuning(features)
     model.evaluateModel()
