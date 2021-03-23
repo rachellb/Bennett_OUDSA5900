@@ -147,7 +147,7 @@ class fullNN():
             scaler = StandardScaler()
 
 
-        data_imputed = scaler.fit_transform(data.drop(['Label']))
+        data_imputed = scaler.fit_transform(data)
         X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
         self.data = X_imputed_df
 

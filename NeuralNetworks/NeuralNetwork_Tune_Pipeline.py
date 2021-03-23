@@ -694,7 +694,7 @@ if __name__ == "__main__":
               'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
-              'Generator': False,
+              'Generator': True,
               'Tuner': "Bayesian",
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}

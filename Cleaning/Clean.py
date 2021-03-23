@@ -39,6 +39,22 @@ def cleanPima():
     df = pd.read_csv(dataPath)
 
     # Since several patients have value of 0 for variables and I assume they're not dead, set to missing
+    # Replacing the zero-values for Blood Pressure
+    df1 = df.loc[df['Outcome'] == 1]
+    df2 = df.loc[df['Outcome'] == 0]
+    df1 = df1.replace({'BloodPressure': 0}, np.median(df1['BloodPressure']))
+    df2 = df2.replace({'BloodPressure': 0}, np.median(df2['BloodPressure']))
+    df1 = df1.replace({'BMI': 0}, np.median(df1['BMI']))
+    df2 = df2.replace({'BMI': 0}, np.median(df2['BMI']))
+    df1 = df1.replace({'Glucose': 0}, np.median(df1['Glucose']))
+    df2 = df2.replace({'Glucose': 0}, np.median(df2['Glucose']))
+    df1 = df1.replace({'SkinThickness': 0}, np.median(df1['SkinThickness']))
+    df2 = df2.replace({'SkinThickness': 0}, np.median(df2['SkinThickness']))
+    df1 = df1.replace({'Insulin': 0}, np.median(df1['Insulin']))
+    df2 = df2.replace({'Insulin': 0}, np.median(df2['Insulin']))
+    dataframe = [df1, df2]
+    df = pd.concat(dataframe)
+
     """
     for col in df.columns:
         df[col] = np.where(df[col] == 0, np.NaN, df[col])
