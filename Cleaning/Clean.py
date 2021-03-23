@@ -708,7 +708,6 @@ def cleanDataTX(age):
     year2013 = year2013.drop(['DISCHARGE__nan'], axis=1)
     year2013 = year2013.drop(['ETHNICITY__nan'], axis=1)
 
-
     African_Am = year2013.loc[year2013['RACE'] == '3']
     African_Am.drop(columns=['RACE'], inplace=True)
     African_Am.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
@@ -1099,58 +1098,50 @@ def cleanDataOK(dropMetro, age='Ordinal'):
        # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
        # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
 
-        ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        #ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        #ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
+
+        # Fixes marital status
+        ok2017.rename(columns={"Marital_status": "Married"}, inplace=True)
+        ok2018.rename(columns={"Marital_status": "Married"}, inplace=True)
+        ok2017['Married'] = np.where(ok2017['Married'] == 'Married', 1, 0)
+        ok2018['Married'] = np.where(ok2018['Married'] == 'Married', 1, 0)
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
-                                columns=['Race', 'Marital_status', 'Metro status'])
+                                columns=['Race'])
 
         # Propogates the missing values via the indicator columns
         ok2017.loc[ok2017["Race__nan"] == 1, ok2017.columns.str.startswith("Race__")] = np.nan
-        ok2017.loc[ok2017["Marital_status__nan"] == 1, ok2017.columns.str.startswith("Marital_status__")] = np.nan
-        ok2017.loc[ok2017["Metro status__nan"] == 1, ok2017.columns.str.startswith("Metro status__")] = np.nan
+
 
         # Drops the missingness indicator columns
         ok2017 = ok2017.drop(['Race__nan'], axis=1)
-        ok2017 = ok2017.drop(['Marital_status__nan'], axis=1)
-        ok2017 = ok2017.drop(['Metro status__nan'], axis=1)
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2018 = pd.get_dummies(ok2018, prefix_sep="__", dummy_na=True,
-                                columns=['Race', 'Marital_status', 'Metro status'])
+                                columns=['Race'])
 
         # Propogates the missing values via the indicator columns
         ok2018.loc[ok2018["Race__nan"] == 1, ok2018.columns.str.startswith("Race__")] = np.nan
-        ok2018.loc[ok2018["Marital_status__nan"] == 1, ok2018.columns.str.startswith("Marital_status__")] = np.nan
-        ok2018.loc[ok2018["Metro status__nan"] == 1, ok2018.columns.str.startswith("Metro status__")] = np.nan
 
         # Drops the missingness indicator columns
         ok2018 = ok2018.drop(['Race__nan'], axis=1)
-        ok2018 = ok2018.drop(['Marital_status__nan'], axis=1)
-        ok2018 = ok2018.drop(['Metro status__nan'], axis=1)
 
         ok2017.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
                                'Race__Other/Unknown': 'Other/Unknown Race',
                                'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried',
-                               'Metro status__Rural': 'Rural',
-                               'Metro status__Urban': 'Urban'}, inplace=True)
+                               'Marital_status__Unmarried': 'Unmarried'}, inplace=True)
 
         ok2018.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
                                'Race__Other/Unknown': 'Other/Unknown Race',
                                'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried',
-                               'Metro status__Rural': 'Rural',
-                               'Metro status__Urban': 'Urban'}, inplace=True)
+                               'Marital_status__Unmarried': 'Unmarried'}, inplace=True)
 
-        if (dropMetro == True):
-            ok2017.drop(columns=['Rural', 'Urban'], inplace=True)
-            ok2018.drop(columns=['Rural', 'Urban'], inplace=True)
 
         # ok2017.to_csv('Data/Oklahoma_Clean/ok2017_Incomplete.csv', index=False)
         # ok2018.to_csv('Data/Oklahoma_Clean/ok2018_Incomplete.csv', index=False)

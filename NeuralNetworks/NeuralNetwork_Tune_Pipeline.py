@@ -61,7 +61,7 @@ from secret import api_
 from Cleaning.Clean import *
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/Comparisons', api_token=api_)
+neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -141,10 +141,11 @@ class fullNN():
             self.data = data1.append(data2)
         else:
             self.data = data1
+
         self.split1 = 5
         self.split2 = 107
-        X = self.data.drop(columns='Label')
-        Y = self.data['Label']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
                                                                                 random_state=self.split1)
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
@@ -172,7 +173,7 @@ class fullNN():
         self.X_val = X_val_imputed
         self.X_test = X_test_imputed
 
-    def imputeData(self, data1, data2=None):
+    def imputeData(self):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
 
@@ -189,9 +190,9 @@ class fullNN():
 
         if self.data.isnull().values.any():
 
-            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=data.columns)
-            self.X_val = pd.DataFrame(np.round(MI_Imp.transform(self.X_val)), columns=data.columns)
-            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=data.columns)
+            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train .columns)
+            self.X_val = pd.DataFrame(np.round(MI_Imp.transform(self.X_val)), columns=self.X_val.columns)
+            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
 
     def detectOutliers(self, method, con):
 
@@ -597,9 +598,9 @@ class NoGen(fullNN):
 
             return model
 
-        batches = [32, 64, 128, 256]
 
-        # batches = [2048, 4096, 8192]
+        #batches = [32, 64, 128, 256]
+        batches = [2048, 4096, 8192]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
         # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
@@ -690,15 +691,15 @@ if __name__ == "__main__":
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
-              'Dropout_Rate': 0.30,
+              'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 15,
-              'MAX_TRIALS': 20}
+              'EXECUTIONS_PER_TRIAL': 5,
+              'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='Pima', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='TxHPTune', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weigths'],
                               description='Testing different imputation')
 
@@ -719,12 +720,13 @@ if __name__ == "__main__":
                            data=dataPath)
     """
 
-    data = cleanPima()
+    full, african, native = cleanDataTX(age='Categorical')
+
     # Split first, then normalize/impute
-    model.splitData(testSize=0.10, valSize=0.10, data1=data)
-    model.normalizeData(method='StandardScale')
-    data = model.imputeData(data)
-    features = model.featureSelection(numFeatures=20, method=4)
+    model.splitData(testSize=0.10, valSize=0.10, data1=full)
+    #model.normalizeData(method='StandardScale')
+    data = model.imputeData()
+    features = model.featureSelection(numFeatures=20, method=2)
     model.hpTuning(features)
     model.evaluateModel()
 
