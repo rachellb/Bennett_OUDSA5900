@@ -730,7 +730,6 @@ if __name__ == "__main__":
     data = cleanPima()
     model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
-
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=4)
     model.hpTuning(features)

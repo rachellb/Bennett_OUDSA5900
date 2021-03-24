@@ -1564,7 +1564,7 @@ class NoGen(NoTune):
 
 if __name__ == "__main__":
 
-    rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=2, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
     filename = 'Results/Oklahoma/Full/NoTune/CVTests/Test_binary2-2cv_noreg'
 
