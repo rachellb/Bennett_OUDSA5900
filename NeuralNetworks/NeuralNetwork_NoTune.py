@@ -93,7 +93,7 @@ class fullNN():
 
         self.PARAMS = PARAMS
 
-    def prepData(self, age, data, path=None):
+    def prepData(self, age, data=None, path=None):
 
         self.age = age
 
