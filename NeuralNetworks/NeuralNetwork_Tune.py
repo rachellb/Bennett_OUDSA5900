@@ -554,28 +554,50 @@ class NoGen(fullNN):
 
 
         def build_model(hp):
+
+            #inputs = tf.keras.Input(shape=(self.X_train.shape[1],))
+
             # define the keras model
-            model = tf.keras.models.Sequential()
-            #model.add(tf.keras.Input(shape=(inputSize,)))
+            inputs = []
+            outputs = []
+            categorical_columns = self.X_train.columns
 
+            for c in categorical_columns:
+                num_unique_vals = len(self.data[c].unique())
+                embed_dim = int(min(np.ceil(num_unique_vals / 2), 50))
+                inp = tf.keras.layers.Input(shape=(1,))
+                out = tf.keras.layers.Embedding(num_unique_vals + 1, embed_dim)(inp)
+                """
+                if self.PARAMS['Dropout']:
+                    out = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(out)
+                """
+                out = tf.keras.layers.Reshape(target_shape=(embed_dim,))(out)
+                inputs.append(inp)
+                outputs.append(out)
 
+            # Concatenate into one single feature vector
+            x = tf.keras.layers.Concatenate()(outputs)
 
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
-
+                """
+                if i == 0:
+                    x = Dense(units=units, activation=deep_activation)(inputs)
+                else:
+                    x = Dense(units=units, activation=deep_activation)(x)
+                """
+                x = Dense(units=units, activation=deep_activation)(x)
                 if self.PARAMS['Dropout']:
-                    model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                    x = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(x)
 
                 if self.PARAMS['BatchNorm']:
-                    model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                    x = tf.keras.layers.BatchNormalization(momentum=self.PARAMS['Momentum'])(x)
 
             if self.PARAMS['bias_init']:
-                model.add(Dense(1, activation='sigmoid'))
-            elif not self.PARAMS['bias_init']:
-                model.add(
-                    Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias)))
+                y = Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias))(x)
+            else:
+                y = Dense(1, activation='sigmoid')(x)
 
             # Select optimizer
             optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
@@ -602,6 +624,7 @@ class NoGen(fullNN):
             weight_for_1 = hp.Float('Weight1', 1, 25, step=1)
             class_weight_dict = {0: weight_for_0, 1: weight_for_1}
             """
+            model = tf.keras.Model(inputs=inputs, outputs=y)
 
             # Compilation
             model.compile(optimizer=optimizer,
