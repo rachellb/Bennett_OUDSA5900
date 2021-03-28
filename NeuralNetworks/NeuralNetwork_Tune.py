@@ -15,6 +15,8 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.neighbors import KNeighborsRegressor
 
+# For Encoding and Preprocessing
+from sklearn import preprocessing
 
 # For feature selection
 from sklearn.feature_selection import SelectKBest, chi2
@@ -154,6 +156,14 @@ class fullNN():
 
         return X_imputed_df
 
+    def encodeData(self, data):
+
+        features = [f for f in data.columns if f not in ['Label']]
+
+        for feat in features:
+            lbl_enc = preprocessing.LabelEncoder()
+            data.loc[:, feat] = lbl_enc.fit_transform(data[feat].values)
+
     def imputeData(self, data1, data2=None):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
@@ -181,7 +191,6 @@ class fullNN():
                 self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
             else:
                 self.data = data1
-
 
     def splitData(self, testSize, valSize):
         self.split1=5
@@ -547,12 +556,13 @@ class NoGen(fullNN):
         def build_model(hp):
             # define the keras model
             model = tf.keras.models.Sequential()
-            model.add(tf.keras.Input(shape=(inputSize,)))
+            #model.add(tf.keras.Input(shape=(inputSize,)))
+
+
 
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                #deep_activation = 'relu'
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
 
                 if self.PARAMS['Dropout']:
@@ -561,14 +571,11 @@ class NoGen(fullNN):
                 if self.PARAMS['BatchNorm']:
                     model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
-            #final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
-            final_activation = 'sigmoid'
-
             if self.PARAMS['bias_init']:
-                model.add(Dense(1, activation=final_activation))
+                model.add(Dense(1, activation='sigmoid'))
             elif not self.PARAMS['bias_init']:
                 model.add(
-                    Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
+                    Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
             # Select optimizer
             optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
@@ -706,8 +713,8 @@ if __name__ == "__main__":
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='Pima', params=PARAMS, send_hardware_metrics=True,
-                              tags=['scikit-learn weigths'],
+    neptune.create_experiment(name='Spect', params=PARAMS, send_hardware_metrics=True,
+                              tags=['scikit-learn weights'],
                               description='Testing different imputation')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
@@ -727,8 +734,8 @@ if __name__ == "__main__":
                            data=dataPath)
     """
 
-    data = cleanPima()
-    model.normalizeData(method='StandardScale')
+    data = cleanSpect()
+    #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
 
     model.splitData(testSize=0.10, valSize=0.10)
