@@ -563,14 +563,15 @@ class NoGen(fullNN):
             categorical_columns = self.X_train.columns
 
             for c in categorical_columns:
+                print(c)
                 num_unique_vals = len(self.data[c].unique())
                 embed_dim = int(min(np.ceil(num_unique_vals / 2), 50))
                 inp = tf.keras.layers.Input(shape=(1,))
                 out = tf.keras.layers.Embedding(num_unique_vals + 1, embed_dim)(inp)
-                """
+
                 if self.PARAMS['Dropout']:
                     out = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(out)
-                """
+
                 out = tf.keras.layers.Reshape(target_shape=(embed_dim,))(out)
                 inputs.append(inp)
                 outputs.append(out)
@@ -625,7 +626,7 @@ class NoGen(fullNN):
             class_weight_dict = {0: weight_for_0, 1: weight_for_1}
             """
             model = tf.keras.Model(inputs=inputs, outputs=y)
-
+            model.summary()
             # Compilation
             model.compile(optimizer=optimizer,
                           loss=weighted_binary_cross_entropy(class_weight_dict),
