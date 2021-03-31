@@ -698,7 +698,7 @@ if __name__ == "__main__":
     PARAMS = {'batch_size': 32,
               'bias_init': False,
               'estimator': "ExtraTrees",
-              'epochs': 50,
+              'epochs': 20,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -710,10 +710,12 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 5,
-              'MAX_TRIALS': 10}
+              'EXECUTIONS_PER_TRIAL': 20,
+              'MAX_TRIALS': 25,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
 
-    neptune.create_experiment(name='Spect', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weights'],
                               description='Testing different imputation')
 
@@ -734,12 +736,12 @@ if __name__ == "__main__":
                            data=dataPath)
     """
 
-    data = cleanSpect()
+    data = cleanBC()
     #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
 
-    model.splitData(testSize=0.10, valSize=0.10)
-    features = model.featureSelection(numFeatures=20, method=4)
+    model.splitData(testSize=PARAMS['TestSplit'], valSize=PARAMS['ValSplit'])
+    features = model.featureSelection(numFeatures=10, method=4)
     model.hpTuning(features)
     model.evaluateModel()
 
