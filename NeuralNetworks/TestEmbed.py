@@ -562,7 +562,7 @@ class NoGen(fullNN):
 
         for c in categorical_columns:
             print(c)
-            num_unique_vals = 2
+            num_unique_vals = self.X_train[c].nunique()
             embed_dim = int(max(min(np.ceil(num_unique_vals / 2), 50), 2))
             inp = tf.keras.layers.Input(shape=(1,))
             out = tf.keras.layers.Embedding(num_unique_vals + 1, embed_dim)(inp)
@@ -639,7 +639,7 @@ if __name__ == "__main__":
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='Spect', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weights'],
                               description='Testing embedding')
 
@@ -660,7 +660,7 @@ if __name__ == "__main__":
                            data=dataPath)
     """
 
-    data = cleanSpect()
+    data = cleanBC()
     #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
     model.encodeData()
