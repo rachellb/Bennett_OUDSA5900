@@ -38,6 +38,7 @@ import tensorflow.keras.backend as K
 import kerastuner
 from kerastuner.tuners import Hyperband, BayesianOptimization, RandomSearch
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.utils import plot_model
 import neptunecontrib.monitoring.kerastuner as npt_utils
 
 # For additional metrics
@@ -164,6 +165,25 @@ class fullNN():
             lbl_enc = preprocessing.LabelEncoder()
             self.data.loc[:, feat] = lbl_enc.fit_transform(self.data[feat].values)
 
+    def embedding_preproc(self):
+        """
+        https://github.com/oegedijk/keras-embeddings/blob/master/build_embeddings.py
+        return lists with data for train, val and test set.
+        Only categorical data, no numeric. (as we are just building the
+        categorical embeddings)
+        """
+        input_list_train = []
+        input_list_val = []
+        input_list_test = []
+
+        cat_cols = self.X_train.columns
+
+        for c in cat_cols:
+            input_list_train.append(self.X_train[c].values)
+            input_list_val.append(self.X_val[c].values)
+            input_list_test.append(self.X_test[c].values)
+
+        return input_list_train, input_list_val, input_list_test
 
     def imputeData(self, data1, data2=None):
         # Scikitlearn's Iterative imputer
@@ -520,19 +540,18 @@ class NoGen(fullNN):
 
         self.PARAMS = PARAMS
 
-    def buildModel(self, topFeatures):
+    def buildModel(self, X_embed_train, X_embed_val, X_embed_test):
 
         tf.keras.backend.clear_session()
 
         # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures]
+        self.X_train = self.X_train
         self.Y_train = self.Y_train
-        self.X_val = self.X_val[topFeatures]
+        self.X_val = self.X_val
         self.Y_val = self.Y_val
-        self.X_test = self.X_test[topFeatures]
+        self.X_test = self.X_test
         self.Y_test = self.Y_test
 
-        inputSize = self.X_train.shape[1]
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
@@ -568,7 +587,7 @@ class NoGen(fullNN):
             out = tf.keras.layers.Embedding(num_unique_vals + 1, embed_dim)(inp)
 
             if self.PARAMS['Dropout']:
-                out = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(out)
+                out = tf.keras.layers.SpatialDropout1D(self.PARAMS['Dropout_Rate'])(out)
 
             out = tf.keras.layers.Reshape(target_shape=(embed_dim,))(out)
             inputs.append(inp)
@@ -593,8 +612,11 @@ class NoGen(fullNN):
         else:
             y = Dense(1, activation='sigmoid')(x)
 
-
+        
         model = tf.keras.Model(inputs=inputs, outputs=y)
+
+        plot_model(model)
+        
         model.summary()
         # Compilation
         model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
@@ -663,9 +685,11 @@ if __name__ == "__main__":
     data = cleanBC()
     #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
-    model.encodeData()
     model.splitData(testSize=0.10, valSize=0.10)
-    features = model.featureSelection(numFeatures=20, method=4)
-    model.buildModel(features)
+
+    X_embed_train, X_embed_val, X_embed_test = model.embedding_preproc()
+
+    model.buildModel(X_embed_train, X_embed_val, X_embed_test)
+
     model.evaluateModel()
 
