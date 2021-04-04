@@ -737,7 +737,7 @@ if __name__ == "__main__":
               'EXECUTIONS_PER_TRIAL': 5,
               'MAX_TRIALS': 10}
 
-    neptune.create_experiment(name='Spect', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weights'],
                               description='Testing embedding')
 
@@ -758,7 +758,7 @@ if __name__ == "__main__":
                            data=dataPath)
     """
 
-    data = cleanSpect()
+    data = cleanBC()
     #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
 

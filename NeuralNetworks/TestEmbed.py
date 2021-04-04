@@ -308,6 +308,18 @@ class fullNN():
             features = self.X_train.columns
             return features
 
+    def splitData(self):
+        """
+        This section is to test out how I split up the data - if I divide it up by what features are in each
+        sample, maybe I can run it through like a word embedding?
+        :return:
+        """
+
+        columns = self.X_train.columns
+        input = []
+        for c in columns:
+
+
     def hpTuning(self, topFeatures):
         self.start_time = time.time()
 
@@ -687,9 +699,7 @@ if __name__ == "__main__":
     data = model.imputeData(data)
     model.splitData(testSize=0.10, valSize=0.10)
 
-    X_embed_train, X_embed_val, X_embed_test = model.embedding_preproc()
-
-    model.buildModel(X_embed_train, X_embed_val, X_embed_test)
+    model.buildModel()
 
     model.evaluateModel()
 
