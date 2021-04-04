@@ -554,28 +554,51 @@ class NoGen(fullNN):
 
 
         def build_model(hp):
+
+            #inputs = tf.keras.Input(shape=(self.X_train.shape[1],))
+
             # define the keras model
-            model = tf.keras.models.Sequential()
-            #model.add(tf.keras.Input(shape=(inputSize,)))
+            inputs = []
+            outputs = []
+            categorical_columns = self.X_train.columns
 
+            for c in categorical_columns:
+                print(c)
+                num_unique_vals = 2
+                embed_dim = int(max(min(np.ceil(num_unique_vals / 2), 50), 2))
+                inp = tf.keras.layers.Input(shape=(1,))
+                out = tf.keras.layers.Embedding(num_unique_vals + 1, embed_dim)(inp)
 
+                if self.PARAMS['Dropout']:
+                    out = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(out)
+
+                out = tf.keras.layers.Reshape(target_shape=(embed_dim,))(out)
+                inputs.append(inp)
+                outputs.append(out)
+
+            # Concatenate into one single feature vector
+            x = tf.keras.layers.Concatenate()(outputs)
 
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
-
+                """
+                if i == 0:
+                    x = Dense(units=units, activation=deep_activation)(inputs)
+                else:
+                    x = Dense(units=units, activation=deep_activation)(x)
+                """
+                x = Dense(units=units, activation=deep_activation)(x)
                 if self.PARAMS['Dropout']:
-                    model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                    x = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(x)
 
                 if self.PARAMS['BatchNorm']:
-                    model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                    x = tf.keras.layers.BatchNormalization(momentum=self.PARAMS['Momentum'])(x)
 
             if self.PARAMS['bias_init']:
-                model.add(Dense(1, activation='sigmoid'))
-            elif not self.PARAMS['bias_init']:
-                model.add(
-                    Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias)))
+                y = Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias))(x)
+            else:
+                y = Dense(1, activation='sigmoid')(x)
 
             # Select optimizer
             optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
@@ -602,7 +625,8 @@ class NoGen(fullNN):
             weight_for_1 = hp.Float('Weight1', 1, 25, step=1)
             class_weight_dict = {0: weight_for_0, 1: weight_for_1}
             """
-
+            model = tf.keras.Model(inputs=inputs, outputs=y)
+            model.summary()
             # Compilation
             model.compile(optimizer=optimizer,
                           loss=weighted_binary_cross_entropy(class_weight_dict),
@@ -698,7 +722,7 @@ if __name__ == "__main__":
     PARAMS = {'batch_size': 32,
               'bias_init': False,
               'estimator': "ExtraTrees",
-              'epochs': 20,
+              'epochs': 50,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -710,14 +734,12 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 20,
-              'MAX_TRIALS': 25,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10}
+              'EXECUTIONS_PER_TRIAL': 5,
+              'MAX_TRIALS': 10}
 
     neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weights'],
-                              description='Testing different imputation')
+                              description='Testing embedding')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -740,8 +762,8 @@ if __name__ == "__main__":
     #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
 
-    model.splitData(testSize=PARAMS['TestSplit'], valSize=PARAMS['ValSplit'])
-    features = model.featureSelection(numFeatures=10, method=4)
+    model.splitData(testSize=0.10, valSize=0.10)
+    features = model.featureSelection(numFeatures=20, method=4)
     model.hpTuning(features)
     model.evaluateModel()
 
