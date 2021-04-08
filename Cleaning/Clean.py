@@ -29,6 +29,8 @@ def cleanBC():
 
     df.rename(columns={"Class": "Label"}, inplace=True)
 
+    df = df.astype('object')
+
     return df
 
 def cleanPima():
