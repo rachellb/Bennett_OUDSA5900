@@ -727,16 +727,16 @@ if __name__ == "__main__":
     else:
         model = fullNN(PARAMS)
 
-    """
+
     # Get data
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
-    """
 
-    data = cleanBC()
+
+    #data = cleanBC()
     #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)
 
