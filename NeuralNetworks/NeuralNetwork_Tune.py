@@ -69,7 +69,7 @@ from Cleaning.Clean import *
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/Comparisons', api_token=api_)
+neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
 
 def weighted_loss_persample(weights, batchSize):
     def loss(y_true, y_pred):
@@ -195,8 +195,8 @@ class fullNN():
     def splitData(self, testSize, valSize):
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Label')
-        Y = self.data['Label']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
                                                                                 random_state=self.split1)
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
@@ -519,6 +519,7 @@ class NoGen(fullNN):
 
         self.PARAMS = PARAMS
 
+
     def hpTuning(self, topFeatures):
         self.start_time = time.time()
 
@@ -613,8 +614,8 @@ class NoGen(fullNN):
 
             return model
 
-        batches = [32, 64, 128, 256]
-        #batches = [2048, 4096, 8192]
+        #batches = [32, 64, 128, 256]
+        batches = [2048, 4096, 8192]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
         # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
@@ -695,29 +696,29 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 32,
+    PARAMS = {'batch_size': 4096,
               'bias_init': False,
               'estimator': "ExtraTrees",
-              'epochs': 20,
+              'epochs': 100,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
-              'Dropout_Rate': 0.30,
+              'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 20,
-              'MAX_TRIALS': 25,
+              'EXECUTIONS_PER_TRIAL': 5,
+              'MAX_TRIALS': 10,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='Texas', params=PARAMS, send_hardware_metrics=True,
                               tags=['scikit-learn weights'],
-                              description='Testing different imputation')
+                              description='Getting Current Best Results')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -741,7 +742,7 @@ if __name__ == "__main__":
     data = model.imputeData(data)
 
     model.splitData(testSize=PARAMS['TestSplit'], valSize=PARAMS['ValSplit'])
-    features = model.featureSelection(numFeatures=10, method=4)
+    features = model.featureSelection(numFeatures=10, method=2)
     model.hpTuning(features)
     model.evaluateModel()
 

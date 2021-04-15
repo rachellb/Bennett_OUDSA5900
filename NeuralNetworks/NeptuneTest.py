@@ -52,14 +52,14 @@ from openpyxl import load_workbook
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 from NeuralNetworkBase import NN
-
+from PIL import Image
 import neptune
 from neptunecontrib.api.table import log_table
 from neptunecontrib.monitoring.keras import NeptuneMonitor
 
 from secret import api_
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNOklahoma', api_token=api_)
+neptune.init(project_qualified_name='rachellb/NNTexas', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -119,6 +119,36 @@ def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
     return weighted_cross_entropy_fn
 
+def costRatio(weights: dict, from_logits: bool = False):
+
+    assert 0 in weights
+    assert 1 in weights
+
+    def costRatio_fn(y_true, y_pred):
+        tf_y_true = tf.cast(y_true, dtype=tf.float64)
+        tf_y_pred = tf.cast(y_pred, dtype=tf.float64)
+        # Makes a weight vector? Puts weights at correct points
+        # If I want to do this, I just have to
+
+        TN = np.logical_and(K.eval(tf_y_true) == 0, K.eval(tf_y_pred) == 0)
+        TP = np.logical_and(K.eval(tf_y_true) == 1, K.eval(tf_y_pred) == 1)
+
+        FP = np.logical_and(K.eval(tf_y_true) == 0, K.eval(tf_y_pred) == 1)
+        FN = np.logical_and(K.eval(tf_y_true) == 1, K.eval(tf_y_pred) == 0)
+
+        # Converted as Keras Tensors
+        FN = K.sum(K.variable(FN))
+        FP = K.sum(K.variable(FP))
+
+
+        #Weights are
+
+        loss = K.sum(tf.math.multiply(FN,weights[0]),tf.math.multiply(FP,weights[1]))
+
+        return loss
+
+    return costRatio_fn
+
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
                '07': 2, '08': 2, '09': 3,
@@ -165,11 +195,31 @@ def age_encoderOK(data):
 
 class fullNN(NN):
 
+    def __init__(self, PARAMS, dataset):
+        self.PARAMS = PARAMS
+        self.dataset = dataset
+
     def cleanDataTX(self, age):
 
         self.age = age
 
-        quarter1 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        parent = os.path.dirname(os.getcwd())
+
+        system = 'linux'
+
+        if system == 'linux':
+            dataPathq1 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt")
+            dataPathq2 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_2q2013_tab.txt")
+            dataPathq3 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_3q2013_tab.txt")
+            dataPathq4 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_4q2013_tab.txt")
+
+        else:
+            dataPathq1 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_1q2013_tab.txt")
+            dataPathq2 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_2q2013_tab.txt")
+            dataPathq3 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_3q2013_tab.txt")
+            dataPathq4 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_4q2013_tab.txt")
+
+        quarter1 = pd.read_csv(dataPathq1, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -248,7 +298,7 @@ class fullNN(NN):
                                       'OTH_DIAG_CODE_23': str,
                                       'OTH_DIAG_CODE_24': str})
 
-        quarter2 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_2q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        quarter2 = pd.read_csv(dataPathq2, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -327,7 +377,7 @@ class fullNN(NN):
                                       'OTH_DIAG_CODE_23': str,
                                       'OTH_DIAG_CODE_24': str})
 
-        quarter3 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_3q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        quarter3 = pd.read_csv(dataPathq3, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -406,7 +456,7 @@ class fullNN(NN):
                                       'OTH_DIAG_CODE_23': str,
                                       'OTH_DIAG_CODE_24': str})
 
-        quarter4 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_4q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        quarter4 = pd.read_csv(dataPathq4, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -669,7 +719,7 @@ class fullNN(NN):
         diseaseDictionary = {}
 
         diseaseDictionary['Obesity'] = ['V853', 'V854', '27800', '27801', '27803', '6491']
-        # diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
+        diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
         diseaseDictionary['Cocaine dependence'] = ['3042', '3056']
         diseaseDictionary['Amphetamine dependence'] = ['3044', '3057']
         diseaseDictionary['Gestational diabetes mellitus'] = ['6488']
@@ -707,7 +757,7 @@ class fullNN(NN):
         diseaseDictionary[
             'Congenital abnormalities of the uterus including those complicating pregnancy, childbirth, or the puerperium'] = [
             '6540', '7522', '7523']
-        # diseaseDictionary['Multiple Gestations'] = ['651']
+        diseaseDictionary['Multiple Gestations'] = ['651']
         diseaseDictionary['Fetal Growth Restriction'] = ['764']
         diseaseDictionary['Asthma'] = ['493']
         diseaseDictionary['Obstructive Sleep Apnea'] = ['32723']
@@ -753,7 +803,7 @@ class fullNN(NN):
                      'PAT_STATUS'], axis=1, inplace=True)
 
         # year2013 = (year2013.loc[(year2013['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
+       # year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -774,11 +824,11 @@ class fullNN(NN):
 
         African_Am = year2013.loc[year2013['RACE'] == '3']
         African_Am.drop(columns=['RACE'], inplace=True)
-        African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
+        #African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
 
         Native_Am = year2013.loc[year2013['RACE'] == '1']
         Native_Am.drop(columns=['RACE'], inplace=True)
-        Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
+        #Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
 
         # One hot encoding race
         year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -830,7 +880,7 @@ class fullNN(NN):
         year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
                                'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
 
-        year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
+        #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
 
         return year2013, African_Am, Native_Am
 
@@ -840,12 +890,12 @@ class fullNN(NN):
 
         self.dropMetro = dropMetro
 
-        ok2017 = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2017%20IP/pudf_cd.txt",
-            sep=",")
-        ok2018 = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2018%20IP/pudf_cdv2.txt",
-            sep=",")
+        parent = os.path.dirname(os.getcwd())
+        path2017 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2017 IP/pudf_cd.txt')
+        path2018 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2018 IP/pudf_cdv2.txt')
+
+        ok2017 = pd.read_csv(path2017, sep=",")
+        ok2018 = pd.read_csv(path2018, sep=",")
 
         # Dropping unneeded columns
         ok2017.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',
@@ -1010,8 +1060,10 @@ class fullNN(NN):
         ok2018['Race'].replace('O', 'Other/Unknown', inplace=True)
 
         # Read in list of Counties and their designation
-        urbanRural = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/County%20Metropolitan%20Classification.csv")
+
+        ruralPath = os.path.join(parent, r'Data/County_Metropolitan_Classification.csv')
+
+        urbanRural = pd.read_csv(ruralPath)
         urbanRural['county name'] = urbanRural['county name'].str.replace(' County', '')
         urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 'Urban')
         urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 'Rural')
@@ -1214,11 +1266,6 @@ class fullNN(NN):
 
 class NoTune(fullNN):
 
-    def __init__(self, PARAMS):
-
-        self.best_hps = PARAMS
-
-
 
     def buildModel(self, topFeatures, batchSize, initializer, epochs, alpha=None, gamma=None, biasInit=0):
 
@@ -1402,9 +1449,7 @@ class NoTune(fullNN):
 
 
 class NoGen(NoTune):
-    def __init__(self, PARAMS):
 
-        self.PARAMS = PARAMS
 
     def buildModel(self, topFeatures):
 
@@ -1464,6 +1509,8 @@ class NoGen(NoTune):
 
         class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
+
+
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
@@ -1474,7 +1521,8 @@ class NoGen(NoTune):
 
         # Compilation
         self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=weighted_binary_cross_entropy(class_weight_dict),
+                           loss=loss,
+                           #loss=weighted_binary_cross_entropy(class_weight_dict),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
@@ -1563,8 +1611,8 @@ class NoGen(NoTune):
         # Feature Selection
         if self.method == 1:
             #TODO: figure out how to load and save this image
-            img = openpyxl.drawing.image.Image(self.dataset + 'XGBoostTopFeatures.png')
-            img.anchor = 'A1'
+            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
+            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
         elif self.method == 2:
             log_table('Chi2features', self.Chi2features)
@@ -1589,9 +1637,10 @@ if __name__ == "__main__":
               'final_activation': 'sigmoid',
               'optimizer': 'Adam',
               'learning_rate': 0.001,
-              'batch_size': 4096,
+              'batch_size': 68,
               'bias_init': 1,
-              'epochs': 30,
+              'epochs': 100,
+              'features': 1,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -1599,7 +1648,7 @@ if __name__ == "__main__":
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': False,
+              'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
               'Tune': False,
@@ -1607,25 +1656,32 @@ if __name__ == "__main__":
               'MAX_TRIALS': 5}
 
     neptune.create_experiment(name='CustomWeight2', params=PARAMS, send_hardware_metrics=True,
-                              tags=['(1 / class)*(total)/2.0'],
-                              description='Testing custom loss with keras built-in')
+                              tags=[],
+                              description='Testing new value imputation')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
+    parent = os.path.dirname(os.getcwd())
+    dataset = os.path.join(parent, 'Figures/Texas/')
+
     if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS)
+        model = NoGen(PARAMS, dataset)
 
     else:
-        model = fullNN(PARAMS)
+        model = fullNN(PARAMS, dataset)
 
         # Get data
+    """
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
-
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_041421.csv')
     model.prepData(age='Categorical',
                            data=dataPath)
+    """
+
+    full, african, native = model.cleanDataTX(age='Categorical')
+    model.imputeData(full)
     model.splitData(testSize=0.10, valSize=0.10)
-    features = model.featureSelection(numFeatures=20, method=2)
+    features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
 
     if PARAMS['Tune'] == True:
         model.hpTuning(features)

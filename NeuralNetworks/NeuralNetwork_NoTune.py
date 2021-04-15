@@ -100,6 +100,24 @@ def weighted_loss_persample(weights, batchSize):
 
     return loss
 
+def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
+
+    assert 0 in weights
+    assert 1 in weights
+
+    def weighted_cross_entropy_fn(y_true, y_pred):
+        tf_y_true = tf.cast(y_true, dtype=tf.float64)
+        tf_y_pred = tf.cast(y_pred, dtype=tf.float64)
+
+        weights_v = tf.where(tf.equal(tf_y_true, 1), weights[1], weights[0])
+
+        ce = K.binary_crossentropy(tf_y_true, tf_y_pred, from_logits=from_logits)
+        loss = K.mean(tf.math.multiply(ce, weights_v))
+
+        return loss
+
+    return weighted_cross_entropy_fn
+
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
                '07': 2, '08': 2, '09': 3,
@@ -1522,7 +1540,7 @@ class NoGen(fullNN):
 
         # Compilation
         self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=loss,
+                           loss=weighted_binary_cross_entropy(class_weight_dict),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
