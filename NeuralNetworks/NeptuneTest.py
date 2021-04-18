@@ -59,7 +59,7 @@ from neptunecontrib.monitoring.keras import NeptuneMonitor
 
 from secret import api_
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNTexas', api_token=api_)
+neptune.init(project_qualified_name='rachellb/NNOklahoma', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -624,22 +624,23 @@ class fullNN(NN):
         # Changes payment sources from codes to corresponding categories
         year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicare, "Medicare")
         year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicaid, "Medicaid")
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc,
-                                                                              "Self-pay or Charity")
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other,
-                                                                              "Other Insurance")
+        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc, "Self-pay or Charity")
+        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other, "Other Insurance")
 
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare,
-                                                                                      "Medicare")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid,
-                                                                                      "Medicaid")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc,
-                                                                                      "Self-pay or Charity")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other,
-                                                                                      "Other Insurance")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare, "Medicare")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid, "Medicaid")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc, "Self-pay or Charity")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other, "Other Insurance")
 
-        year2013 = pd.get_dummies(year2013, dummy_na=False,
+        # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+        year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
                                   columns=['FIRST_PAYMENT_SRC', 'SECONDARY_PAYMENT_SRC'])
+
+        # Propogates the missing values via the indicator columns
+        year2013.loc[
+            year2013["FIRST_PAYMENT_SRC__nan"] == 1, year2013.columns.str.startswith("FIRST_PAYMENT_SRC__")] = np.nan
+        year2013.loc[year2013["SECONDARY_PAYMENT_SRC__nan"] == 1, year2013.columns.str.startswith(
+            "SECONDARY_PAYMENT_SRC__")] = np.nan
 
         # Create category columns
         year2013['Medicaid'] = 0
@@ -647,35 +648,49 @@ class fullNN(NN):
         year2013['Self-pay or Charity'] = 0
         year2013['Other Insurance'] = 0
 
-        year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicaid'] == 1, 1,
+        year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC__Medicaid'] == 1, 1,
                                         year2013[
                                             'Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicaid'] == 1, 1,
+        year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Medicaid'] == 1, 1,
                                         year2013['Medicaid'])
-        year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicare'] == 1, 1,
+        year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC__Medicare'] == 1, 1,
                                         year2013['Medicare'])
-        year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicare'] == 1, 1,
+        year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Medicare'] == 1, 1,
                                         year2013['Medicare'])
+        year2013['Self-pay or Charity'] = np.where(year2013['FIRST_PAYMENT_SRC__Self-pay or Charity'] == 1, 1,
+                                                   year2013['Self-pay or Charity'])
         year2013['Self-pay or Charity'] = np.where(
-            year2013['FIRST_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
+            year2013['SECONDARY_PAYMENT_SRC__Self-pay or Charity'] == 1, 1,
             year2013['Self-pay or Charity'])
-        year2013['Self-pay or Charity'] = np.where(
-            year2013['SECONDARY_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
-            year2013['Self-pay or Charity'])
-        year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC_Other Insurance'] == 1, 1,
+        year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC__Other Insurance'] == 1, 1,
                                                year2013['Other Insurance'])
-        year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Other Insurance'] == 1,
+        year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Other Insurance'] == 1,
                                                1, year2013['Other Insurance'])
 
+        year2013['Medicaid'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Medicaid'])
+        year2013['Medicare'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Medicare'])
+        year2013['Self-pay or Charity'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Self-pay or Charity'])
+        year2013['Other Insurance'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Other Insurance'])
+
         # Drop columns with dummies
-        year2013.drop(columns=['FIRST_PAYMENT_SRC_Medicaid',
-                               'SECONDARY_PAYMENT_SRC_Medicaid',
-                               'FIRST_PAYMENT_SRC_Medicare',
-                               'SECONDARY_PAYMENT_SRC_Medicare',
-                               'FIRST_PAYMENT_SRC_Self-pay or Charity',
-                               'SECONDARY_PAYMENT_SRC_Self-pay or Charity',
-                               'FIRST_PAYMENT_SRC_Other Insurance',
-                               'SECONDARY_PAYMENT_SRC_Other Insurance']
+        year2013.drop(columns=['FIRST_PAYMENT_SRC__Medicaid',
+                               'SECONDARY_PAYMENT_SRC__Medicaid',
+                               'FIRST_PAYMENT_SRC__Medicare',
+                               'SECONDARY_PAYMENT_SRC__Medicare',
+                               'FIRST_PAYMENT_SRC__Self-pay or Charity',
+                               'SECONDARY_PAYMENT_SRC__Self-pay or Charity',
+                               'FIRST_PAYMENT_SRC__Other Insurance',
+                               'SECONDARY_PAYMENT_SRC__Other Insurance',
+                               'FIRST_PAYMENT_SRC__nan',
+                               'SECONDARY_PAYMENT_SRC__nan']
                       , axis=1, inplace=True)
 
         # Rename Race columns
@@ -891,8 +906,8 @@ class fullNN(NN):
         self.dropMetro = dropMetro
 
         parent = os.path.dirname(os.getcwd())
-        path2017 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2017 IP/pudf_cd.txt')
-        path2018 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2018 IP/pudf_cdv2.txt')
+        path2017 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2017_IP/pudf_cd.txt')
+        path2018 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2018_IP/pudf_cdv2.txt')
 
         ok2017 = pd.read_csv(path2017, sep=",")
         ok2018 = pd.read_csv(path2018, sep=",")
@@ -1199,8 +1214,8 @@ class fullNN(NN):
         # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
         # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
 
-        ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        #ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        #ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
@@ -1640,7 +1655,7 @@ if __name__ == "__main__":
               'batch_size': 68,
               'bias_init': 1,
               'epochs': 100,
-              'features': 1,
+              'features': 2,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -1655,14 +1670,14 @@ if __name__ == "__main__":
               'Tuner': 'Hyperband',
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='CustomWeight2', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='OkFull', params=PARAMS, send_hardware_metrics=True,
                               tags=[],
                               description='Testing new value imputation')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
     parent = os.path.dirname(os.getcwd())
-    dataset = os.path.join(parent, 'Figures/Texas/')
+    dataset = os.path.join(parent, 'Figures/Oklahoma/')
 
     if PARAMS['Generator'] == False:
         model = NoGen(PARAMS, dataset)
@@ -1678,8 +1693,8 @@ if __name__ == "__main__":
                            data=dataPath)
     """
 
-    full, african, native = model.cleanDataTX(age='Categorical')
-    model.imputeData(full)
+    ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=True)
+    model.imputeData(ok2017, ok2018)
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
 

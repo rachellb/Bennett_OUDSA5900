@@ -557,7 +557,7 @@ class NoGen(fullNN):
         def build_model(hp):
             # define the keras model
             model = tf.keras.models.Sequential()
-            #model.add(tf.keras.Input(shape=(inputSize,)))
+            model.add(tf.keras.Input(shape=(inputSize,)))
 
 
 
@@ -579,7 +579,7 @@ class NoGen(fullNN):
                     Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
             # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
+            optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -593,20 +593,19 @@ class NoGen(fullNN):
             elif optimizer == 'SGD':
                 optimizer = tf.keras.optimizers.SGD(lr, clipnorm=0.0001)
 
+            elif optimizer == 'NAdam':
+                optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
+
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
             else:
                 loss = 'binary_crossentropy'
 
-            """
-            weight_for_0 = hp.Float('Weight0', 1, 25, step=1)
-            weight_for_1 = hp.Float('Weight1', 1, 25, step=1)
-            class_weight_dict = {0: weight_for_0, 1: weight_for_1}
-            """
 
             # Compilation
             model.compile(optimizer=optimizer,
-                          loss=weighted_binary_cross_entropy(class_weight_dict),
+                          loss=loss,
+                          #loss=weighted_binary_cross_entropy(class_weight_dict),
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
@@ -696,7 +695,7 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 4096,
+    PARAMS = {'batch_size': 8192,
               'bias_init': False,
               'estimator': "ExtraTrees",
               'epochs': 100,
@@ -707,17 +706,17 @@ if __name__ == "__main__":
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': True,
+              'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 5,
-              'MAX_TRIALS': 10,
+              'EXECUTIONS_PER_TRIAL': 10,
+              'MAX_TRIALS': 15,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.create_experiment(name='Texas', params=PARAMS, send_hardware_metrics=True,
-                              tags=['scikit-learn weights'],
+                              tags=['Unweighted'],
                               description='Getting Current Best Results')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
@@ -731,7 +730,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

@@ -35,7 +35,7 @@ from imblearn.over_sampling import RandomOverSampler
 # For NN and tuning
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-
+import tensorflow.keras.backend as K
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
@@ -59,7 +59,7 @@ from secret import api_
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/OKCV', api_token=api_)
+neptune.init(project_qualified_name='rachellb/NNTexas', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1527,10 +1527,13 @@ class NoGen(fullNN):
                                  bias_initializer=tf.keras.initializers.Constant(
                                      value=bias)))
 
-        # Reset class weights for use in loss function
         scalar = len(self.Y_train)
-        class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+        # class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        # class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
         # Loss Function
         if self.PARAMS['focal']:
@@ -1539,8 +1542,9 @@ class NoGen(fullNN):
             loss = 'binary_crossentropy'
 
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=weighted_binary_cross_entropy(class_weight_dict),
+        self.model.compile(optimizer=tf.keras.optimizers.Nadam(learning_rate=self.PARAMS['learning_rate']),
+                           loss=loss,
+                           #loss=weighted_binary_cross_entropy(class_weight_dict),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
@@ -1554,19 +1558,25 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 3,
+    PARAMS = {'num_layers': 6,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 30,
-              'units_1': 36,
-              'units_2': 45,
+              'dense_activation_2': 'tanh',
+              'dense_activation_3': 'tanh',
+              'dense_activation_4': 'tanh',
+              'dense_activation_5': 'tanh',
+              'units_0': 45,
+              'units_1': 30,
+              'units_2': 60,
+              'units_3': 30,
+              'units_4': 60,
+              'units_5': 30,
               'final_activation': 'sigmoid',
               'optimizer': 'Adam',
               'learning_rate': 0.001,
-              'batch_size': 4096,
+              'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 30,
+              'epochs': 100,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -1579,9 +1589,9 @@ if __name__ == "__main__":
               'Generator': False,
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='NNOkCV', params=PARAMS, send_hardware_metrics=True,
-                              tags=['trainSize/classSize'],
-                              description='Compare Bias Initialization')
+    neptune.create_experiment(name='TexasCV', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted'],
+                              description='')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -1590,7 +1600,7 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
