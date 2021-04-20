@@ -1080,8 +1080,8 @@ class fullNN(NN):
 
         urbanRural = pd.read_csv(ruralPath)
         urbanRural['county name'] = urbanRural['county name'].str.replace(' County', '')
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 'Urban')
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 'Rural')
+        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 1)
+        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 0)
         urbanRural.drop(columns='value', inplace=True)
 
         # Match capitalization
@@ -1101,10 +1101,11 @@ class fullNN(NN):
                     inplace=True)
 
         # Re-label marriage status
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 'Married')
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 'Married')
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 'Unmarried')
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 'Unmarried')
+        ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 1)
+        ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 1)
+        ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 0)
+        ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 0)
+
 
         # A list of relevant columns
         diagnosisColumns = ['pdx', 'dx1', 'dx2', 'dx3',
@@ -1217,58 +1218,50 @@ class fullNN(NN):
         #ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
         #ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
 
-        # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+        data = ok2017.append(ok2018)
+        savePath = os.path.join(parent,'Data/Oklahoma_Clean/Full_' + date + '.csv')
+        data.to_csv(savePath)
+
+
+                                # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
-                                columns=['Race', 'Marital_status', 'Metro status'])
+                                columns=['Race'])
 
         # Propogates the missing values via the indicator columns
         ok2017.loc[ok2017["Race__nan"] == 1, ok2017.columns.str.startswith("Race__")] = np.nan
-        ok2017.loc[ok2017["Marital_status__nan"] == 1, ok2017.columns.str.startswith("Marital_status__")] = np.nan
-        ok2017.loc[ok2017["Metro status__nan"] == 1, ok2017.columns.str.startswith("Metro status__")] = np.nan
+
 
         # Drops the missingness indicator columns
         ok2017 = ok2017.drop(['Race__nan'], axis=1)
-        ok2017 = ok2017.drop(['Marital_status__nan'], axis=1)
-        ok2017 = ok2017.drop(['Metro status__nan'], axis=1)
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2018 = pd.get_dummies(ok2018, prefix_sep="__", dummy_na=True,
-                                columns=['Race', 'Marital_status', 'Metro status'])
+                                columns=['Race'])
 
         # Propogates the missing values via the indicator columns
         ok2018.loc[ok2018["Race__nan"] == 1, ok2018.columns.str.startswith("Race__")] = np.nan
-        ok2018.loc[ok2018["Marital_status__nan"] == 1, ok2018.columns.str.startswith("Marital_status__")] = np.nan
-        ok2018.loc[ok2018["Metro status__nan"] == 1, ok2018.columns.str.startswith("Metro status__")] = np.nan
 
         # Drops the missingness indicator columns
         ok2018 = ok2018.drop(['Race__nan'], axis=1)
-        ok2018 = ok2018.drop(['Marital_status__nan'], axis=1)
-        ok2018 = ok2018.drop(['Metro status__nan'], axis=1)
 
         ok2017.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race',
-                               'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried',
-                               'Metro status__Rural': 'Rural',
-                               'Metro status__Urban': 'Urban'}, inplace=True)
+                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
         ok2018.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race',
-                               'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried',
-                               'Metro status__Rural': 'Rural',
-                               'Metro status__Urban': 'Urban'}, inplace=True)
+                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
         if (dropMetro == True):
-            ok2017.drop(columns=['Rural', 'Urban'], inplace=True)
-            ok2018.drop(columns=['Rural', 'Urban'], inplace=True)
+            ok2017.drop(columns=['Metro status'], inplace=True)
+            ok2018.drop(columns=['Metro status'], inplace=True)
 
         # ok2017.to_csv('Data/Oklahoma_Clean/ok2017_Incomplete.csv', index=False)
         # ok2018.to_csv('Data/Oklahoma_Clean/ok2018_Incomplete.csv', index=False)
+
+
 
         return ok2017, ok2018
 
@@ -1529,6 +1522,8 @@ class NoGen(NoTune):
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
         else:
             loss = 'binary_crossentropy'
 
@@ -1537,7 +1532,6 @@ class NoGen(NoTune):
         # Compilation
         self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
                            loss=loss,
-                           #loss=weighted_binary_cross_entropy(class_weight_dict),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
@@ -1671,7 +1665,7 @@ if __name__ == "__main__":
               'MAX_TRIALS': 5}
 
     neptune.create_experiment(name='OkFull', params=PARAMS, send_hardware_metrics=True,
-                              tags=[],
+                              tags=['Weighted', 'KeptMetro'],
                               description='Testing new value imputation')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
@@ -1693,7 +1687,7 @@ if __name__ == "__main__":
                            data=dataPath)
     """
 
-    ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=True)
+    ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
     model.imputeData(ok2017, ok2018)
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=PARAMS['features'])

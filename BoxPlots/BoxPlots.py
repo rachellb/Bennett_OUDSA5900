@@ -3,7 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-data = 'Oklahoma'
+data = 'Texas'
 
 logAUC = np.load('AUC/' + data + '/log_auc.npy')
 logWeightAUC = np.load('AUC/' + data + '/logWeight_auc.npy')

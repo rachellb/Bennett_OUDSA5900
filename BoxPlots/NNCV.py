@@ -177,6 +177,9 @@ class NoGen(fullNN):
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
         class_weight_dict = dict(enumerate(class_weights))
 
+
+
+
         pos = self.Y_train.sum()
         neg = len(self.Y_train) - pos
         bias = np.log(pos / neg)
@@ -204,7 +207,7 @@ class NoGen(fullNN):
             loss = 'binary_crossentropy'
 
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
+        self.model.compile(optimizer=tf.keras.optimizers.Nadam(learning_rate=self.PARAMS['learning_rate']),
                            loss=weighted_binary_cross_entropy(class_weight_dict),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
@@ -222,19 +225,25 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'num_layers': 3,
+    PARAMS = {'num_layers': 6,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
+              'dense_activation_3': 'tanh',
+              'dense_activation_4': 'tanh',
+              'dense_activation_5': 'relu',
               'units_0': 30,
-              'units_1': 36,
+              'units_1': 30,
               'units_2': 45,
+              'units_3': 60,
+              'units_4': 60,
+              'units_5': 41,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'NAdam',
               'learning_rate': 0.001,
-              'batch_size': 4096,
+              'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 30,
+              'epochs': 100,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -255,7 +264,7 @@ if __name__ == "__main__":
     if name == 'Oklahoma':
         path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
     else:
-        path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
+        path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
 
     if weight == False:

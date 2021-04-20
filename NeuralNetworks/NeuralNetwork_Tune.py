@@ -699,9 +699,9 @@ if __name__ == "__main__":
               'bias_init': False,
               'estimator': "ExtraTrees",
               'epochs': 100,
-              'focal': False,
+              'focal': True,
               'alpha': 0.5,
-              'gamma': 1.25,
+              'gamma': 1.5,
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -709,14 +709,14 @@ if __name__ == "__main__":
               'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Bayesian",
+              'Tuner': "Hyperband",
               'EXECUTIONS_PER_TRIAL': 10,
               'MAX_TRIALS': 15,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.create_experiment(name='Texas', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Unweighted'],
+                              tags=['Focal Loss'],
                               description='Getting Current Best Results')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
