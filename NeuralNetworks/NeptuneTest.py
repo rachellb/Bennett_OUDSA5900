@@ -59,7 +59,7 @@ from neptunecontrib.monitoring.keras import NeptuneMonitor
 
 from secret import api_
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNOklahoma', api_token=api_)
+neptune.init(project_qualified_name='rachellb/Test', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1649,7 +1649,7 @@ if __name__ == "__main__":
               'optimizer': 'Adam',
               'learning_rate': 0.001,
               'batch_size': 68,
-              'bias_init': 1,
+              'bias_init': 0,
               'epochs': 100,
               'features': 2,
               'focal': False,

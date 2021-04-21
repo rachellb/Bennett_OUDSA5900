@@ -59,7 +59,7 @@ from secret import api_
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNTexas', api_token=api_)
+neptune.init(project_qualified_name='rachellb/OKCV', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1544,7 +1544,7 @@ class NoGen(fullNN):
             loss = 'binary_crossentropy'
 
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Nadam(learning_rate=self.PARAMS['learning_rate']),
+        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
                            loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
@@ -1563,29 +1563,29 @@ if __name__ == "__main__":
               'dense_activation_0': 'relu',
               'dense_activation_1': 'tanh',
               'dense_activation_2': 'tanh',
-              'units_0': 41,
-              'units_1': 45,
-              'units_2': 60,
+              'units_0': 30,
+              'units_1': 36,
+              'units_2': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'NAdam',
+              'optimizer': 'Adam',
               'learning_rate': 0.001,
-              'batch_size': 8192,
+              'batch_size': 68,
               'bias_init': 0,
               'epochs': 100,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
-              'class_weights': False,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': False,
+              'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='TexasCV', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Focal Loss'],
+    neptune.create_experiment(name='OkCV', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted'],
                               description='')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
@@ -1595,7 +1595,7 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
