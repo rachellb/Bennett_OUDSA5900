@@ -69,7 +69,7 @@ from Cleaning.Clean import *
 
 
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
+neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
 
 def weighted_loss_persample(weights, batchSize):
     def loss(y_true, y_pred):
@@ -596,8 +596,11 @@ class NoGen(fullNN):
             elif optimizer == 'NAdam':
                 optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
 
+            # Loss Function
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+            elif self.PARAMS['class_weights']:
+                loss = weighted_binary_cross_entropy(class_weight_dict)
             else:
                 loss = 'binary_crossentropy'
 
@@ -605,7 +608,6 @@ class NoGen(fullNN):
             # Compilation
             model.compile(optimizer=optimizer,
                           loss=loss,
-                          #loss=weighted_binary_cross_entropy(class_weight_dict),
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
@@ -614,7 +616,7 @@ class NoGen(fullNN):
             return model
 
         #batches = [32, 64, 128, 256]
-        batches = [2048, 4096, 8192]
+        batches = [32, 64, 128, 256, 2048, 4096, 8192]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
         # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
@@ -695,27 +697,27 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 8192,
+    PARAMS = {'batch_size': 64,
               'bias_init': False,
-              'estimator': "ExtraTrees",
+              'estimator': "BayesianRidge",
               'epochs': 100,
               'focal': True,
               'alpha': 0.5,
-              'gamma': 1.5,
-              'class_weights': True,
+              'gamma': 1.25,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Hyperband",
+              'Tuner': "Bayesian",
               'EXECUTIONS_PER_TRIAL': 10,
               'MAX_TRIALS': 15,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    neptune.create_experiment(name='Texas', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='OkFull', params=PARAMS, send_hardware_metrics=True,
                               tags=['Focal Loss'],
                               description='Getting Current Best Results')
 
@@ -730,13 +732,10 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
-
-
     #data = cleanBC()
     #model.normalizeData(method='StandardScale')
     data = model.imputeData(data)

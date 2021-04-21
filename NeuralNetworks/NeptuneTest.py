@@ -1217,11 +1217,11 @@ class fullNN(NN):
 
         #ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
         #ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
-
+        """
         data = ok2017.append(ok2018)
         savePath = os.path.join(parent,'Data/Oklahoma_Clean/Full_' + date + '.csv')
         data.to_csv(savePath)
-
+        """
 
                                 # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
@@ -1270,6 +1270,8 @@ class fullNN(NN):
         self.age = age
 
         self.data = pd.read_csv(data)
+
+        return self.data
 
 
 class NoTune(fullNN):
@@ -1652,7 +1654,7 @@ if __name__ == "__main__":
               'features': 2,
               'focal': False,
               'alpha': 0.5,
-              'gamma': 1.25,
+              'gamma': 1.5,
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -1664,9 +1666,9 @@ if __name__ == "__main__":
               'Tuner': 'Hyperband',
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='OkFull', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'KeptMetro'],
-                              description='Testing new value imputation')
+    neptune.create_experiment(name='Oklahoma', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted'],
+                              description='Testing focal loss values')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
@@ -1680,15 +1682,16 @@ if __name__ == "__main__":
         model = fullNN(PARAMS, dataset)
 
         # Get data
-    """
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_041421.csv')
-    model.prepData(age='Categorical',
-                           data=dataPath)
-    """
 
-    ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
-    model.imputeData(ok2017, ok2018)
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+
+
+    data = model.prepData(age='Categorical',
+                           data=dataPath)
+
+    #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
+    model.imputeData(data)
     model.splitData(testSize=0.10, valSize=0.10)
     features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
 

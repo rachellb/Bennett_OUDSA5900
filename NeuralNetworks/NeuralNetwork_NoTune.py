@@ -1538,13 +1538,14 @@ class NoGen(fullNN):
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
         else:
             loss = 'binary_crossentropy'
 
         # Compilation
         self.model.compile(optimizer=tf.keras.optimizers.Nadam(learning_rate=self.PARAMS['learning_rate']),
                            loss=loss,
-                           #loss=weighted_binary_cross_entropy(class_weight_dict),
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
@@ -1558,21 +1559,15 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 6,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'relu',
+              'dense_activation_1': 'tanh',
               'dense_activation_2': 'tanh',
-              'dense_activation_3': 'tanh',
-              'dense_activation_4': 'tanh',
-              'dense_activation_5': 'tanh',
-              'units_0': 45,
-              'units_1': 30,
+              'units_0': 41,
+              'units_1': 45,
               'units_2': 60,
-              'units_3': 30,
-              'units_4': 60,
-              'units_5': 30,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'NAdam',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
@@ -1580,7 +1575,7 @@ if __name__ == "__main__":
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
-              'class_weights': True,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1590,7 +1585,7 @@ if __name__ == "__main__":
               'MAX_TRIALS': 5}
 
     neptune.create_experiment(name='TexasCV', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted'],
+                              tags=['Focal Loss'],
                               description='')
 
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
