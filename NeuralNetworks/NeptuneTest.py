@@ -53,13 +53,14 @@ from openpyxl import load_workbook
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 from NeuralNetworkBase import NN
 from PIL import Image
-import neptune
-from neptunecontrib.api.table import log_table
-from neptunecontrib.monitoring.keras import NeptuneMonitor
+
+import neptune.new as neptune
+from neptune.new.integrations.tensorflow_keras import NeptuneCallback
+from neptune.new.types import File
 
 from secret import api_
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/Test', api_token=api_)
+
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1529,7 +1530,6 @@ class NoGen(NoTune):
         else:
             loss = 'binary_crossentropy'
 
-        neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
 
         # Compilation
         self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
@@ -1539,17 +1539,14 @@ class NoGen(NoTune):
                                     tf.keras.metrics.Recall(),
                                     tf.keras.metrics.AUC()])
 
-        #Question - Can you put a list in here?
 
-
+        neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
 
         self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
                                       epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
-                                      verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
+                                      verbose=2, callbacks=[neptune_cbk])
 
     def evaluateModel(self):
-
-
         # Graphing results
         plt.clf()
         plt.cla()
@@ -1563,7 +1560,7 @@ class NoGen(NoTune):
         plt.ylabel('auc')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper right')
-        neptune.log_image('AUC/Epochs', auc, image_name='aucPlot')
+        run['AUC/Epochs'].upload(auc)
 
         plt.clf()
         plt.cla()
@@ -1577,7 +1574,7 @@ class NoGen(NoTune):
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper right')
-        neptune.log_image('Loss/Epochs', loss, image_name='lossPlot')
+        run['Loss/Epochs'].upload(loss)
         # plt.show()
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
@@ -1598,17 +1595,17 @@ class NoGen(NoTune):
         self.precision = score[2]
         self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
 
-        neptune.log_metric('loss', self.loss)
-        neptune.log_metric('accuracy', self.accuracy)
-        neptune.log_metric('AUC', self.AUC)
-        neptune.log_metric('specificity', self.specificity)
-        neptune.log_metric('recall', self.recall)
-        neptune.log_metric('precision', self.precision)
-        neptune.log_metric('gmean', self.gmean)
-        neptune.log_metric('True Positive', self.tp)
-        neptune.log_metric('True Negative', self.tn)
-        neptune.log_metric('False Positive', self.fp)
-        neptune.log_metric('False Negative', self.fn)
+        run['loss'] = self.loss
+        run['accuracy'] = self.accuracy
+        run['Test AUC'] = self.AUC
+        run['specificity'] = self.specificity
+        run['recall'] = self.recall
+        run['precision'] = self.precision
+        run['gmean'] = self.gmean
+        run['True Positive'] = self.tp
+        run['True Negative'] = self.tn
+        run['False Positive'] = self.fp
+        run['False Negative'] = self.fn
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -1626,35 +1623,54 @@ class NoGen(NoTune):
             neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
         elif self.method == 2:
-            log_table('Chi2features', self.Chi2features)
+            run['Chi2features'].upload(File.as_html(self.Chi2features))
+
 
         elif self.method == 3:
-            log_table('MIFeatures', self.MIFeatures)
+            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
 
 
         mins = (time.time() - self.start_time) / 60  # Time in seconds
 
-        neptune.log_metric('minutes', mins)
+        run['minutes'] = mins
 
 if __name__ == "__main__":
 
-    PARAMS = {'num_layers': 3,
+
+
+    run = neptune.init(project='rachellb/BatchTest',
+                       api_token=api_,
+                       name='Texas African',
+                       tags=['Weighted', 'Epoch Test'],
+                       source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
+
+    PARAMS = {'num_layers': 8,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
+              'dense_activation_3': 'tanh',
+              'dense_activation_4': 'relu',
+              'dense_activation_5': 'relu',
+              'dense_activation_6': 'tanh',
+              'dense_activation_7': 'relu',
               'units_0': 30,
               'units_1': 36,
               'units_2': 45,
+              'units_3': 30,
+              'units_4': 36,
+              'units_5': 45,
+              'units_6': 30,
+              'units_7': 36,
               'final_activation': 'sigmoid',
               'optimizer': 'Adam',
               'learning_rate': 0.001,
-              'batch_size': 68,
+              'batch_size': 128,
               'bias_init': 0,
-              'epochs': 100,
+              'epochs': 1000,
               'features': 2,
               'focal': False,
               'alpha': 0.5,
-              'gamma': 1.5,
+              'gamma': 1.25,
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -1666,26 +1682,22 @@ if __name__ == "__main__":
               'Tuner': 'Hyperband',
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='Oklahoma', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted'],
-                              description='Testing focal loss values')
-
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+    run['hyper-parameters'] = PARAMS
 
     parent = os.path.dirname(os.getcwd())
     dataset = os.path.join(parent, 'Figures/Oklahoma/')
 
     if PARAMS['Generator'] == False:
         model = NoGen(PARAMS, dataset)
-
     else:
         model = fullNN(PARAMS, dataset)
 
         # Get data
 
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/African/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
@@ -1703,4 +1715,6 @@ if __name__ == "__main__":
         model.buildModel(features)
 
     model.evaluateModel()
+
+    run.stop()
 

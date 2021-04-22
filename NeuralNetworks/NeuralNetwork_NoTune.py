@@ -52,14 +52,11 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
 # For recording results
-import neptune
-from neptunecontrib.api.table import log_table
-from neptunecontrib.monitoring.keras import NeptuneMonitor
 from secret import api_
+import neptune.new as neptune
+from neptune.new.integrations.tensorflow_keras import NeptuneCallback
+from neptune.new.types import File
 
-
-# Initialize the project
-neptune.init(project_qualified_name='rachellb/OKCV', api_token=api_)
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -1303,7 +1300,6 @@ class fullNN():
             self.MIFeatures = features
             return mutualInfoFeatures
 
-
     def prepData(self, age, data):
 
         self.age = age
@@ -1416,7 +1412,7 @@ class fullNN():
         plt.ylabel('auc')
         plt.xlabel('epoch')
         plt.legend(['train'], loc='upper right')
-        neptune.log_image('AUC/Epochs', auc, image_name='aucPlot')
+        run['AUC/Epochs'].upload(auc)
 
         plt.clf()
         plt.cla()
@@ -1429,7 +1425,7 @@ class fullNN():
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train'], loc='upper right')
-        neptune.log_image('Loss/Epochs', loss, image_name='lossPlot')
+        run['Loss/Epochs'].upload(loss)
         # plt.show()
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
@@ -1468,11 +1464,17 @@ class fullNN():
         print(f'Test Gmean: {gmean:.6f}')
 
         # Feature Selection
-        if self.method == 2:
-            log_table('Chi2features', self.Chi2features)
+        if self.method == 1:
+            # TODO: figure out how to load and save this image
+            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
+            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+
+        elif self.method == 2:
+            run['Chi2features'].upload(File.as_html(self.Chi2features))
+
 
         elif self.method == 3:
-            log_table('MIFeatures', self.MIFeatures)
+            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
 
         return Results
 
@@ -1551,12 +1553,15 @@ class NoGen(fullNN):
                                     tf.keras.metrics.Recall(),
                                     tf.keras.metrics.AUC()])
 
+        neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
+
         self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
                                       epochs=self.PARAMS['epochs'],
-                                      verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
+                                      verbose=2, callbacks=[neptune_cbk])
 
 if __name__ == "__main__":
 
+    neptune.init(project_qualified_name='rachellb/OKCV', api_token=api_)
     start_time = time.time()
 
     PARAMS = {'num_layers': 3,
@@ -1584,10 +1589,13 @@ if __name__ == "__main__":
               'Generator': False,
               'MAX_TRIALS': 5}
 
-    neptune.create_experiment(name='OkCV', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted'],
-                              description='')
+    run = neptune.init(project='rachellb/OkCV',
+                       api_token=api_,
+                       name='Oklahoma Full',
+                       tags=['Unweighted'],
+                       source_files=['NeuralNetwork_NoTune.py'])
 
+    run['hyper-parameters'] = PARAMS
     #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
     if PARAMS['Generator'] == False:
@@ -1641,13 +1649,13 @@ if __name__ == "__main__":
     recallMean = statistics.mean(recallList)
     precMean = statistics.mean(precisionList)
 
-    neptune.log_metric('Mean loss', lossMean)
-    neptune.log_metric('Mean accuracy', accMean)
-    neptune.log_metric('Mean AUC', aucMean)
-    neptune.log_metric('Mean specificity', specMean)
-    neptune.log_metric('Mean recall', recallMean)
-    neptune.log_metric('Mean precision', precMean)
-    neptune.log_metric('Mean gmean', gmeanMean)
+    run['Mean loss'] = lossMean
+    run['Mean accuracy'] = accMean
+    run['Mean AUC'] = aucMean
+    run['Mean specificity'] = specMean
+    run['Mean recall'] = recallMean
+    run['Mean precisio'] = precMean
+    run['Mean gmean'] = gmeanMean
 
 
     def plotAvg(historyList):
@@ -1683,7 +1691,7 @@ if __name__ == "__main__":
         plt.ylabel('auc')
         plt.xlabel('epoch')
         plt.legend(['training'], loc='upper right')
-        neptune.log_image('Average AUC', avgauc, image_name='avgAucPlot')
+        run['Average AUC'].upload(avgauc)
 
         plt.clf()
         plt.cla()
@@ -1696,10 +1704,10 @@ if __name__ == "__main__":
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['training'], loc='upper right')
-        neptune.log_image('Average Loss', avgloss, image_name='avgLossPlot')
+        run['Average Loss'].upload(avgloss)
 
     plotAvg(historyList)
 
     mins = (time.time() - start_time) / 60  # Time in seconds
 
-    neptune.log_metric('minutes', mins)
+    run['minutes'] = mins

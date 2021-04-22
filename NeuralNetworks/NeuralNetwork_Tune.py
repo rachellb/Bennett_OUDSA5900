@@ -38,7 +38,7 @@ import tensorflow.keras.backend as K
 import kerastuner
 from kerastuner.tuners import Hyperband, BayesianOptimization, RandomSearch
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-import neptunecontrib.monitoring.kerastuner as npt_utils
+
 
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
@@ -58,56 +58,13 @@ from sklearn.svm import OneClassSVM
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
 # For recording results
-import neptune
-from neptunecontrib.api.table import log_table
-from neptunecontrib.monitoring.keras import NeptuneMonitor
+import neptune.new as neptune
+from neptune.new.integrations.tensorflow_keras import NeptuneCallback
+import neptunecontrib.monitoring.kerastuner as npt_utils
+from neptune.new.types import File
 from secret import api_
 from Cleaning.Clean import *
 
-
-
-
-
-# Initialize the project
-neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
-
-def weighted_loss_persample(weights, batchSize):
-    def loss(y_true, y_pred):
-        # The masks for the true and false values
-
-        idx_1 = y_true == 1.
-        idx_0 = y_true == 0.
-
-        pred_1 = tf.boolean_mask(y_pred, idx_1)
-        pred_1 = tf.expand_dims(pred_1, 1)
-
-        true_1 = tf.boolean_mask(y_true, idx_1)
-        true_1 = tf.expand_dims(true_1, 1)
-
-        pred_0 = tf.boolean_mask(y_pred, idx_0)
-        pred_0 = tf.expand_dims(pred_0, 1)
-
-        true_0 = tf.boolean_mask(y_true, idx_0)
-        true_0 = tf.expand_dims(true_0, 1)
-
-        bce = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-
-        # The losses for the 0 classes
-        losses_0 = bce(pred_0, true_0)
-        losses_0 = tf.reduce_sum(losses_0, 0)  # Add back up
-        losses_0 = losses_0 * weights[0]
-
-        # The losses for the 1 classes
-        losses_1 = bce(pred_1, true_1)
-        losses_1 = tf.reduce_sum(losses_1, 0)  # Add back up
-        losses_1 = losses_1 * weights[1]
-
-        # Add them back up and divide by batch size
-        sum = losses_0 + losses_1
-        total = sum / batchSize
-        return total
-
-    return loss
 
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
@@ -443,7 +400,7 @@ class fullNN():
         plt.ylabel('auc')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper right')
-        neptune.log_image('AUC/Epochs', auc, image_name='aucPlot')
+        run['AUC/Epochs'].upload(auc)
 
         plt.clf()
         plt.cla()
@@ -457,7 +414,7 @@ class fullNN():
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper right')
-        neptune.log_image('Loss/Epochs', loss, image_name='lossPlot')
+        run['Loss/Epochs'].upload(loss)
         # plt.show()
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
@@ -478,17 +435,17 @@ class fullNN():
         self.precision = score[2]
         self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
 
-        neptune.log_metric('loss', self.loss)
-        neptune.log_metric('accuracy', self.accuracy)
-        neptune.log_metric('AUC', self.AUC)
-        neptune.log_metric('specificity', self.specificity)
-        neptune.log_metric('recall', self.recall)
-        neptune.log_metric('precision', self.precision)
-        neptune.log_metric('gmean', self.gmean)
-        neptune.log_metric('True Positive', self.tp)
-        neptune.log_metric('True Negative', self.tn)
-        neptune.log_metric('False Positive', self.fp)
-        neptune.log_metric('False Negative', self.fn)
+        run['loss'] = self.loss
+        run['accuracy'] = self.accuracy
+        run['Test AUC'] = self.AUC
+        run['specificity'] = self.specificity
+        run['recall'] = self.recall
+        run['precision'] = self.precision
+        run['gmean'] = self.gmean
+        run['True Positive'] = self.tp
+        run['True Negative'] = self.tn
+        run['False Positive'] = self.fp
+        run['False Negative'] = self.fn
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -501,18 +458,20 @@ class fullNN():
 
         # Feature Selection
         if self.method == 1:
+            # TODO: figure out how to load and save this image
             image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
-            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+            #neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
         elif self.method == 2:
-            log_table('Chi2features', self.Chi2features)
+            run['Chi2features'].upload(File.as_html(self.Chi2features))
+
 
         elif self.method == 3:
-            log_table('MIFeatures', self.MIFeatures)
+            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
 
         mins = (time.time() - self.start_time) / 60  # Time in seconds
 
-        neptune.log_metric('minutes', mins)
+        run['minutes'] = mins
 
 class NoGen(fullNN):
     def __init__(self, PARAMS):
@@ -573,10 +532,10 @@ class NoGen(fullNN):
                     model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
             if self.PARAMS['bias_init']:
-                model.add(Dense(1, activation='sigmoid'))
-            elif not self.PARAMS['bias_init']:
                 model.add(
                     Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias)))
+            elif not self.PARAMS['bias_init']:
+                model.add(Dense(1, activation='sigmoid'))
 
             # Select optimizer
             optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
@@ -683,10 +642,10 @@ class NoGen(fullNN):
                           callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
-        # self.best_model = self.hb_tuner.get_best_models(num_models=1)[0]
         self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
 
         self.best_model = self.tuner.hypermodel.build(self.best_hps)
+
         self.history = self.best_model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
                                            epochs=self.PARAMS['epochs'],
                                            validation_data=(self.X_val, self.Y_val), verbose=2)
@@ -697,42 +656,46 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 64,
+    PARAMS = {'batch_size': 128,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 100,
-              'focal': True,
+              'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': False,
+              'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 10,
-              'MAX_TRIALS': 15,
+              'Tuner': "Random",
+              'EXECUTIONS_PER_TRIAL': 1,
+              'MAX_TRIALS': 1,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    neptune.create_experiment(name='OkFull', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Focal Loss'],
-                              description='Getting Current Best Results')
+    run = neptune.init(project='rachellb/HPSearch',
+                       api_token=api_,
+                       name='Texas Full',
+                       tags=['Unweighted'],
+                       description='Getting Current Best Results',
+                       source_files=['NeuralNetwork_Tune.py', 'Clean.py'])
 
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+    run['hyper-parameters'] = PARAMS
+
 
     if PARAMS['Generator'] == False:
         model = NoGen(PARAMS)
-
     else:
         model = fullNN(PARAMS)
 
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
@@ -745,3 +708,4 @@ if __name__ == "__main__":
     model.hpTuning(features)
     model.evaluateModel()
 
+    run.stop()
