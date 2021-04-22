@@ -1636,8 +1636,6 @@ class NoGen(NoTune):
 
 if __name__ == "__main__":
 
-
-
     run = neptune.init(project='rachellb/BatchTest',
                        api_token=api_,
                        name='Texas African',

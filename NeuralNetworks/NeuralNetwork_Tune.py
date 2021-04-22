@@ -58,8 +58,10 @@ from sklearn.svm import OneClassSVM
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
 # For recording results
-import neptune.new as neptune
-from neptune.new.integrations.tensorflow_keras import NeptuneCallback
+
+import neptune
+from neptunecontrib.api.table import log_table
+from neptunecontrib.monitoring.keras import NeptuneMonitor
 import neptunecontrib.monitoring.kerastuner as npt_utils
 from neptune.new.types import File
 from secret import api_
@@ -400,7 +402,7 @@ class fullNN():
         plt.ylabel('auc')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper right')
-        run['AUC/Epochs'].upload(auc)
+        neptune.log_image('AUC/Epochs', auc, image_name='aucPlot')
 
         plt.clf()
         plt.cla()
@@ -414,7 +416,7 @@ class fullNN():
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper right')
-        run['Loss/Epochs'].upload(loss)
+        neptune.log_image('Loss/Epochs', loss, image_name='lossPlot')
         # plt.show()
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
@@ -435,17 +437,19 @@ class fullNN():
         self.precision = score[2]
         self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
 
-        run['loss'] = self.loss
-        run['accuracy'] = self.accuracy
-        run['Test AUC'] = self.AUC
-        run['specificity'] = self.specificity
-        run['recall'] = self.recall
-        run['precision'] = self.precision
-        run['gmean'] = self.gmean
-        run['True Positive'] = self.tp
-        run['True Negative'] = self.tn
-        run['False Positive'] = self.fp
-        run['False Negative'] = self.fn
+        neptune.log_metric('loss', self.loss)
+        neptune.log_metric('accuracy', self.accuracy)
+        neptune.log_metric('AUC', self.AUC)
+        neptune.log_metric('specificity', self.specificity)
+        neptune.log_metric('recall', self.recall)
+        neptune.log_metric('precision', self.precision)
+        neptune.log_metric('gmean', self.gmean)
+        neptune.log_metric('True Positive', self.tp)
+        neptune.log_metric('True Negative', self.tn)
+        neptune.log_metric('False Positive', self.fp)
+        neptune.log_metric('False Negative', self.fn)
+
+
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -458,20 +462,17 @@ class fullNN():
 
         # Feature Selection
         if self.method == 1:
-            # TODO: figure out how to load and save this image
             image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
-            #neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
         elif self.method == 2:
-            run['Chi2features'].upload(File.as_html(self.Chi2features))
-
+            log_table('Chi2features', self.Chi2features)
 
         elif self.method == 3:
-            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
+            log_table('MIFeatures', self.MIFeatures)
 
         mins = (time.time() - self.start_time) / 60  # Time in seconds
-
-        run['minutes'] = mins
+        neptune.log_metric('minutes', mins)
 
 class NoGen(fullNN):
     def __init__(self, PARAMS):
@@ -575,7 +576,8 @@ class NoGen(fullNN):
             return model
 
         #batches = [32, 64, 128, 256]
-        batches = [32, 64, 128, 256, 2048, 4096, 8192]
+        #batches = [32, 64, 128, 256, 2048, 4096, 8192]
+        #batches = [128, 256, 2048, 4096]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
         # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
@@ -585,7 +587,8 @@ class NoGen(fullNN):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+
+                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
                 #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyBayes, self).run_trial(trial, *args, **kwargs)
 
@@ -593,14 +596,14 @@ class NoGen(fullNN):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
                 super(MyHB, self).run_trial(trial, *args, **kwargs)
 
         class MyRand(kerastuner.tuners.RandomSearch):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
                 # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyRand, self).run_trial(trial, *args, **kwargs)
 
@@ -656,10 +659,10 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 128,
+    PARAMS = {'batch_size': 512,
               'bias_init': False,
               'estimator': "BayesianRidge",
-              'epochs': 100,
+              'epochs': 30,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -671,19 +674,15 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Random",
-              'EXECUTIONS_PER_TRIAL': 1,
-              'MAX_TRIALS': 1,
+              'EXECUTIONS_PER_TRIAL': 5,
+              'MAX_TRIALS': 10,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    run = neptune.init(project='rachellb/HPSearch',
-                       api_token=api_,
-                       name='Texas Full',
-                       tags=['Unweighted'],
-                       description='Getting Current Best Results',
-                       source_files=['NeuralNetwork_Tune.py', 'Clean.py'])
-
-    run['hyper-parameters'] = PARAMS
+    neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
+    neptune.create_experiment(name='Texas Full', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Unweighted'],
+                              description='Getting Current Best Results')
 
 
     if PARAMS['Generator'] == False:
@@ -708,4 +707,3 @@ if __name__ == "__main__":
     model.hpTuning(features)
     model.evaluateModel()
 
-    run.stop()
