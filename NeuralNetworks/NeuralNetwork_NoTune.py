@@ -1373,11 +1373,6 @@ class fullNN():
                                  bias_initializer=tf.keras.initializers.Constant(
                                      value=bias)))
 
-        # Reset class weights for use in loss function
-        scalar = len(self.Y_train)
-        class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
-
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
@@ -1396,7 +1391,7 @@ class fullNN():
 
         self.history = self.model.fit(self.training_generator,
                                       epochs=self.PARAMS['epochs'], validation_data=(self.validation_generator),
-                                      verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
+                                      verbose=2)
 
     def evaluateModel(self):
 
@@ -1529,14 +1524,6 @@ class NoGen(fullNN):
                                  bias_initializer=tf.keras.initializers.Constant(
                                      value=bias)))
 
-        scalar = len(self.Y_train)
-        # class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        # class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
-
-        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
-        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
-        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
-
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
@@ -1589,7 +1576,7 @@ if __name__ == "__main__":
               'Generator': False,
               'MAX_TRIALS': 5}
 
-    run = neptune.init(project='rachellb/OkCV',
+    run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='Oklahoma Full',
                        tags=['Unweighted'],

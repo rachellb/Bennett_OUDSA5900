@@ -43,7 +43,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -503,17 +503,6 @@ class NoGen(fullNN):
 
         bias = np.log(pos / neg)
 
-        scalar = len(self.Y_train)
-        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
-
-
-        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
-        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
-        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
-
-
-
         def build_model(hp):
             # define the keras model
             model = tf.keras.models.Sequential()
@@ -539,7 +528,7 @@ class NoGen(fullNN):
                 model.add(Dense(1, activation='sigmoid'))
 
             # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
+            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#,'NAdam', 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -615,6 +604,7 @@ class NoGen(fullNN):
                                    seed=1234,
                                    factor=3,
                                    overwrite=True,
+                                   directory=os.path.normpath('C:/'),
                                    logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
@@ -624,6 +614,7 @@ class NoGen(fullNN):
                                  max_trials=self.PARAMS['MAX_TRIALS'],
                                  seed=1234,
                                  executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                                 directory=os.path.normpath('C:/'),
                                  logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
@@ -634,6 +625,7 @@ class NoGen(fullNN):
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
                 executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                directory=os.path.normpath('C:/'),
                 logger=npt_utils.NeptuneLogger()
             )
 
@@ -653,35 +645,37 @@ class NoGen(fullNN):
                                            epochs=self.PARAMS['epochs'],
                                            validation_data=(self.X_val, self.Y_val), verbose=2)
 
+        print(self.best_model.summary())
+
         # Logs best scores, best parameters
         npt_utils.log_tuner_info(self.tuner)
 
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 512,
+    PARAMS = {'batch_size': 64,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
-              'class_weights': False,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': True,
+              'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Random",
-              'EXECUTIONS_PER_TRIAL': 5,
-              'MAX_TRIALS': 10,
+              'EXECUTIONS_PER_TRIAL': 1,
+              'MAX_TRIALS': 1,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
-    neptune.create_experiment(name='Texas Full', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Unweighted'],
+    neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
+    neptune.create_experiment(name='Oklahoma Full', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted'],
                               description='Getting Current Best Results')
 
 
@@ -693,8 +687,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

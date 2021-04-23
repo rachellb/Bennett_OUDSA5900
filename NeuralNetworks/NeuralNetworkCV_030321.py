@@ -32,7 +32,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 import statistics

@@ -42,7 +42,7 @@ import tensorflow.keras.backend as K
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from openpyxl import Workbook  # For storing results
@@ -1461,7 +1461,6 @@ class NoTune(fullNN):
 
 class NoGen(NoTune):
 
-
     def buildModel(self, topFeatures):
 
         self.start_time = time.time()
@@ -1532,12 +1531,14 @@ class NoGen(NoTune):
 
 
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
+        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate'], clipnorm=0.0001),
                            loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
                                     tf.keras.metrics.AUC()])
+
+
 
 
         neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
@@ -1638,33 +1639,23 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/BatchTest',
                        api_token=api_,
-                       name='Texas African',
-                       tags=['Weighted', 'Epoch Test'],
+                       name='Oklahoma Full',
+                       tags=['Weighted', 'Comparison Test', 'Clipnorm'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
-    PARAMS = {'num_layers': 8,
+    PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
-              'dense_activation_3': 'tanh',
-              'dense_activation_4': 'relu',
-              'dense_activation_5': 'relu',
-              'dense_activation_6': 'tanh',
-              'dense_activation_7': 'relu',
-              'units_0': 30,
+              'units_0': 60,
               'units_1': 36,
-              'units_2': 45,
-              'units_3': 30,
-              'units_4': 36,
-              'units_5': 45,
-              'units_6': 30,
-              'units_7': 36,
+              'units_2': 30,
               'final_activation': 'sigmoid',
               'optimizer': 'Adam',
               'learning_rate': 0.001,
-              'batch_size': 128,
+              'batch_size': 64,
               'bias_init': 0,
-              'epochs': 1000,
+              'epochs': 30,
               'features': 2,
               'focal': False,
               'alpha': 0.5,
@@ -1673,7 +1664,7 @@ if __name__ == "__main__":
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': True,
+              'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
               'Tune': False,
@@ -1693,9 +1684,9 @@ if __name__ == "__main__":
         # Get data
 
     parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/African/Chi2_Categorical_041521.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/African/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
