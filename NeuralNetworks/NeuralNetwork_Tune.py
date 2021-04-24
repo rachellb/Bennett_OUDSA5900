@@ -303,10 +303,10 @@ class fullNN():
             final_activation = 'sigmoid'
 
             if self.PARAMS['bias_init']:
-                model.add(Dense(1, activation=final_activation))
-            elif not self.PARAMS['bias_init']:
                 model.add(
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
+            else:
+                model.add(Dense(1, activation=final_activation))
 
                 # Select optimizer
                 optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
@@ -328,6 +328,8 @@ class fullNN():
 
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+            elif self.PARAMS['class_weights']:
+                loss = weighted_binary_cross_entropy(class_weight_dict)
             else:
                 loss = 'binary_crossentropy'
 
@@ -340,8 +342,6 @@ class fullNN():
                                    tf.keras.metrics.AUC()])
 
             return model
-
-
 
 
         if self.PARAMS['Tuner'] == 'Hyperband':
@@ -359,7 +359,7 @@ class fullNN():
                                               overwrite=True,
                                               max_trials=self.PARAMS['MAX_TRIALS'],
                                               seed=1234,
-                                              executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
+                                              executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
                                               logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
@@ -369,7 +369,7 @@ class fullNN():
                 overwrite=True,
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
-                executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
+                executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
                 logger=npt_utils.NeptuneLogger()
             )
 
@@ -674,16 +674,16 @@ if __name__ == "__main__":
               'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
-              'Generator': False,
+              'Generator': True,
               'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 40,
-              'TestSplit': 0.30,
+              'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
-    neptune.create_experiment(name='Texas Native', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted'],
+    neptune.create_experiment(name='Texas', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted', 'Balanced-Batches'],
                               description='Getting Current Best Results')
 
 
@@ -696,7 +696,7 @@ if __name__ == "__main__":
     # Get data
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
