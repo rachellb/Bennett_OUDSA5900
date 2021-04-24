@@ -1539,26 +1539,18 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 8,
+    PARAMS = {'num_layers': 4,
               'dense_activation_0': 'relu',
-              'dense_activation_1': 'tanh',
-              'dense_activation_2': 'relu',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'tanh',
               'dense_activation_3': 'tanh',
-              'dense_activation_4': 'relu',
-              'dense_activation_5': 'tanh',
-              'dense_activation_6': 'relu',
-              'dense_activation_7': 'tanh',
               'units_0': 41,
               'units_1': 30,
-              'units_2': 45,
-              'units_3': 30,
-              'units_4': 45,
-              'units_5': 60,
-              'units_6': 36,
-              'units_7': 45,
+              'units_2': 36,
+              'units_3': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
-              'learning_rate': 0.001,
+              'optimizer': 'RMSprop',
+              'learning_rate': 0.00001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
@@ -1577,7 +1569,7 @@ if __name__ == "__main__":
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='Texas Native',
-                       tags=['Weighted'],
+                       tags=['Weighted', 'Random'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS

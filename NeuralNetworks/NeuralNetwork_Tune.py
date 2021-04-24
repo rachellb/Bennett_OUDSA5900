@@ -308,8 +308,8 @@ class fullNN():
                 model.add(
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
 
-            # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop', 'SGD'])
+                # Select optimizer
+                optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -323,7 +323,8 @@ class fullNN():
             elif optimizer == 'SGD':
                 optimizer = tf.keras.optimizers.SGD(lr, clipnorm=0.0001)
 
-
+            elif optimizer == 'NAdam':
+                optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
 
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
@@ -674,10 +675,10 @@ if __name__ == "__main__":
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Hyperband",
+              'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 40,
-              'TestSplit': 0.10,
+              'TestSplit': 0.30,
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
