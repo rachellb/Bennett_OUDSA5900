@@ -1684,9 +1684,9 @@ if __name__ == "__main__":
         plt.legend(['training', 'validation'], loc='upper right')
         figname = filename + '_trainTestAUC' + date + '.png'
         plt.savefig(figname, bbox_inches="tight")
-        #img = openpyxl.drawing.image.Image(figname)
-        #img.anchor = 'A1'
-        # wsGraphs.add_image(img)
+        img = openpyxl.drawing.image.Image(figname)
+        img.anchor = 'A1'
+        wsGraphs.add_image(img)
 
         plt.clf()
         plt.cla()

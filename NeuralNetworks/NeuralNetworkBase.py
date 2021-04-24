@@ -325,24 +325,33 @@ class NN():
                 max_trials=MAX_TRIALS,
                 executions_per_trial=EXECUTION_PER_TRIAL,
             )
-
+        """
         self.hb_tuner.search(self.training_generator,
                                  epochs=epochs,
                                  verbose=2,
                                  validation_data=(self.validation_generator),
                                  callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
-                                #Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
+        """
+        self.tuner.search(self.X_train, self.Y_train,
+                          epochs=self.PARAMS['epochs'],
+                          verbose=2,
+                          validation_data=(self.X_val, self.Y_val),
+                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
+        # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
-        #self.best_model = self.hb_tuner.get_best_models(num_models=1)[0]
-        self.best_hps = self.hb_tuner.get_best_hyperparameters(num_trials=1)[0]
+        self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
 
     def buildModel(self, epochs):
 
         self.epochs = epochs
 
         self.best_model = self.hb_tuner.hypermodel.build(self.best_hps)
+        """
         self.history = self.best_model.fit(self.training_generator, epochs=epochs,
                                            validation_data=(self.validation_generator), verbose=2)
+        """
+        self.history = self.best_model.fit(self.X_train, self.Y_train, epochs=self.PARAMS['epochs'],
+                                           validation_data=(self.X_val, self.Y_val), verbose=2)
 
         print(self.best_model.summary())
 

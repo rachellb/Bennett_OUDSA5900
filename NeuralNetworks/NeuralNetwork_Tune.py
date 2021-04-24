@@ -43,7 +43,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-#import tensorflow_addons as tfa  # For focal loss function
+import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -323,6 +323,8 @@ class fullNN():
             elif optimizer == 'SGD':
                 optimizer = tf.keras.optimizers.SGD(lr, clipnorm=0.0001)
 
+
+
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
             else:
@@ -356,7 +358,7 @@ class fullNN():
                                               overwrite=True,
                                               max_trials=self.PARAMS['MAX_TRIALS'],
                                               seed=1234,
-                                              executions_per_trial=2,
+                                              executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
                                               logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
@@ -381,6 +383,7 @@ class fullNN():
         self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
 
         self.best_model = self.tuner.hypermodel.build(self.best_hps)
+
         self.history = self.best_model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
                                            validation_data=(self.validation_generator), verbose=2)
 
@@ -503,12 +506,21 @@ class NoGen(fullNN):
 
         bias = np.log(pos / neg)
 
+        scalar = len(self.Y_train)
+        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+
+
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+
+
+
         def build_model(hp):
             # define the keras model
             model = tf.keras.models.Sequential()
             model.add(tf.keras.Input(shape=(inputSize,)))
-
-
 
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
@@ -528,7 +540,7 @@ class NoGen(fullNN):
                 model.add(Dense(1, activation='sigmoid'))
 
             # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#,'NAdam', 'SGD'])
+            optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -604,7 +616,6 @@ class NoGen(fullNN):
                                    seed=1234,
                                    factor=3,
                                    overwrite=True,
-                                   directory=os.path.normpath('C:/'),
                                    logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
@@ -614,7 +625,6 @@ class NoGen(fullNN):
                                  max_trials=self.PARAMS['MAX_TRIALS'],
                                  seed=1234,
                                  executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                 directory=os.path.normpath('C:/'),
                                  logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
@@ -625,7 +635,6 @@ class NoGen(fullNN):
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
                 executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                directory=os.path.normpath('C:/'),
                 logger=npt_utils.NeptuneLogger()
             )
 
@@ -645,36 +654,34 @@ class NoGen(fullNN):
                                            epochs=self.PARAMS['epochs'],
                                            validation_data=(self.X_val, self.Y_val), verbose=2)
 
-        print(self.best_model.summary())
-
         # Logs best scores, best parameters
         npt_utils.log_tuner_info(self.tuner)
 
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 64,
+    PARAMS = {'batch_size': 8192,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
               'focal': False,
               'alpha': 0.5,
-              'gamma': 1.25,
+              'gamma': 1.75,
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': False,
+              'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Random",
+              'Tuner': "Hyperband",
               'EXECUTIONS_PER_TRIAL': 1,
-              'MAX_TRIALS': 1,
+              'MAX_TRIALS': 40,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
-    neptune.create_experiment(name='Oklahoma Full', params=PARAMS, send_hardware_metrics=True,
+    neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
+    neptune.create_experiment(name='Texas Native', params=PARAMS, send_hardware_metrics=True,
                               tags=['Weighted'],
                               description='Getting Current Best Results')
 
@@ -687,8 +694,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

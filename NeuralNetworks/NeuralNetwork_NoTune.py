@@ -58,45 +58,6 @@ from neptune.new.integrations.tensorflow_keras import NeptuneCallback
 from neptune.new.types import File
 
 
-
-def weighted_loss_persample(weights, batchSize):
-    def loss(y_true, y_pred):
-        # The masks for the true and false values
-
-        idx_1 = y_true == 1.
-        idx_0 = y_true == 0.
-
-        pred_1 = tf.boolean_mask(y_pred, idx_1)
-        pred_1 = tf.expand_dims(pred_1, 1)
-
-        true_1 = tf.boolean_mask(y_true, idx_1)
-        true_1 = tf.expand_dims(true_1, 1)
-
-        pred_0 = tf.boolean_mask(y_pred, idx_0)
-        pred_0 = tf.expand_dims(pred_0, 1)
-
-        true_0 = tf.boolean_mask(y_true, idx_0)
-        true_0 = tf.expand_dims(true_0, 1)
-
-        bce = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-
-        # The losses for the 0 classes
-        losses_0 = bce(pred_0, true_0)
-        losses_0 = tf.reduce_sum(losses_0, 0)  # Add back up
-        losses_0 = losses_0 * weights[0]
-
-        # The losses for the 1 classes
-        losses_1 = bce(pred_1, true_1)
-        losses_1 = tf.reduce_sum(losses_1, 0)  # Add back up
-        losses_1 = losses_1 * weights[1]
-
-        # Add them back up and divide by batch size
-        sum = losses_0 + losses_1
-        total = sum / batchSize
-        return total
-
-    return loss
-
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
     assert 0 in weights
@@ -1376,11 +1337,26 @@ class fullNN():
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
         else:
             loss = 'binary_crossentropy'
 
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
+        self.model.compile(optimizer=optimizer,
                            loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
@@ -1532,8 +1508,21 @@ class NoGen(fullNN):
         else:
             loss = 'binary_crossentropy'
 
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
+        self.model.compile(optimizer=optimizer,
                            loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
@@ -1548,22 +1537,31 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    neptune.init(project_qualified_name='rachellb/OKCV', api_token=api_)
     start_time = time.time()
 
-    PARAMS = {'num_layers': 3,
+    PARAMS = {'num_layers': 8,
               'dense_activation_0': 'relu',
               'dense_activation_1': 'tanh',
-              'dense_activation_2': 'tanh',
-              'units_0': 30,
-              'units_1': 36,
+              'dense_activation_2': 'relu',
+              'dense_activation_3': 'tanh',
+              'dense_activation_4': 'relu',
+              'dense_activation_5': 'tanh',
+              'dense_activation_6': 'relu',
+              'dense_activation_7': 'tanh',
+              'units_0': 41,
+              'units_1': 30,
               'units_2': 45,
+              'units_3': 30,
+              'units_4': 45,
+              'units_5': 60,
+              'units_6': 36,
+              'units_7': 45,
               'final_activation': 'sigmoid',
               'optimizer': 'Adam',
               'learning_rate': 0.001,
-              'batch_size': 68,
+              'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 100,
+              'epochs': 30,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
@@ -1578,8 +1576,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Unweighted'],
+                       name='Texas Native',
+                       tags=['Weighted'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1590,7 +1588,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
