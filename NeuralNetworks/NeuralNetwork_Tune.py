@@ -43,7 +43,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-#import tensorflow_addons as tfa  # For focal loss function
+import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -303,10 +303,10 @@ class fullNN():
             final_activation = 'sigmoid'
 
             if self.PARAMS['bias_init']:
-                model.add(Dense(1, activation=final_activation))
-            elif not self.PARAMS['bias_init']:
                 model.add(
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
+            else:
+                model.add(Dense(1, activation=final_activation))
 
                 # Select optimizer
                 optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
@@ -328,6 +328,8 @@ class fullNN():
 
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+            elif self.PARAMS['class_weights']:
+                loss = weighted_binary_cross_entropy(class_weight_dict)
             else:
                 loss = 'binary_crossentropy'
 
@@ -340,8 +342,6 @@ class fullNN():
                                    tf.keras.metrics.AUC()])
 
             return model
-
-
 
 
         if self.PARAMS['Tuner'] == 'Hyperband':
@@ -377,8 +377,7 @@ class fullNN():
                           epochs=self.PARAMS['epochs'],
                           verbose=2,
                           validation_data=(self.validation_generator),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)],
-                          directory = os.path.normpath('C:/'))
+                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
         # self.best_model = self.hb_tuner.get_best_models(num_models=1)[0]
@@ -645,8 +644,7 @@ class NoGen(fullNN):
                           batch_size=self.PARAMS['batch_size'],
                           verbose=2,
                           validation_data=(self.X_val, self.Y_val),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)],
-                          directory=os.path.normpath('C:/'))
+                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
         self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
@@ -663,7 +661,7 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 64,
+    PARAMS = {'batch_size': 8192,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
@@ -680,11 +678,11 @@ if __name__ == "__main__":
               'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 40,
-              'TestSplit': 0.30,
+              'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
-    neptune.create_experiment(name='Oklahoma Full', params=PARAMS, send_hardware_metrics=True,
+    neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
+    neptune.create_experiment(name='Texas', params=PARAMS, send_hardware_metrics=True,
                               tags=['Weighted', 'Balanced-Batches'],
                               description='Getting Current Best Results')
 
@@ -697,8 +695,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
