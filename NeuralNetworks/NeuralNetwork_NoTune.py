@@ -39,7 +39,7 @@ import tensorflow.keras.backend as K
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 import statistics
@@ -1563,12 +1563,12 @@ if __name__ == "__main__":
               'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
-              'Generator': False,
+              'Generator': True,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Texas Native',
+                       name='Oklahoma Full',
                        tags=['Weighted', 'Random'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
@@ -1580,8 +1580,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 

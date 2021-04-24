@@ -43,7 +43,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -359,7 +359,7 @@ class fullNN():
                                               overwrite=True,
                                               max_trials=self.PARAMS['MAX_TRIALS'],
                                               seed=1234,
-                                              executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
+                                              executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
                                               logger=npt_utils.NeptuneLogger())
 
         elif self.PARAMS['Tuner'] == 'Random':
@@ -369,7 +369,7 @@ class fullNN():
                 overwrite=True,
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
-                executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
+                executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
                 logger=npt_utils.NeptuneLogger()
             )
 
@@ -377,7 +377,8 @@ class fullNN():
                           epochs=self.PARAMS['epochs'],
                           verbose=2,
                           validation_data=(self.validation_generator),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
+                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)],
+                          directory = os.path.normpath('C:/'))
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
         # self.best_model = self.hb_tuner.get_best_models(num_models=1)[0]
@@ -644,7 +645,8 @@ class NoGen(fullNN):
                           batch_size=self.PARAMS['batch_size'],
                           verbose=2,
                           validation_data=(self.X_val, self.Y_val),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
+                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)],
+                          directory=os.path.normpath('C:/'))
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
         self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
@@ -661,7 +663,7 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 8192,
+    PARAMS = {'batch_size': 64,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
@@ -674,16 +676,16 @@ if __name__ == "__main__":
               'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
-              'Generator': False,
+              'Generator': True,
               'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 40,
               'TestSplit': 0.30,
               'ValSplit': 0.10}
 
-    neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
-    neptune.create_experiment(name='Texas Native', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted'],
+    neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
+    neptune.create_experiment(name='Oklahoma Full', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted', 'Balanced-Batches'],
                               description='Getting Current Best Results')
 
 
@@ -695,8 +697,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
