@@ -43,7 +43,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -326,6 +326,8 @@ class fullNN():
             elif optimizer == 'NAdam':
                 optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
 
+
+            # Loss function
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
             elif self.PARAMS['class_weights']:
@@ -351,7 +353,8 @@ class fullNN():
                                    seed=1234,
                                    factor=3,
                                    overwrite=True,
-                                   logger=npt_utils.NeptuneLogger())
+                                   logger=npt_utils.NeptuneLogger(),
+                                   directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
             self.tuner = BayesianOptimization(build_model,
@@ -360,7 +363,8 @@ class fullNN():
                                               max_trials=self.PARAMS['MAX_TRIALS'],
                                               seed=1234,
                                               executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                              logger=npt_utils.NeptuneLogger())
+                                              logger=npt_utils.NeptuneLogger(),
+                                              directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Random':
             self.tuner = RandomSearch(
@@ -370,7 +374,8 @@ class fullNN():
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
                 executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                logger=npt_utils.NeptuneLogger()
+                logger=npt_utils.NeptuneLogger(),
+                directory=os.path.normpath('C:/')
             )
 
         self.tuner.search(self.training_generator,
@@ -611,13 +616,14 @@ class NoGen(fullNN):
 
         if self.PARAMS['Tuner'] == 'Hyperband':
             self.tuner = MyHB(build_model,
-                                   objective=kerastuner.Objective('val_auc', direction="max"),
-                                   max_epochs=self.PARAMS['epochs'],
-                                   hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                   seed=1234,
-                                   factor=3,
-                                   overwrite=True,
-                                   logger=npt_utils.NeptuneLogger())
+                              objective=kerastuner.Objective('val_auc', direction="max"),
+                              max_epochs=self.PARAMS['epochs'],
+                              hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                              seed=1234,
+                              factor=3,
+                              overwrite=True,
+                              logger=npt_utils.NeptuneLogger(),
+                              directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
             self.tuner = MyBayes(build_model,
@@ -626,7 +632,8 @@ class NoGen(fullNN):
                                  max_trials=self.PARAMS['MAX_TRIALS'],
                                  seed=1234,
                                  executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                 logger=npt_utils.NeptuneLogger())
+                                 logger=npt_utils.NeptuneLogger(),
+                                 directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Random':
             self.tuner = MyRand(
@@ -636,7 +643,8 @@ class NoGen(fullNN):
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
                 executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                logger=npt_utils.NeptuneLogger()
+                logger=npt_utils.NeptuneLogger(),
+                directory=os.path.normpath('C:/')
             )
 
         self.tuner.search(self.X_train, self.Y_train,
@@ -661,29 +669,29 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 8192,
+    PARAMS = {'batch_size': 32,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
               'focal': False,
               'alpha': 0.5,
-              'gamma': 1.75,
-              'class_weights': True,
+              'gamma': 1.25,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
               'Generator': True,
-              'Tuner': "Random",
+              'Tuner': "Bayesian",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 40,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10}
+              'TestSplit': 0.30,
+              'ValSplit': 0.30}
 
-    neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
-    neptune.create_experiment(name='Texas', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'Balanced-Batches'],
+    neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
+    neptune.create_experiment(name='Oklahoma Native', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Unweighted', 'Balanced-Batches'],
                               description='Getting Current Best Results')
 
 
@@ -695,8 +703,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

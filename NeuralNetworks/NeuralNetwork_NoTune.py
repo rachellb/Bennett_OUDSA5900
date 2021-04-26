@@ -1286,8 +1286,6 @@ class fullNN():
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures].to_numpy()
         self.Y_train = self.Y_train.to_numpy()
-        self.X_val = self.X_val[topFeatures].to_numpy()
-        self.Y_val = self.Y_val.to_numpy()
         self.X_test = self.X_test[topFeatures].to_numpy()
         self.Y_test = self.Y_test.to_numpy()
 
@@ -1298,11 +1296,6 @@ class fullNN():
                                                          batch_size=self.PARAMS['batch_size'],
                                                          sampler=RandomOverSampler(),
                                                          random_state=42)
-
-        self.validation_generator = BalancedBatchGenerator(self.X_test, self.Y_test,
-                                                           batch_size=self.PARAMS['batch_size'],
-                                                           sampler=RandomOverSampler(),
-                                                           random_state=42)
         # define the keras model
         tf.keras.backend.clear_session()
         self.model = tf.keras.models.Sequential()
@@ -1365,9 +1358,7 @@ class fullNN():
 
         # Question - Can you put a list in here?
 
-        self.history = self.model.fit(self.training_generator,
-                                      epochs=self.PARAMS['epochs'], validation_data=(self.validation_generator),
-                                      verbose=2)
+        self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'], verbose=2)
 
     def evaluateModel(self):
 
@@ -1539,25 +1530,21 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 4,
+    PARAMS = {'num_layers': 2,
               'dense_activation_0': 'relu',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'tanh',
-              'dense_activation_3': 'tanh',
-              'units_0': 41,
-              'units_1': 30,
-              'units_2': 36,
-              'units_3': 45,
+              'dense_activation_1': 'tanh',
+              'units_0': 30,
+              'units_1': 41,
               'final_activation': 'sigmoid',
               'optimizer': 'RMSprop',
-              'learning_rate': 0.00001,
-              'batch_size': 8192,
+              'learning_rate': 0.0001,
+              'batch_size': 32,
               'bias_init': 0,
               'epochs': 30,
               'focal': False,
               'alpha': 0.5,
               'gamma': 1.25,
-              'class_weights': True,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1568,8 +1555,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Weighted', 'Random'],
+                       name='Oklahoma Native',
+                       tags=['Unweighted', 'Hyperband', 'Balanced-Batches'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1578,9 +1565,12 @@ if __name__ == "__main__":
     if PARAMS['Generator'] == False:
         model = NoGen(PARAMS)
 
+    else:
+        model = fullNN(PARAMS)
+
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_042021.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)

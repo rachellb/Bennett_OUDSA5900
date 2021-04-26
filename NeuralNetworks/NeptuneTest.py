@@ -1278,25 +1278,8 @@ class fullNN(NN):
 class NoTune(fullNN):
 
 
-    def buildModel(self, topFeatures, batchSize, initializer, epochs, alpha=None, gamma=None, biasInit=0):
+    def buildModel(self, topFeatures):
 
-        self.biasInit = biasInit
-        self.start_time = time.time()
-        self.best_hps = {'num_layers': 3,
-                         'dense_activation_0': 'tanh',
-                         'dense_activation_1': 'relu',
-                         'dense_activation_2': 'relu',
-                         'units_0': 30,
-                         'units_1': 36,
-                         'units_2': 45,
-                         'final_activation': 'sigmoid',
-                         'optimizer': 'Adam',
-                         'learning_rate': 0.001}
-
-        self.alpha = alpha
-        self.gamma = gamma
-        self.epochs = epochs
-        LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures].to_numpy()
@@ -1308,175 +1291,15 @@ class NoTune(fullNN):
 
         inputSize = self.X_train.shape[1]
 
-        self.batch_size = batchSize
 
         self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
-                                                         batch_size=self.batch_size,
+                                                         batch_size=self.PARAMS['batch_size'],
                                                          sampler=RandomOverSampler(),
                                                          random_state=42)
         self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
-                                                           batch_size=self.batch_size,
+                                                           batch_size=self.PARAMS['batch_size'],
                                                            sampler=RandomOverSampler(),
                                                            random_state=42)
-
-        # define the keras model
-        tf.keras.backend.clear_session()
-        self.model = tf.keras.models.Sequential()
-        self.model.add(tf.keras.Input(shape=(inputSize,)))
-
-        # Hidden Layers
-        for i in range(self.best_hps['num_layers']):
-            self.model.add(
-                Dense(units=self.best_hps['units_' + str(i)], activation=self.best_hps['dense_activation_' + str(i)]))
-            self.model.add(Dropout(0.20))
-            # self.model.add(BatchNormalization(momentum=0.60))
-
-        # Class weights
-        class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
-        class_weight_dict = dict(enumerate(class_weights))
-        pos = class_weight_dict[1]
-        neg = class_weight_dict[0]
-
-        bias = np.log(pos / neg)
-
-        if biasInit == 0:
-            # Final Layer
-            self.model.add(Dense(1, activation=self.best_hps['final_activation']))
-        elif biasInit == 1:
-            # Final Layer
-            self.model.add(Dense(1, activation=self.best_hps['final_activation'],
-                                 bias_initializer=tf.keras.initializers.Constant(
-                                     value=bias)))  # kernel_initializer=initializer,
-
-        # Loss Function
-        if self.PARAMS['focal'] == True:
-            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=alpha, gamma=gamma)
-            self.loss = "focal_loss"
-        else:
-            loss = 'binary_crossentropy'
-            self.loss = "binary-crossentropy"
-
-        neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
-
-        # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=tfa.losses.SigmoidFocalCrossEntropy(alpha=(1 / pos), gamma=0),
-                           metrics=['accuracy',
-                                    tf.keras.metrics.Precision(),
-                                    tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
-
-        from neptunecontrib.monitoring.keras import NeptuneMonitor
-
-        self.history = self.model.fit(self.training_generator, epochs=epochs, validation_data=self.validation_generator,
-                                      verbose=2,  callbacks=[NeptuneMonitor()])
-
-    def evaluateModel(self):
-
-        # Graphing results
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-        # plt.ylim(0.40, 0.66)
-        plt.plot(self.history.history['auc'])
-        plt.plot(self.history.history['val_auc'])
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        figname = self.dataset + '_trainTestAUC' + date + '.png'
-        plt.savefig(figname, bbox_inches="tight")
-
-        plt.clf()
-        plt.cla()
-        plt.close()
-
-        # plt.ylim(0.0, 0.15)
-        plt.plot(self.history.history['loss'])
-        plt.plot(self.history.history['val_loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        figname = self.dataset + '_trainTestLoss' + date + '.png'
-        plt.savefig(figname, bbox_inches="tight")
-        # plt.show()
-
-        # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
-
-        y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
-
-        self.specificity = specificity_score(self.Y_test, y_predict)
-
-        self.gmean = geometric_mean_score(self.Y_test, y_predict)
-
-        score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
-        self.loss = score[0]
-        self.accuracy = score[1]
-        self.AUC = score[4]
-        self.predictedNo = y_predict.sum()
-        self.trueNo = self.Y_test.sum()
-        self.recall = score[3]
-        self.precision = score[2]
-        self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
-
-        results = [['loss', self.loss],
-                   ['accuracy', self.accuracy],
-                   ['AUC', self.AUC],
-                   ['specificity', self.specificity],
-                   ['recall', self.recall],
-                   ['precision', self.precision],
-                   ['gmean', self.gmean],
-                   ['True Positive', self.tp],
-                   ['True Negative', self.tn],
-                   ['False Positive', self.fp],
-                   ['False Negative', self.fn]]
-
-        print(f'Total Cases: {len(y_predict)}')
-        print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
-        print(f'True Positives #: {self.tp} / True Negatives # {self.tn}')
-        print(f'False Positives #: {self.fp} / False Negatives # {self.fn}')
-        print(f'Test loss: {score[0]:.6f} / Test accuracy: {score[1]:.6f} / Test AUC: {score[4]:.6f}')
-        print(f'Test Recall: {score[3]:.6f} / Test Precision: {score[2]:.6f}')
-        print(f'Test Specificity: {self.specificity:.6f}')
-        print(f'Test Gmean: {self.gmean:.6f}')
-
-        mins = (time.time() - self.start_time) / 60  # Time in seconds
-
-        self.best_hps['Batch Size'] = self.batch_size
-        self.best_hps['Age'] = self.age
-        self.best_hps['epochs'] = self.epochs
-        self.best_hps['loss'] = self.loss
-        self.best_hps['alpha'] = self.alpha
-        self.best_hps['gamma'] = self.gamma
-        self.best_hps['split1'] = self.split1
-        self.best_hps['split2'] = self.split2
-        self.best_hps['bias'] = self.biasInit
-        self.best_hps['time(mins)'] = mins
-
-
-        return self.AUC, self.gmean, self.precision, self.recall, self.specificity, self.tp, self.fp, self.tn, self.fn, self.loss
-
-
-class NoGen(NoTune):
-
-    def buildModel(self, topFeatures):
-
-        self.start_time = time.time()
-
-        LOG_DIR = f"{int(time.time())}"
-
-        # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures]
-        self.Y_train = self.Y_train
-        self.X_val = self.X_val[topFeatures]
-        self.Y_val = self.Y_val
-        self.X_test = self.X_test[topFeatures]
-        self.Y_test = self.Y_test
-
-        inputSize = self.X_train.shape[1]
-
 
         # define the keras model
         tf.keras.backend.clear_session()
@@ -1488,9 +1311,9 @@ class NoGen(NoTune):
             self.model.add(
                 Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
             if self.PARAMS['Dropout']:
-                     self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
             if self.PARAMS['BatchNorm']:
-                     self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
@@ -1509,17 +1332,18 @@ class NoGen(NoTune):
                                  bias_initializer=tf.keras.initializers.Constant(
                                      value=bias)))
 
-        # Reset class weights for use in loss function
-        scalar = len(self.Y_train)
-        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
-        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
         # Loss Function
         if self.PARAMS['focal']:
@@ -1531,23 +1355,20 @@ class NoGen(NoTune):
 
 
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate'], clipnorm=0.0001),
+        self.model.compile(optimizer=optimizer,
                            loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
                                     tf.keras.metrics.AUC()])
 
+        from neptunecontrib.monitoring.keras import NeptuneMonitor
 
-
-
-        neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
-
-        self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
-                                      epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
-                                      verbose=2, callbacks=[neptune_cbk])
+        self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'], validation_data=self.validation_generator,
+                                      verbose=2,  callbacks=[NeptuneMonitor()])
 
     def evaluateModel(self):
+
         # Graphing results
         plt.clf()
         plt.cla()
@@ -1619,6 +1440,194 @@ class NoGen(NoTune):
 
         # Feature Selection
         if self.method == 1:
+            # TODO: figure out how to load and save this image
+            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
+            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+
+        elif self.method == 2:
+            run['Chi2features'].upload(File.as_html(self.Chi2features))
+
+
+        elif self.method == 3:
+            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
+
+        mins = (time.time() - self.start_time) / 60  # Time in seconds
+
+        run['minutes'] = mins
+
+
+class NoGen(NoTune):
+
+    def buildModel(self, topFeatures):
+
+        self.start_time = time.time()
+
+        LOG_DIR = f"{int(time.time())}"
+
+        # Set all to numpy arrays
+        self.X_train = self.X_train[topFeatures]
+        self.Y_train = self.Y_train
+        self.X_val = self.X_val[topFeatures]
+        self.Y_val = self.Y_val
+        self.X_test = self.X_test[topFeatures]
+        self.Y_test = self.Y_test
+
+        inputSize = self.X_train.shape[1]
+
+
+        # define the keras model
+        tf.keras.backend.clear_session()
+        self.model = tf.keras.models.Sequential()
+        self.model.add(tf.keras.Input(shape=(inputSize,)))
+
+        # Hidden Layers
+        for i in range(self.PARAMS['num_layers']):
+            self.model.add(
+                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
+            if self.PARAMS['Dropout']:
+                     self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+            if self.PARAMS['BatchNorm']:
+                     self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+
+        # Class weights
+        class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
+        class_weight_dict = dict(enumerate(class_weights))
+        pos = class_weight_dict[1]
+        neg = class_weight_dict[0]
+        bias = np.log(pos / neg)
+
+        if self.PARAMS['bias_init'] == 0:
+            # Final Layer
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
+
+        elif self.PARAMS['bias_init'] == 1:
+            # Final Layer
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
+                                 bias_initializer=tf.keras.initializers.Constant(
+                                     value=bias)))
+
+        # Reset class weights for use in loss function
+        scalar = len(self.Y_train)
+        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
+
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+
+        # Loss Function
+        if self.PARAMS['focal']:
+            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
+        else:
+            loss = 'binary_crossentropy'
+
+
+        # Compilation
+        self.model.compile(optimizer=optimizer,
+                           loss=loss,
+                           metrics=['accuracy',
+                                    tf.keras.metrics.Precision(),
+                                    tf.keras.metrics.Recall(),
+                                    tf.keras.metrics.AUC()])
+
+
+
+
+        neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
+
+        self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
+                                      epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
+                                      verbose=2, callbacks=[neptune_cbk])
+
+    def evaluateModel(self):
+        # Graphing results
+        plt.clf()
+        plt.cla()
+        plt.close()
+
+        auc = plt.figure()
+        plt.ylim(0.45, 0.65)
+        plt.plot(self.history.history['auc'])
+        plt.plot(self.history.history['val_auc'])
+        plt.title('model auc')
+        plt.ylabel('auc')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper right')
+        run['AUC/Epochs'].upload(auc)
+
+        plt.clf()
+        plt.cla()
+        plt.close()
+
+        loss = plt.figure()
+        #plt.ylim(0.6775, 0.6575)
+        plt.plot(self.history.history['loss'])
+        plt.plot(self.history.history['val_loss'])
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper right')
+        run['Loss/Epochs'].upload(loss)
+        # plt.show()
+
+        # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
+
+        y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
+
+        self.specificity = specificity_score(self.Y_test, y_predict)
+
+        self.gmean = geometric_mean_score(self.Y_test, y_predict)
+
+        score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
+        self.loss = score[0]
+        self.accuracy = score[1]
+        self.AUC = score[4]
+        self.predictedNo = y_predict.sum()
+        self.trueNo = self.Y_test.sum()
+        self.recall = score[3]
+        self.precision = score[2]
+        self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
+
+        run['loss'] = self.loss
+        run['accuracy'] = self.accuracy
+        run['Test AUC'] = self.AUC
+        run['specificity'] = self.specificity
+        run['recall'] = self.recall
+        run['precision'] = self.precision
+        run['gmean'] = self.gmean
+        run['True Positive'] = self.tp
+        run['True Negative'] = self.tn
+        run['False Positive'] = self.fp
+        run['False Negative'] = self.fn
+
+        print(f'Total Cases: {len(y_predict)}')
+        print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
+        print(f'True Positives #: {self.tp} / True Negatives # {self.tn}')
+        print(f'False Positives #: {self.fp} / False Negatives # {self.fn}')
+        print(f'Test loss: {score[0]:.6f} / Test accuracy: {score[1]:.6f} / Test AUC: {score[4]:.6f}')
+        print(f'Test Recall: {score[3]:.6f} / Test Precision: {score[2]:.6f}')
+        print(f'Test Specificity: {self.specificity:.6f}')
+        print(f'Test Gmean: {self.gmean:.6f}')
+
+        # Feature Selection
+        if self.method == 1:
             #TODO: figure out how to load and save this image
             image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
             neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
@@ -1637,30 +1646,32 @@ class NoGen(NoTune):
 
 if __name__ == "__main__":
 
-    run = neptune.init(project='rachellb/BatchTest',
-                       api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Weighted', 'Comparison Test', 'Clipnorm'],
-                       source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
-    PARAMS = {'num_layers': 3,
+
+    PARAMS = {'num_layers': 6,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
+              'dense_activation_3': 'relu',
+              'dense_activation_4': 'relu',
+              'dense_activation_5': 'relu',
               'units_0': 60,
-              'units_1': 36,
-              'units_2': 30,
+              'units_1': 30,
+              'units_2': 45,
+              'units_3': 36,
+              'units_4': 30,
+              'units_5': 41,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 64,
               'bias_init': 0,
-              'epochs': 30,
+              'epochs': 1000,
               'features': 2,
               'focal': False,
               'alpha': 0.5,
-              'gamma': 1.25,
-              'class_weights': True,
+              'gamma': 1,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1670,6 +1681,12 @@ if __name__ == "__main__":
               'Tune': False,
               'Tuner': 'Hyperband',
               'MAX_TRIALS': 5}
+
+    run = neptune.init(project='rachellb/PreeclampsiaCompare',
+                       api_token=api_,
+                       name='Oklahoma Full',
+                       tags=['Unweighted', 'Bayesian'],
+                       source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
 
@@ -1685,8 +1702,6 @@ if __name__ == "__main__":
 
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/African/Chi2_Categorical_041521.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
