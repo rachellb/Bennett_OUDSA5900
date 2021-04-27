@@ -528,7 +528,7 @@ class NoGen(fullNN):
             model = tf.keras.models.Sequential()
             model.add(tf.keras.Input(shape=(inputSize,)))
 
-            for i in range(hp.Int('num_layers', 2, 8)):
+            for i in range(hp.Int('num_layers', 2, 4)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
@@ -548,7 +548,7 @@ class NoGen(fullNN):
             # Select optimizer
             optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
 
-            lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
+            lr = hp.Choice('learning_rate', [1e-3, 1e-4])
 
             # Conditional for each optimizer
             if optimizer == 'adam':
@@ -652,7 +652,7 @@ class NoGen(fullNN):
                           batch_size=self.PARAMS['batch_size'],
                           verbose=2,
                           validation_data=(self.X_val, self.Y_val),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
+                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=10)])
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
         self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
@@ -672,25 +672,25 @@ if __name__ == "__main__":
     PARAMS = {'batch_size': 8192,
               'bias_init': False,
               'estimator': "BayesianRidge",
-              'epochs': 30,
+              'epochs': 50,
               'focal': True,
-              'alpha': 0.95,
+              'alpha': 0.97,
               'gamma': 1,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': True,
+              'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Random",
+              'Tuner': "Bayesian",
               'EXECUTIONS_PER_TRIAL': 1,
-              'MAX_TRIALS': 40,
+              'MAX_TRIALS': 100,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
-    neptune.create_experiment(name='Texas Full', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='Texas Native', params=PARAMS, send_hardware_metrics=True,
                               tags=['Focal Loss'],
                               description='Getting Current Best Results')
 
@@ -704,7 +704,7 @@ if __name__ == "__main__":
     # Get data
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

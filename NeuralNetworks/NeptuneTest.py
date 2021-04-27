@@ -1296,6 +1296,7 @@ class NoTune(fullNN):
                                                          batch_size=self.PARAMS['batch_size'],
                                                          sampler=RandomOverSampler(),
                                                          random_state=42)
+
         self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
                                                            batch_size=self.PARAMS['batch_size'],
                                                            sampler=RandomOverSampler(),
@@ -1364,7 +1365,8 @@ class NoTune(fullNN):
 
         from neptunecontrib.monitoring.keras import NeptuneMonitor
 
-        self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'], validation_data=self.validation_generator,
+        self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
+                                      validation_data=(self.validation_generator),
                                       verbose=2,  callbacks=[NeptuneMonitor()])
 
     def evaluateModel(self):
@@ -1648,77 +1650,72 @@ class NoGen(NoTune):
 
 if __name__ == "__main__":
 
-    #alpha = [0.90, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]
-    alpha = [0.99]
-    #gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
-    gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25]
-    for i in alpha:
-        for j in gamma:
-            PARAMS = {'num_layers': 3,
-                      'dense_activation_0': 'tanh',
-                      'dense_activation_1': 'relu',
-                      'dense_activation_2': 'relu',
-                      'units_0': 60,
-                      'units_1': 30,
-                      'units_2': 45,
-                      'final_activation': 'sigmoid',
-                      'optimizer': 'RMSprop',
-                      'learning_rate': 0.001,
-                      'batch_size': 8192,
-                      'bias_init': 0,
-                      'epochs': 50,
-                      'features': 2,
-                      'focal': True,
-                      'alpha': i,
-                      'gamma': j,
-                      'class_weights': False,
-                      'initializer': 'RandomUniform',
-                      'Dropout': True,
-                      'Dropout_Rate': 0.20,
-                      'BatchNorm': False,
-                      'Momentum': 0.60,
-                      'Generator': False,
-                      'Tune': False,
-                      'Tuner': 'Hyperband',
-                      'MAX_TRIALS': 5}
 
-            run = neptune.init(project='rachellb/FocalPre',
-                               api_token=api_,
-                               name='Texas Full',
-                               tags=['Focal-Loss'],
-                               source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
+              'units_1': 30,
+              'units_2': 45,
+              'final_activation': 'sigmoid',
+              'optimizer': 'RMSprop',
+              'learning_rate': 0.001,
+              'batch_size': 8192,
+              'bias_init': 0,
+              'epochs': 100,
+              'features': 2,
+              'focal': False,
+              'alpha': 0.95,
+              'gamma': 1,
+              'class_weights': False,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Generator': True,
+              'Tune': False,
+              'Tuner': 'Hyperband',
+              'MAX_TRIALS': 5}
 
-            run['hyper-parameters'] = PARAMS
+    run = neptune.init(project='rachellb/FocalPre',
+                       api_token=api_,
+                       name='Oklahoma Native',
+                       tags=['Unweighted'],
+                       source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
-            parent = os.path.dirname(os.getcwd())
-            dataset = os.path.join(parent, 'Figures/Oklahoma/')
+    run['hyper-parameters'] = PARAMS
 
-            if PARAMS['Generator'] == False:
-                model = NoGen(PARAMS, dataset)
-            else:
-                model = fullNN(PARAMS, dataset)
+    parent = os.path.dirname(os.getcwd())
+    dataset = os.path.join(parent, 'Figures/Oklahoma/')
 
-                # Get data
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS, dataset)
+    else:
+        model = NoTune(PARAMS, dataset)
 
-            parent = os.path.dirname(os.getcwd())
-            dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+        # Get data
 
-            data = model.prepData(age='Categorical',
-                                   data=dataPath)
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_042021.csv')
 
-            #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
-            model.imputeData(data)
-            model.splitData(testSize=0.10, valSize=0.10)
-            features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
+    data = model.prepData(age='Categorical',
+                           data=dataPath)
 
-            if PARAMS['Tune'] == True:
-                model.hpTuning(features)
-                model.buildModel(features)
+    #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
+    model.imputeData(data)
+    model.splitData(testSize=0.10, valSize=0.10)
+    features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
 
-            else:
-                model.buildModel(features)
+    if PARAMS['Tune'] == True:
+        model.hpTuning(features)
+        model.buildModel(features)
 
-            model.evaluateModel()
+    else:
+        model.buildModel(features)
 
-            run.stop()
+    model.evaluateModel()
+
+    run.stop()
 

@@ -1531,10 +1531,10 @@ if __name__ == "__main__":
     start_time = time.time()
 
     PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'relu',
+              'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
-              'units_0': 36,
+              'units_0': 60,
               'units_1': 30,
               'units_2': 45,
               'final_activation': 'sigmoid',
@@ -1542,23 +1542,23 @@ if __name__ == "__main__":
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 30,
-              'focal': True,
-              'alpha': 0.95,
-              'gamma': 2,
+              'epochs': 50,
+              'focal': False,
+              'alpha': 0.97,
+              'gamma': 1,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': True,
+              'BatchNorm': False,
               'Momentum': 0.60,
-              'Generator': False,
+              'Generator': True,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='Oklahoma Full',
-                       tags=['Focal Loss', 'Hyperband'],
+                       tags=['Focal Loss', 'Hand Tuned'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1610,6 +1610,15 @@ if __name__ == "__main__":
         historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
 
 
+    run['List loss'] = lossList
+    run['List accuracy'] = accList
+    run['List AUC'] = aucList
+    run['List specificity'] = specList
+    run['List recall'] = recallList
+    run['List precisio'] = precisionList
+    run['List gmean'] = gmeanList
+
+
     # Get Average Results
     lossMean = statistics.mean(lossList)
     aucMean = statistics.mean(aucList)
@@ -1626,6 +1635,24 @@ if __name__ == "__main__":
     run['Mean recall'] = recallMean
     run['Mean precisio'] = precMean
     run['Mean gmean'] = gmeanMean
+
+    # Get Standard Deviation of Results
+    lossSD = statistics.pstdev(lossList)
+    aucSD = statistics.pstdev(aucList)
+    gmeanSD = statistics.pstdev(gmeanList)
+    accSD = statistics.pstdev(accList)
+    specSD = statistics.pstdev(specList)
+    recallSD = statistics.pstdev(recallList)
+    precSD = statistics.pstdev(precisionList)
+
+
+    run['SD loss'] = lossSD
+    run['SD accuracy'] = accSD
+    run['SD AUC'] = aucSD
+    run['SD specificity'] = specSD
+    run['SD recall'] = recallSD
+    run['SD precision'] = precSD
+    run['SD gmean'] = gmeanSD
 
 
     def plotAvg(historyList):

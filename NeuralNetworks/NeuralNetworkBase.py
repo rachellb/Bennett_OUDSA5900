@@ -345,7 +345,7 @@ class NN():
 
         self.epochs = epochs
 
-        self.best_model = self.hb_tuner.hypermodel.build(self.best_hps)
+        self.best_model = self.tuner.hypermodel.build(self.best_hps)
         """
         self.history = self.best_model.fit(self.training_generator, epochs=epochs,
                                            validation_data=(self.validation_generator), verbose=2)
