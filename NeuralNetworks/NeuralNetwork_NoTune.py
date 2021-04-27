@@ -39,7 +39,7 @@ import tensorflow.keras.backend as K
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-#import tensorflow_addons as tfa  # For focal loss function
+import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 import statistics
@@ -1530,33 +1530,35 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 2,
+    PARAMS = {'num_layers': 3,
               'dense_activation_0': 'relu',
-              'dense_activation_1': 'tanh',
-              'units_0': 30,
-              'units_1': 41,
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 36,
+              'units_1': 30,
+              'units_2': 45,
               'final_activation': 'sigmoid',
               'optimizer': 'RMSprop',
-              'learning_rate': 0.0001,
-              'batch_size': 32,
+              'learning_rate': 0.001,
+              'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': False,
-              'alpha': 0.5,
-              'gamma': 1.25,
+              'focal': True,
+              'alpha': 0.95,
+              'gamma': 2,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
-              'Generator': True,
+              'Generator': False,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma Native',
-                       tags=['Unweighted', 'Hyperband', 'Balanced-Batches'],
+                       name='Oklahoma Full',
+                       tags=['Focal Loss', 'Hyperband'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1570,7 +1572,7 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)

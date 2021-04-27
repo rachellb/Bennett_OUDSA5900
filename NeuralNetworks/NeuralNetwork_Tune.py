@@ -43,7 +43,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-#import tensorflow_addons as tfa  # For focal loss function
+import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -669,29 +669,29 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 32,
+    PARAMS = {'batch_size': 8192,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
-              'focal': False,
-              'alpha': 0.5,
-              'gamma': 1.25,
+              'focal': True,
+              'alpha': 0.95,
+              'gamma': 1,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': True,
               'Momentum': 0.60,
-              'Generator': True,
-              'Tuner': "Bayesian",
+              'Generator': False,
+              'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 40,
-              'TestSplit': 0.30,
-              'ValSplit': 0.30}
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
 
-    neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
-    neptune.create_experiment(name='Oklahoma Native', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Unweighted', 'Balanced-Batches'],
+    neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
+    neptune.create_experiment(name='Texas Full', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Focal Loss'],
                               description='Getting Current Best Results')
 
 
@@ -703,8 +703,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_042021.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
