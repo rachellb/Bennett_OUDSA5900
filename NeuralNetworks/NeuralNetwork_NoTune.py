@@ -1545,20 +1545,20 @@ if __name__ == "__main__":
               'epochs': 50,
               'focal': False,
               'alpha': 0.97,
-              'gamma': 1,
+              'gamma': 1.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
-              'Generator': True,
+              'Generator': False,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='Oklahoma Full',
-                       tags=['Focal Loss', 'Hand Tuned'],
+                       tags=['Unweighted', 'Hand Tuned'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
