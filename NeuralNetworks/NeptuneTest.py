@@ -1567,13 +1567,13 @@ class NoGen(NoTune):
         plt.close()
 
         auc = plt.figure()
-        plt.ylim(0.45, 0.65)
+        plt.ylim(0.475, 0.68)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
         plt.title('model auc')
         plt.ylabel('auc')
         plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
+        plt.legend(['train', 'validation'], loc='lower right')
         run['AUC/Epochs'].upload(auc)
 
         plt.clf()
@@ -1581,7 +1581,7 @@ class NoGen(NoTune):
         plt.close()
 
         loss = plt.figure()
-        #plt.ylim(0.6775, 0.6575)
+        #plt.ylim(0.032, 0.432)
         plt.plot(self.history.history['loss'])
         plt.plot(self.history.history['val_loss'])
         plt.title('model loss')
@@ -1650,7 +1650,6 @@ class NoGen(NoTune):
 
 if __name__ == "__main__":
 
-
     PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
@@ -1663,9 +1662,9 @@ if __name__ == "__main__":
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 100,
+              'epochs': 200,
               'features': 2,
-              'focal': False,
+              'focal': True,
               'alpha': 0.95,
               'gamma': 1,
               'class_weights': False,
@@ -1674,15 +1673,15 @@ if __name__ == "__main__":
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
-              'Generator': True,
+              'Generator': False,
               'Tune': False,
               'Tuner': 'Hyperband',
               'MAX_TRIALS': 5}
 
-    run = neptune.init(project='rachellb/FocalPre',
+    run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
-                       name='Oklahoma Native',
-                       tags=['Unweighted'],
+                       name='Texas Full',
+                       tags=['Focal Loss', 'Hand Tuned'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1698,7 +1697,7 @@ if __name__ == "__main__":
         # Get data
 
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

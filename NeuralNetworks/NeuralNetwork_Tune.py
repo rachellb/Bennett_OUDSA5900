@@ -341,7 +341,7 @@ class fullNN():
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
-                                   tf.keras.metrics.AUC()])
+                                   tf.keras.metrics.AUC(curve='PR')])
 
             return model
 
@@ -578,7 +578,7 @@ class NoGen(fullNN):
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
-                                   tf.keras.metrics.AUC()])
+                                   tf.keras.metrics.AUC(curve='PR')])
 
             return model
 
@@ -675,7 +675,7 @@ if __name__ == "__main__":
               'epochs': 50,
               'focal': True,
               'alpha': 0.97,
-              'gamma': 1,
+              'gamma': 1.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -684,13 +684,13 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Generator': False,
               'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 1,
+              'EXECUTIONS_PER_TRIAL': 2,
               'MAX_TRIALS': 100,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/TXHPSearch', api_token=api_)
-    neptune.create_experiment(name='Texas Native', params=PARAMS, send_hardware_metrics=True,
+    neptune.create_experiment(name='Texas Full', params=PARAMS, send_hardware_metrics=True,
                               tags=['Focal Loss'],
                               description='Getting Current Best Results')
 
@@ -704,7 +704,7 @@ if __name__ == "__main__":
     # Get data
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
