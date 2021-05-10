@@ -1549,7 +1549,8 @@ class NoGen(NoTune):
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
+                                    tf.keras.metrics.AUC(),
+                                    tf.keras.metrics.AUC(curve='PR')])
 
 
 
@@ -1568,8 +1569,8 @@ class NoGen(NoTune):
 
         auc = plt.figure()
         plt.ylim(0.475, 0.68)
-        plt.plot(self.history.history['auc'])
-        plt.plot(self.history.history['val_auc'])
+        plt.plot(self.history.history['auc_1'])
+        plt.plot(self.history.history['val_auc_1'])
         plt.title('model auc')
         plt.ylabel('auc')
         plt.xlabel('epoch')
@@ -1612,6 +1613,7 @@ class NoGen(NoTune):
         run['loss'] = self.loss
         run['accuracy'] = self.accuracy
         run['Test AUC'] = self.AUC
+        run['Test AUC(PR)'] = score[5]
         run['specificity'] = self.specificity
         run['recall'] = self.recall
         run['precision'] = self.precision
@@ -1650,23 +1652,34 @@ class NoGen(NoTune):
 
 if __name__ == "__main__":
 
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 60,
+
+    PARAMS = {'num_layers': 8,
+              'dense_activation_0': 'relu',
+              'dense_activation_1': 'tanh',
+              'dense_activation_2': 'tanh',
+              'dense_activation_3': 'relu',
+              'dense_activation_4': 'tanh',
+              'dense_activation_5': 'relu',
+              'dense_activation_6': 'tanh',
+              'dense_activation_7': 'relu',
+              'units_0': 30,
               'units_1': 30,
-              'units_2': 45,
+              'units_2': 60,
+              'units_3': 60,
+              'units_4': 60,
+              'units_5': 45,
+              'units_6': 60,
+              'units_7': 30,
               'final_activation': 'sigmoid',
-              'optimizer': 'RMSprop',
+              'optimizer': 'NAdam',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 200,
               'features': 2,
-              'focal': True,
-              'alpha': 0.95,
-              'gamma': 1,
+              'focal': False,
+              'alpha': 0.97,
+              'gamma': 1.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -1681,7 +1694,7 @@ if __name__ == "__main__":
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
                        name='Texas Full',
-                       tags=['Focal Loss', 'Hand Tuned'],
+                       tags=['Unweighted', 'Hyperband', 'PR-AUC'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS

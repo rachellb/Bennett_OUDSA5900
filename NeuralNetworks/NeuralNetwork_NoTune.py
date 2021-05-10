@@ -1530,45 +1530,35 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 8,
-              'dense_activation_0': 'relu',
-              'dense_activation_1': 'tanh',
-              'dense_activation_2': 'tanh',
-              'dense_activation_3': 'relu',
-              'dense_activation_4': 'tanh',
-              'dense_activation_5': 'relu',
-              'dense_activation_6': 'tanh',
-              'dense_activation_7': 'relu',
-              'units_0': 30,
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
               'units_1': 30,
-              'units_2': 60,
-              'units_3': 60,
-              'units_4': 60,
-              'units_5': 45,
-              'units_6': 60,
-              'units_7': 30,
+              'units_2': 45,
               'final_activation': 'sigmoid',
               'optimizer': 'NAdam',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 30,
-              'focal': False,
+              'epochs': 20,
+              'focal': True,
               'alpha': 0.97,
-              'gamma': 1.25,
+              'gamma': 1,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': True,
+              'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Texas Full',
-                       tags=['Unweighted', 'Hyperband'],
+                       name='Texas Native',
+                       tags=['Focal Loss', 'Hand Tuned', 'PR-AUC'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1582,8 +1572,7 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
