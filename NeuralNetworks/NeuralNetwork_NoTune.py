@@ -1538,14 +1538,14 @@ if __name__ == "__main__":
               'units_1': 30,
               'units_2': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'NAdam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 20,
+              'epochs': 30,
               'focal': True,
-              'alpha': 0.97,
-              'gamma': 1,
+              'alpha': 0.95,
+              'gamma': 0.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -1557,7 +1557,7 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Texas Native',
+                       name='Oklahoma Full',
                        tags=['Focal Loss', 'Hand Tuned', 'PR-AUC'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
@@ -1572,7 +1572,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 

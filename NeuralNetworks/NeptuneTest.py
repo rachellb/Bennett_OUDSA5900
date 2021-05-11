@@ -10,6 +10,7 @@ import os
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.utils import class_weight
 from statistics import mean
+import math
 
 # For imputing data
 from sklearn.experimental import enable_iterative_imputer
@@ -1549,7 +1550,6 @@ class NoGen(NoTune):
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC(),
                                     tf.keras.metrics.AUC(curve='PR')])
 
 
@@ -1561,6 +1561,9 @@ class NoGen(NoTune):
                                       epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
                                       verbose=2, callbacks=[neptune_cbk])
 
+
+
+
     def evaluateModel(self):
         # Graphing results
         plt.clf()
@@ -1569,8 +1572,8 @@ class NoGen(NoTune):
 
         auc = plt.figure()
         plt.ylim(0.475, 0.68)
-        plt.plot(self.history.history['auc_1'])
-        plt.plot(self.history.history['val_auc_1'])
+        plt.plot(self.history.history['auc'])
+        plt.plot(self.history.history['val_auc'])
         plt.title('model auc')
         plt.ylabel('auc')
         plt.xlabel('epoch')
@@ -1594,6 +1597,8 @@ class NoGen(NoTune):
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
 
+
+
         y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
 
         self.specificity = specificity_score(self.Y_test, y_predict)
@@ -1613,7 +1618,7 @@ class NoGen(NoTune):
         run['loss'] = self.loss
         run['accuracy'] = self.accuracy
         run['Test AUC'] = self.AUC
-        run['Test AUC(PR)'] = score[5]
+        #run['Test AUC(PR)'] = score[5]
         run['specificity'] = self.specificity
         run['recall'] = self.recall
         run['precision'] = self.precision
@@ -1650,36 +1655,64 @@ class NoGen(NoTune):
 
         run['minutes'] = mins
 
+    def plotCDF(self):
+
+        # Step 1: get the loss of the already fit model for positive and negative samples separately
+
+        p = self.model.predict(self.X_test)
+        y = np.asarray(self.Y_test)
+        idsPos = np.where(y == 1)
+        idsNeg = np.where(y == 0)
+
+        pPos = p[idsPos]
+        yPos = y[idsPos]
+
+        pNeg = p[idsNeg]
+        yNeg = y[idsNeg]
+
+
+        p = tf.convert_to_tensor(self.model.predict(self.X_test))
+        y = tf.convert_to_tensor(self.Y_test)
+        y = tf.cast(y, tf.float32)
+
+
+        fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        # Do I need to turn these into tensors first?
+        loss = fl(y, p) # Should give a tensor of each loss
+        x = np.sort(loss)
+        # Normalized Data
+        x = (x - min(x)) / (max(x) - min(x))
+
+        count, bins_count = np.histogram(x, bins=10)
+        pdf = count/sum(count)
+        cdf = np.cumsum(pdf)
+
+        plt.plot(bins_count[1:], pdf, color='red', label='PDF')
+        plt.plot(bins_count[1:], cdf, color='blue', label='CDF')
+        plt.legend()
+
+
+
 if __name__ == "__main__":
 
 
-    PARAMS = {'num_layers': 8,
-              'dense_activation_0': 'relu',
-              'dense_activation_1': 'tanh',
-              'dense_activation_2': 'tanh',
-              'dense_activation_3': 'relu',
-              'dense_activation_4': 'tanh',
-              'dense_activation_5': 'relu',
-              'dense_activation_6': 'tanh',
-              'dense_activation_7': 'relu',
-              'units_0': 30,
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
               'units_1': 30,
-              'units_2': 60,
-              'units_3': 60,
-              'units_4': 60,
-              'units_5': 45,
-              'units_6': 60,
-              'units_7': 30,
+              'units_2': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'NAdam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 200,
+              'epochs': 20,
               'features': 2,
-              'focal': False,
-              'alpha': 0.97,
-              'gamma': 1.25,
+              'focal': True,
+              'alpha': 0.95,
+              'gamma': 0.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -1693,8 +1726,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
-                       name='Texas Full',
-                       tags=['Unweighted', 'Hyperband', 'PR-AUC'],
+                       name='Oklahoma Full',
+                       tags=['Focal Loss', 'Hand Tuned', 'PR-AUC', 'Test'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1710,7 +1743,7 @@ if __name__ == "__main__":
         # Get data
 
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
@@ -1727,7 +1760,8 @@ if __name__ == "__main__":
     else:
         model.buildModel(features)
 
-    model.evaluateModel()
+    model.plotCDF()
+    #model.evaluateModel()
 
     run.stop()
 
