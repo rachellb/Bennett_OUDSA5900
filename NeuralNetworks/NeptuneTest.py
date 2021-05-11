@@ -1561,8 +1561,7 @@ class NoGen(NoTune):
                                       epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
                                       verbose=2, callbacks=[neptune_cbk])
 
-
-
+        return self.model.predict(self.X_test)
 
     def evaluateModel(self):
         # Graphing results
@@ -1655,112 +1654,160 @@ class NoGen(NoTune):
 
         run['minutes'] = mins
 
-    def plotCDF(self):
+
+if __name__ == "__main__":
+
+
+    #gammas = [0.25, 0.5, 0.75, 1, 1.25]
+    gammas = [0, 1, 2, 3, 4]
+    pred_list = []
+    for g in gammas:
+        PARAMS = {'num_layers': 3,
+                  'dense_activation_0': 'tanh',
+                  'dense_activation_1': 'relu',
+                  'dense_activation_2': 'relu',
+                  'units_0': 60,
+                  'units_1': 30,
+                  'units_2': 45,
+                  'final_activation': 'sigmoid',
+                  'optimizer': 'RMSprop',
+                  'learning_rate': 0.001,
+                  'batch_size': 8192,
+                  'bias_init': 0,
+                  'epochs': 100,
+                  'features': 2,
+                  'focal': True,
+                  'alpha': 0.95,
+                  'gamma': g,
+                  'class_weights': False,
+                  'initializer': 'RandomUniform',
+                  'Dropout': True,
+                  'Dropout_Rate': 0.20,
+                  'BatchNorm': False,
+                  'Momentum': 0.60,
+                  'Generator': False,
+                  'Tune': False,
+                  'Tuner': 'Hyperband',
+                  'MAX_TRIALS': 5}
+
+        run = neptune.init(project='rachellb/PreeclampsiaCompare',
+                           api_token=api_,
+                           name='Oklahoma Full',
+                           tags=['Focal Loss', 'Hand Tuned', 'PR-AUC', 'Test'],
+                           source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
+
+        run['hyper-parameters'] = PARAMS
+
+        parent = os.path.dirname(os.getcwd())
+        dataset = os.path.join(parent, 'Figures/Oklahoma/')
+
+        if PARAMS['Generator'] == False:
+            model = NoGen(PARAMS, dataset)
+        else:
+            model = NoTune(PARAMS, dataset)
+
+            # Get data
+
+        parent = os.path.dirname(os.getcwd())
+        dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+
+        data = model.prepData(age='Categorical',
+                               data=dataPath)
+
+        #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
+        model.imputeData(data)
+        x_test, y_test = model.splitData(testSize=0.10, valSize=0.10)
+        features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
+
+        if PARAMS['Tune'] == True:
+            model.hpTuning(features)
+            model.buildModel(features)
+
+        else:
+            preds = model.buildModel(features)
+            pred_list.append(preds)
+
+
+
+    def calcCDF(pred, Y_test, label):
 
         # Step 1: get the loss of the already fit model for positive and negative samples separately
 
-        p = self.model.predict(self.X_test)
-        y = np.asarray(self.Y_test)
-        idsPos = np.where(y == 1)
-        idsNeg = np.where(y == 0)
+        true = np.asarray(Y_test)
+        idsPos = np.where(true == 1)
+        idsNeg = np.where(true == 0)
 
-        pPos = p[idsPos]
-        yPos = y[idsPos]
+        pPos = pred[idsPos]
+        yPos = true[idsPos]
 
-        pNeg = p[idsNeg]
-        yNeg = y[idsNeg]
+        pNeg = pred[idsNeg]
+        yNeg = true[idsNeg]
+
+        if label == 1:
+            p = pPos
+            y = yPos
+        else:
+            p = pNeg
+            y = yNeg
 
 
-        p = tf.convert_to_tensor(self.model.predict(self.X_test))
-        y = tf.convert_to_tensor(self.Y_test)
+        p = tf.convert_to_tensor(p)
         y = tf.cast(y, tf.float32)
 
-
-        fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=PARAMS['gamma'])
         # Do I need to turn these into tensors first?
-        loss = fl(y, p) # Should give a tensor of each loss
+        loss = fl(y, p)  # Should give a tensor of each loss
         x = np.sort(loss)
         # Normalized Data
         x = (x - min(x)) / (max(x) - min(x))
 
         count, bins_count = np.histogram(x, bins=10)
-        pdf = count/sum(count)
+        pdf = count / sum(count)
         cdf = np.cumsum(pdf)
 
-        plt.plot(bins_count[1:], pdf, color='red', label='PDF')
-        plt.plot(bins_count[1:], cdf, color='blue', label='CDF')
+        cdf_materials = {"cdf": cdf,
+                         "bincounts": bins_count[1:]}
+
+        return cdf_materials
+
+        # So maybe run through the list twice - once for positive, once for negative
+
+    cdfListPos = []
+    cdfListNeg = []
+
+    for preds in pred_list:
+        # will need to store all this
+        cdf_matPos = calcCDF(preds, y_test, 1)
+        cdf_matNeg = calcCDF(preds, y_test, 0)
+        cdfListPos.append(cdf_matPos)
+        cdfListNeg.append(cdf_matNeg)
+
+    for i in range(len(gammas)):
+        #plt.plot(cdfListPos[i]['bincounts'], cdfListPos[i]['cdf'], label= r'$\gamma$ = ' + str(gammas[i]))
+        plt.plot(cdfListPos[i]['cdf'], cdfListPos[i]['bincounts'], label=r'$\gamma$ = ' + str(gammas[i]))
+        plt.title('Positive Points CDF')
+        plt.xlabel('Cumulative Normalized Loss')
+        #plt.ylabel('')
+        #plt.legend(loc='lower right')
         plt.legend()
+        plt.savefig('posplot', bbox_inches="tight")
+
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+    for i in range(len(gammas)):
+        #plt.plot(cdfListNeg[i]['bincounts'], cdfListNeg[i]['cdf'], label=r'$\gamma$ = ' + str(gammas[i]))
+        plt.plot(cdfListNeg[i]['cdf'], cdfListNeg[i]['bincounts'],  label=r'$\gamma$ = ' + str(gammas[i]))
+        plt.title('Negative Points CDF')
+        plt.xlabel('Cumulative Normalized Loss')
+        #plt.legend(loc='lower right')
+        plt.legend()
+        plt.savefig('negplot', bbox_inches="tight")
 
 
 
-if __name__ == "__main__":
 
-
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 60,
-              'units_1': 30,
-              'units_2': 45,
-              'final_activation': 'sigmoid',
-              'optimizer': 'RMSprop',
-              'learning_rate': 0.001,
-              'batch_size': 8192,
-              'bias_init': 0,
-              'epochs': 20,
-              'features': 2,
-              'focal': True,
-              'alpha': 0.95,
-              'gamma': 0.25,
-              'class_weights': False,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.20,
-              'BatchNorm': False,
-              'Momentum': 0.60,
-              'Generator': False,
-              'Tune': False,
-              'Tuner': 'Hyperband',
-              'MAX_TRIALS': 5}
-
-    run = neptune.init(project='rachellb/PreeclampsiaCompare',
-                       api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Focal Loss', 'Hand Tuned', 'PR-AUC', 'Test'],
-                       source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
-
-    run['hyper-parameters'] = PARAMS
-
-    parent = os.path.dirname(os.getcwd())
-    dataset = os.path.join(parent, 'Figures/Oklahoma/')
-
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS, dataset)
-    else:
-        model = NoTune(PARAMS, dataset)
-
-        # Get data
-
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-
-    data = model.prepData(age='Categorical',
-                           data=dataPath)
-
-    #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
-    model.imputeData(data)
-    model.splitData(testSize=0.10, valSize=0.10)
-    features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
-
-    if PARAMS['Tune'] == True:
-        model.hpTuning(features)
-        model.buildModel(features)
-
-    else:
-        model.buildModel(features)
-
-    model.plotCDF()
     #model.evaluateModel()
 
     run.stop()

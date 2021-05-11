@@ -122,6 +122,7 @@ class NN():
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
                                                                               stratify=self.Y_train, test_size=valSize,
                                                                               random_state=self.split2)
+        return self.X_test, self.Y_test
 
     def detectOutliers(self, method, con):
 
