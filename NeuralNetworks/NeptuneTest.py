@@ -46,10 +46,7 @@ from sklearn.metrics import confusion_matrix
 import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
-from openpyxl import Workbook  # For storing results
-from openpyxl.utils.dataframe import dataframe_to_rows
-import openpyxl
-from openpyxl import load_workbook
+import seaborn as sns
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 from NeuralNetworkBase import NN
@@ -1675,12 +1672,12 @@ if __name__ == "__main__":
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 100,
+              'epochs': 20,
               'features': 2,
-              'focal': False,
+              'focal': True,
               'alpha': 0.95,
               'gamma': 1.25,
-              'class_weights': True,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1694,7 +1691,7 @@ if __name__ == "__main__":
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
                        name='Oklahoma Full',
-                       tags=['Weighted', 'Bayesian', 'PR-AUC'],
+                       tags=['Weighted', 'Bayesian', 'PR-AUC', 'Test'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1746,10 +1743,11 @@ if __name__ == "__main__":
         if label == 1:
             p = pPos
             y = yPos
+            title = "Positive Loss Distribution"
         else:
             p = pNeg
             y = yNeg
-
+            title = "Negative Loss Distribution"
 
         p = tf.convert_to_tensor(p)
         y = tf.cast(y, tf.float32)
@@ -1758,8 +1756,21 @@ if __name__ == "__main__":
         # Do I need to turn these into tensors first?
         loss = fl(y, p)  # Should give a tensor of each loss
         x = np.sort(loss)
+
         # Normalized Data
-        x = (x - min(x)) / (max(x) - min(x))
+        #x = (x - min(x)) / (max(x) - min(x))
+        x = x/sum(x)
+        """
+        plt.clf()
+        plt.cla()
+        plt.close()
+        plt.hist(x, color='blue', edgecolor='black')
+        plt.title(title + r' $\gamma$= ' + str(g))
+        # plt.legend(loc='lower right')
+        plt.legend()
+        plt.savefig(str(label) + '_g' + str(g) + ' dist1', bbox_inches="tight")
+        #Plot the distribution to see what I have
+        """
 
         count, bins_count = np.histogram(x, bins=10)
         pdf = count / sum(count)
@@ -1784,6 +1795,10 @@ if __name__ == "__main__":
         cdfListPos.append(cdf_matPos)
         cdfListNeg.append(cdf_matNeg)
 
+    # Plotting for a test:
+
+
+
     for i in range(len(gammas)):
         plt.plot(cdfListPos[i]['bincounts'], cdfListPos[i]['cdf'], label= r'$\gamma$ = ' + str(gammas[i]))
         #plt.plot(cdfListPos[i]['cdf'], cdfListPos[i]['bincounts'], label=r'$\gamma$ = ' + str(gammas[i]))
@@ -1792,7 +1807,7 @@ if __name__ == "__main__":
         #plt.ylabel('')
         #plt.legend(loc='lower right')
         plt.legend()
-        plt.savefig('posplot', bbox_inches="tight")
+        plt.savefig('posplot_' +str(date), bbox_inches="tight")
 
     plt.clf()
     plt.cla()
@@ -1805,7 +1820,7 @@ if __name__ == "__main__":
         plt.ylabel('Cumulative Normalized Loss')
         #plt.legend(loc='lower right')
         plt.legend()
-        plt.savefig('negplot', bbox_inches="tight")
+        plt.savefig('negplot_' + str(date), bbox_inches="tight")
 
 
 
