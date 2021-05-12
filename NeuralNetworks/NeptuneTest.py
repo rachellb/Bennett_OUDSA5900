@@ -1570,7 +1570,7 @@ class NoGen(NoTune):
         plt.close()
 
         auc = plt.figure()
-        plt.ylim(0.475, 0.68)
+        plt.ylim(0.06, 0.12)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
         plt.title('model auc')
@@ -1658,78 +1658,78 @@ class NoGen(NoTune):
 if __name__ == "__main__":
 
 
-    #gammas = [0.25, 0.5, 0.75, 1, 1.25]
-    gammas = [0, 1, 2, 3, 4]
-    pred_list = []
-    for g in gammas:
-        PARAMS = {'num_layers': 3,
-                  'dense_activation_0': 'tanh',
-                  'dense_activation_1': 'relu',
-                  'dense_activation_2': 'relu',
-                  'units_0': 60,
-                  'units_1': 30,
-                  'units_2': 45,
-                  'final_activation': 'sigmoid',
-                  'optimizer': 'RMSprop',
-                  'learning_rate': 0.001,
-                  'batch_size': 8192,
-                  'bias_init': 0,
-                  'epochs': 100,
-                  'features': 2,
-                  'focal': True,
-                  'alpha': 0.95,
-                  'gamma': g,
-                  'class_weights': False,
-                  'initializer': 'RandomUniform',
-                  'Dropout': True,
-                  'Dropout_Rate': 0.20,
-                  'BatchNorm': False,
-                  'Momentum': 0.60,
-                  'Generator': False,
-                  'Tune': False,
-                  'Tuner': 'Hyperband',
-                  'MAX_TRIALS': 5}
 
-        run = neptune.init(project='rachellb/PreeclampsiaCompare',
-                           api_token=api_,
-                           name='Oklahoma Full',
-                           tags=['Focal Loss', 'Hand Tuned', 'PR-AUC', 'Test'],
-                           source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
+    PARAMS = {'num_layers': 5,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'tanh',
+              'dense_activation_2': 'relu',
+              'dense_activation_3': 'relu',
+              'dense_activation_4': 'relu',
+              'units_0': 60,
+              'units_1': 60,
+              'units_2': 60,
+              'units_3': 30,
+              'units_4': 36,
+              'final_activation': 'sigmoid',
+              'optimizer': 'Adam',
+              'learning_rate': 0.001,
+              'batch_size': 8192,
+              'bias_init': 0,
+              'epochs': 100,
+              'features': 2,
+              'focal': False,
+              'alpha': 0.95,
+              'gamma': 1.25,
+              'class_weights': True,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Generator': False,
+              'Tune': False,
+              'Tuner': 'Hyperband',
+              'MAX_TRIALS': 5}
 
-        run['hyper-parameters'] = PARAMS
+    run = neptune.init(project='rachellb/PreeclampsiaCompare',
+                       api_token=api_,
+                       name='Oklahoma Full',
+                       tags=['Weighted', 'Bayesian', 'PR-AUC'],
+                       source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
-        parent = os.path.dirname(os.getcwd())
-        dataset = os.path.join(parent, 'Figures/Oklahoma/')
+    run['hyper-parameters'] = PARAMS
 
-        if PARAMS['Generator'] == False:
-            model = NoGen(PARAMS, dataset)
-        else:
-            model = NoTune(PARAMS, dataset)
+    parent = os.path.dirname(os.getcwd())
+    dataset = os.path.join(parent, 'Figures/Oklahoma/')
 
-            # Get data
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS, dataset)
+    else:
+        model = NoTune(PARAMS, dataset)
 
-        parent = os.path.dirname(os.getcwd())
-        dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+        # Get data
 
-        data = model.prepData(age='Categorical',
-                               data=dataPath)
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
-        #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
-        model.imputeData(data)
-        x_test, y_test = model.splitData(testSize=0.10, valSize=0.10)
-        features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
+    data = model.prepData(age='Categorical',
+                           data=dataPath)
 
-        if PARAMS['Tune'] == True:
-            model.hpTuning(features)
-            model.buildModel(features)
+    #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
+    model.imputeData(data)
+    x_test, y_test, x_train, y_train = model.splitData(testSize=0.10, valSize=0.10)
+    features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
 
-        else:
-            preds = model.buildModel(features)
-            pred_list.append(preds)
+    if PARAMS['Tune'] == True:
+        model.hpTuning(features)
+        model.buildModel(features)
+
+    else:
+        preds = model.buildModel(features)
 
 
 
-    def calcCDF(pred, Y_test, label):
+    def calcCDF(pred, Y_test, g, label):
 
         # Step 1: get the loss of the already fit model for positive and negative samples separately
 
@@ -1754,7 +1754,7 @@ if __name__ == "__main__":
         p = tf.convert_to_tensor(p)
         y = tf.cast(y, tf.float32)
 
-        fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=PARAMS['gamma'])
+        fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=g)
         # Do I need to turn these into tensors first?
         loss = fl(y, p)  # Should give a tensor of each loss
         x = np.sort(loss)
@@ -1775,18 +1775,20 @@ if __name__ == "__main__":
     cdfListPos = []
     cdfListNeg = []
 
-    for preds in pred_list:
+    gammas = [0, 1, 2, 3, 4]
+
+    for g in gammas:
         # will need to store all this
-        cdf_matPos = calcCDF(preds, y_test, 1)
-        cdf_matNeg = calcCDF(preds, y_test, 0)
+        cdf_matPos = calcCDF(preds, y_test, g, 1)
+        cdf_matNeg = calcCDF(preds, y_test, g, 0)
         cdfListPos.append(cdf_matPos)
         cdfListNeg.append(cdf_matNeg)
 
     for i in range(len(gammas)):
-        #plt.plot(cdfListPos[i]['bincounts'], cdfListPos[i]['cdf'], label= r'$\gamma$ = ' + str(gammas[i]))
-        plt.plot(cdfListPos[i]['cdf'], cdfListPos[i]['bincounts'], label=r'$\gamma$ = ' + str(gammas[i]))
+        plt.plot(cdfListPos[i]['bincounts'], cdfListPos[i]['cdf'], label= r'$\gamma$ = ' + str(gammas[i]))
+        #plt.plot(cdfListPos[i]['cdf'], cdfListPos[i]['bincounts'], label=r'$\gamma$ = ' + str(gammas[i]))
         plt.title('Positive Points CDF')
-        plt.xlabel('Cumulative Normalized Loss')
+        plt.ylabel('Cumulative Normalized Loss')
         #plt.ylabel('')
         #plt.legend(loc='lower right')
         plt.legend()
@@ -1797,10 +1799,10 @@ if __name__ == "__main__":
     plt.close()
 
     for i in range(len(gammas)):
-        #plt.plot(cdfListNeg[i]['bincounts'], cdfListNeg[i]['cdf'], label=r'$\gamma$ = ' + str(gammas[i]))
-        plt.plot(cdfListNeg[i]['cdf'], cdfListNeg[i]['bincounts'],  label=r'$\gamma$ = ' + str(gammas[i]))
+        plt.plot(cdfListNeg[i]['bincounts'], cdfListNeg[i]['cdf'], label=r'$\gamma$ = ' + str(gammas[i]))
+        #plt.plot(cdfListNeg[i]['cdf'], cdfListNeg[i]['bincounts'],  label=r'$\gamma$ = ' + str(gammas[i]))
         plt.title('Negative Points CDF')
-        plt.xlabel('Cumulative Normalized Loss')
+        plt.ylabel('Cumulative Normalized Loss')
         #plt.legend(loc='lower right')
         plt.legend()
         plt.savefig('negplot', bbox_inches="tight")
@@ -1808,7 +1810,7 @@ if __name__ == "__main__":
 
 
 
-    #model.evaluateModel()
+    model.evaluateModel()
 
     run.stop()
 
