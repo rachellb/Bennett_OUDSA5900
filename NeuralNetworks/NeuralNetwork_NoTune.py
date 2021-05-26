@@ -1518,7 +1518,7 @@ class NoGen(fullNN):
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC(curve='PR')])
+                                    tf.keras.metrics.AUC()])
 
         neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
 
@@ -1528,183 +1528,218 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    start_time = time.time()
+    gammas = [0.25, 0.5, 1, 1.25, 1.5, 1.75]
+    for g in gammas:
 
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 60,
-              'units_1': 30,
-              'units_2': 45,
-              'final_activation': 'sigmoid',
-              'optimizer': 'RMSprop',
-              'learning_rate': 0.001,
-              'batch_size': 8192,
-              'bias_init': 0,
-              'epochs': 30,
-              'focal': True,
-              'alpha': 0.95,
-              'gamma': 0.25,
-              'class_weights': False,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.20,
-              'BatchNorm': False,
-              'Momentum': 0.60,
-              'Generator': False,
-              'MAX_TRIALS': 5}
+        start_time = time.time()
 
-    run = neptune.init(project='rachellb/CVPreeclampsia',
-                       api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Focal Loss', 'Hand Tuned', 'PR-AUC'],
-                       source_files=['NeuralNetwork_NoTune.py'])
+        PARAMS = {'num_layers': 3,
+                  'dense_activation_0': 'tanh',
+                  'dense_activation_1': 'relu',
+                  'dense_activation_2': 'relu',
+                  'units_0': 60,
+                  'units_1': 30,
+                  'units_2': 45,
+                  'final_activation': 'sigmoid',
+                  'optimizer': 'RMSprop',
+                  'learning_rate': 0.001,
+                  'batch_size': 8192,
+                  'bias_init': 0,
+                  'epochs': 30,
+                  'focal': True,
+                  'alpha': 0.95,
+                  'gamma': g,
+                  'class_weights': False,
+                  'initializer': 'RandomUniform',
+                  'Dropout': True,
+                  'Dropout_Rate': 0.20,
+                  'BatchNorm': False,
+                  'Momentum': 0.60,
+                  'Generator': False,
+                  'MAX_TRIALS': 5}
 
-    run['hyper-parameters'] = PARAMS
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+        run = neptune.init(project='rachellb/CVPreeclampsia',
+                           api_token=api_,
+                           name='Oklahoma Full',
+                           tags=['Focal Loss', 'Hand Tuned', 'Comparing Gammas'],
+                           source_files=['NeuralNetwork_NoTune.py'])
 
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS)
+        run['hyper-parameters'] = PARAMS
+        #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
-    else:
-        model = fullNN(PARAMS)
+        if PARAMS['Generator'] == False:
+            model = NoGen(PARAMS)
 
-    # Get data
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+        else:
+            model = fullNN(PARAMS)
 
-
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
-
-    X, y = model.prepData(age='Categorical', data=dataPath)
-
-    aucList = []
-    gmeanList = []
-    accList = []
-    precisionList = []
-    recallList = []
-    specList = []
-    lossList = []
-    historyList = []
-
-    for train_index, test_index in rskf.split(X, y):
-        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-
-        model.setData(X_train, X_test, y_train, y_test)
-
-        features = model.featureSelection(numFeatures=20, method=2)
-        # For hand-tuning
-        model.buildModel(features)
-
-        Results = model.evaluateModel()
-
-        aucList.append(Results["AUC"])
-        gmeanList.append(Results["Gmean"])
-        accList.append(Results["Accuracy"])
-        precisionList.append(Results["Precision"])
-        recallList.append(Results["Recall"])
-        specList.append(Results["Specificity"])
-        lossList.append(Results["Loss"])
-        historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
+        # Get data
+        parent = os.path.dirname(os.getcwd())
+        #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+        dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
 
-    run['List loss'] = lossList
-    run['List accuracy'] = accList
-    run['List AUC'] = aucList
-    run['List specificity'] = specList
-    run['List recall'] = recallList
-    run['List precisio'] = precisionList
-    run['List gmean'] = gmeanList
+        rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
+
+        X, y = model.prepData(age='Categorical', data=dataPath)
+
+        aucList = []
+        gmeanList = []
+        accList = []
+        precisionList = []
+        recallList = []
+        specList = []
+        lossList = []
+        historyList = []
+        tpList = []
+        fpList = []
+        tnList = []
+        fnList = []
+
+        for train_index, test_index in rskf.split(X, y):
+            X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
+            y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+            model.setData(X_train, X_test, y_train, y_test)
+
+            features = model.featureSelection(numFeatures=12, method=2)
+            # For hand-tuning
+            model.buildModel(features)
+
+            Results = model.evaluateModel()
+
+            aucList.append(Results["AUC"])
+            gmeanList.append(Results["Gmean"])
+            accList.append(Results["Accuracy"])
+            precisionList.append(Results["Precision"])
+            recallList.append(Results["Recall"])
+            specList.append(Results["Specificity"])
+            lossList.append(Results["Loss"])
+            historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
+            tpList.append(Results['True Positives'])
+            tnList.append(Results['True Negatives'])
+            fpList.append(Results['False Positives'])
+            fnList.append(Results['False Negatives'])
 
 
-    # Get Average Results
-    lossMean = statistics.mean(lossList)
-    aucMean = statistics.mean(aucList)
-    gmeanMean = statistics.mean(gmeanList)
-    accMean = statistics.mean(accList)
-    specMean = statistics.mean(specList)
-    recallMean = statistics.mean(recallList)
-    precMean = statistics.mean(precisionList)
-
-    run['Mean loss'] = lossMean
-    run['Mean accuracy'] = accMean
-    run['Mean AUC'] = aucMean
-    run['Mean specificity'] = specMean
-    run['Mean recall'] = recallMean
-    run['Mean precisio'] = precMean
-    run['Mean gmean'] = gmeanMean
-
-    # Get Standard Deviation of Results
-    lossSD = statistics.pstdev(lossList)
-    aucSD = statistics.pstdev(aucList)
-    gmeanSD = statistics.pstdev(gmeanList)
-    accSD = statistics.pstdev(accList)
-    specSD = statistics.pstdev(specList)
-    recallSD = statistics.pstdev(recallList)
-    precSD = statistics.pstdev(precisionList)
+        run['List loss'] = lossList
+        run['List accuracy'] = accList
+        run['List AUC'] = aucList
+        run['List specificity'] = specList
+        run['List recall'] = recallList
+        run['List precisio'] = precisionList
+        run['List gmean'] = gmeanList
+        run['List TP'] = tpList
+        run['List TN'] = tnList
+        run['List FP'] = fpList
+        run['List FN'] = fnList
 
 
-    run['SD loss'] = lossSD
-    run['SD accuracy'] = accSD
-    run['SD AUC'] = aucSD
-    run['SD specificity'] = specSD
-    run['SD recall'] = recallSD
-    run['SD precision'] = precSD
-    run['SD gmean'] = gmeanSD
+        # Get Average Results
+        lossMean = statistics.mean(lossList)
+        aucMean = statistics.mean(aucList)
+        gmeanMean = statistics.mean(gmeanList)
+        accMean = statistics.mean(accList)
+        specMean = statistics.mean(specList)
+        recallMean = statistics.mean(recallList)
+        precMean = statistics.mean(precisionList)
+        tpMean = statistics.mean(tpList)
+        tnMean = statistics.mean(tnList)
+        fpMean = statistics.mean(fpList)
+        fnMean = statistics.mean(fnList)
 
 
-    def plotAvg(historyList):
-        aucAvg = []
-        lossAvg = []
+        run['Mean loss'] = lossMean
+        run['Mean accuracy'] = accMean
+        run['Mean AUC'] = aucMean
+        run['Mean specificity'] = specMean
+        run['Mean recall'] = recallMean
+        run['Mean precisio'] = precMean
+        run['Mean gmean'] = gmeanMean
+        run['Mean TP'] = tpMean
+        run['Mean TN'] = tnMean
+        run['Mean FP'] = fpMean
+        run['Mean FN'] = fnMean
 
-        for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
-            # Clear list
-            auc = []
-            aucVal = []
-            loss = []
-            lossVal = []
+        # Get Standard Deviation of Results
+        lossSD = statistics.pstdev(lossList)
+        aucSD = statistics.pstdev(aucList)
+        gmeanSD = statistics.pstdev(gmeanList)
+        accSD = statistics.pstdev(accList)
+        specSD = statistics.pstdev(specList)
+        recallSD = statistics.pstdev(recallList)
+        precSD = statistics.pstdev(precisionList)
+        tpSD = statistics.pstdev(tpList)
+        fpSD = statistics.pstdev(fpList)
+        tnSD = statistics.pstdev(tnList)
+        fnSD = statistics.pstdev(fnList)
 
-            for j in range(len(historyList)): # Iterate through each history object
 
-                # Append each model's measurement for epoch i
-                auc.append(historyList[j].history['auc'][i])
-                loss.append(historyList[j].history['loss'][i])
+        run['SD loss'] = lossSD
+        run['SD accuracy'] = accSD
+        run['SD AUC'] = aucSD
+        run['SD specificity'] = specSD
+        run['SD recall'] = recallSD
+        run['SD precision'] = precSD
+        run['SD gmean'] = gmeanSD
+        run['SD tp'] = tpSD
+        run['SD tn'] = fpSD
+        run['SD fp'] = tnSD
+        run['SD fn'] = fnSD
 
-            # Once get measurement for each model, get average measurement for that epoch
-            aucAvg.append(statistics.mean(auc))
-            lossAvg.append(statistics.mean(loss))
 
-        # Graphing results
-        plt.clf()
-        plt.cla()
-        plt.close()
+        def plotAvg(historyList):
+            aucAvg = []
+            lossAvg = []
 
-        avgauc = plt.figure()
-        # plt.ylim(0.40, 0.66)
-        plt.plot(aucAvg)
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['training'], loc='upper right')
-        run['Average AUC'].upload(avgauc)
+            for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
+                # Clear list
+                auc = []
+                aucVal = []
+                loss = []
+                lossVal = []
 
-        plt.clf()
-        plt.cla()
-        plt.close()
+                for j in range(len(historyList)): # Iterate through each history object
 
-        avgloss = plt.figure()
-        # plt.ylim(0.40, 0.66)
-        plt.plot(lossAvg)
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['training'], loc='upper right')
-        run['Average Loss'].upload(avgloss)
+                    # Append each model's measurement for epoch i
+                    auc.append(historyList[j].history['auc'][i])
+                    loss.append(historyList[j].history['loss'][i])
 
-    plotAvg(historyList)
+                # Once get measurement for each model, get average measurement for that epoch
+                aucAvg.append(statistics.mean(auc))
+                lossAvg.append(statistics.mean(loss))
 
-    mins = (time.time() - start_time) / 60  # Time in seconds
+            # Graphing results
+            plt.clf()
+            plt.cla()
+            plt.close()
 
-    run['minutes'] = mins
+            avgauc = plt.figure()
+            # plt.ylim(0.40, 0.66)
+            plt.plot(aucAvg)
+            plt.title('model auc')
+            plt.ylabel('auc')
+            plt.xlabel('epoch')
+            plt.legend(['training'], loc='upper right')
+            run['Average AUC'].upload(avgauc)
+
+            plt.clf()
+            plt.cla()
+            plt.close()
+
+            avgloss = plt.figure()
+            # plt.ylim(0.40, 0.66)
+            plt.plot(lossAvg)
+            plt.title('model loss')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.legend(['training'], loc='upper right')
+            run['Average Loss'].upload(avgloss)
+
+        plotAvg(historyList)
+
+        mins = (time.time() - start_time) / 60  # Time in seconds
+
+        run['minutes'] = mins
+
+        run.stop()

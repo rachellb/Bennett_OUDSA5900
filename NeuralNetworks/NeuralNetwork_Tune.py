@@ -341,7 +341,7 @@ class fullNN():
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
-                                   tf.keras.metrics.AUC(curve='PR')])
+                                   tf.keras.metrics.AUC()])
 
             return model
 
@@ -675,9 +675,9 @@ if __name__ == "__main__":
               'estimator': "BayesianRidge",
               'epochs': 30,
               'focal': False,
-              'alpha': 0.97,
-              'gamma': 1.25,
-              'class_weights': False,
+              'alpha': 0.92,
+              'gamma': 0,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -691,8 +691,8 @@ if __name__ == "__main__":
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
-    neptune.create_experiment(name='Oklahoma Native', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Unweighted', 'PR-AUC'],
+    neptune.create_experiment(name='Texas Full', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted', 'HP Compare'],
                               description='Getting Current Best Results')
 
 
@@ -705,7 +705,9 @@ if __name__ == "__main__":
     # Get data
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
+
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
@@ -714,7 +716,7 @@ if __name__ == "__main__":
     data = model.imputeData(data)
 
     model.splitData(testSize=PARAMS['TestSplit'], valSize=PARAMS['ValSplit'])
-    features = model.featureSelection(numFeatures=10, method=2)
+    features = model.featureSelection(numFeatures=20, method=2)
     model.hpTuning(features)
     model.evaluateModel()
 

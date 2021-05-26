@@ -1547,6 +1547,7 @@ class NoGen(NoTune):
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
+                                    tf.keras.metrics.AUC(),
                                     tf.keras.metrics.AUC(curve='PR')])
 
 
@@ -1567,7 +1568,7 @@ class NoGen(NoTune):
         plt.close()
 
         auc = plt.figure()
-        plt.ylim(0.06, 0.12)
+        #plt.ylim(0.06, 0.12)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
         plt.title('model auc')
@@ -1614,7 +1615,7 @@ class NoGen(NoTune):
         run['loss'] = self.loss
         run['accuracy'] = self.accuracy
         run['Test AUC'] = self.AUC
-        #run['Test AUC(PR)'] = score[5]
+        run['Test AUC(PR)'] = score[5]
         run['specificity'] = self.specificity
         run['recall'] = self.recall
         run['precision'] = self.precision
@@ -1656,26 +1657,22 @@ if __name__ == "__main__":
 
 
 
-    PARAMS = {'num_layers': 5,
+    PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
-              'dense_activation_1': 'tanh',
+              'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
-              'dense_activation_3': 'relu',
-              'dense_activation_4': 'relu',
               'units_0': 60,
-              'units_1': 60,
-              'units_2': 60,
-              'units_3': 30,
-              'units_4': 36,
+              'units_1': 30,
+              'units_2': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 20,
+              'epochs': 100,
               'features': 2,
               'focal': True,
-              'alpha': 0.95,
+              'alpha': 0.5,
               'gamma': 1.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
@@ -1690,8 +1687,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Weighted', 'Bayesian', 'PR-AUC', 'Test'],
+                       name='Texas Full',
+                       tags=['Focal Loss', 'Hand Tuned', 'PR-AUC', 'Test'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1707,7 +1704,8 @@ if __name__ == "__main__":
         # Get data
 
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
@@ -1723,7 +1721,6 @@ if __name__ == "__main__":
 
     else:
         preds = model.buildModel(features)
-
 
 
     def calcCDF(pred, Y_test, g, label):
@@ -1749,35 +1746,58 @@ if __name__ == "__main__":
             y = yNeg
             title = "Negative Loss Distribution"
 
+        def focalLoss(y,p, label):
+            a = PARAMS['alpha']
+
+            loss = y * (-tf.math.log(p)) + (1 - y) * (-tf.math.log(1 - p))
+
+            if label == 1:
+                #loss = -(a*((1-p)**g) * math.log(p))
+                sub = np.subtract(1,p)
+                power = np.power(sub,g)
+                mult = np.multiply(a,power)
+                loss = np.multiply(mult, np.log(p))
+                loss = np.multiply(-1,loss)
+            else:
+                loss = -((1-a)*(p**g) * math.log(1-p))
+            #loss = -((a*((1-p)**g) * math.log(p)) + ((1-a)*(p**g) * math.log(1-p)))
+            return loss
+
+        #focalLoss = np.vectorize(focalLoss)
+
+        #loss2 = focalLoss(y, p, label)
+
         p = tf.convert_to_tensor(p)
         y = tf.cast(y, tf.float32)
+        y = tf.convert_to_tensor(y)
+        y = tf.expand_dims(y, 1)
 
         fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=g)
-        # Do I need to turn these into tensors first?
-        loss = fl(y, p)  # Should give a tensor of each loss
-        x = np.sort(loss)
 
+        # Checking to see if this works, I'm turning it into a graph instead
+
+        @tf.function
+        def loss_graph(y,p):
+            return fl(y,p)
+
+
+
+        #loss_graph = fl_graph(y,p)
+        #loss = fl(y, p)
+        loss2 = loss_graph(y,p)
+
+        #x = np.sort(loss)
+        x = np.sort(loss2)
         # Normalized Data
-        #x = (x - min(x)) / (max(x) - min(x))
         x = x/sum(x)
-        """
-        plt.clf()
-        plt.cla()
-        plt.close()
-        plt.hist(x, color='blue', edgecolor='black')
-        plt.title(title + r' $\gamma$= ' + str(g))
-        # plt.legend(loc='lower right')
-        plt.legend()
-        plt.savefig(str(label) + '_g' + str(g) + ' dist1', bbox_inches="tight")
-        #Plot the distribution to see what I have
-        """
 
-        count, bins_count = np.histogram(x, bins=10)
-        pdf = count / sum(count)
-        cdf = np.cumsum(pdf)
+        cdf = np.cumsum(x)
+        n = len(x)
+        share_of_population = np.arange(1, n + 1) / n
 
-        cdf_materials = {"cdf": cdf,
-                         "bincounts": bins_count[1:]}
+
+        cdf_materials = {"shares": share_of_population,
+                         "cusum": cdf}
 
         return cdf_materials
 
@@ -1786,7 +1806,7 @@ if __name__ == "__main__":
     cdfListPos = []
     cdfListNeg = []
 
-    gammas = [0, 1, 2, 3, 4]
+    gammas = [0, 2, 4, 6, 8]
 
     for g in gammas:
         # will need to store all this
@@ -1797,31 +1817,32 @@ if __name__ == "__main__":
 
     # Plotting for a test:
 
+    plt.clf()
+    plt.cla()
+    plt.close()
 
-
+    posplot = plt.figure()
     for i in range(len(gammas)):
-        plt.plot(cdfListPos[i]['bincounts'], cdfListPos[i]['cdf'], label= r'$\gamma$ = ' + str(gammas[i]))
-        #plt.plot(cdfListPos[i]['cdf'], cdfListPos[i]['bincounts'], label=r'$\gamma$ = ' + str(gammas[i]))
-        plt.title('Positive Points CDF')
+        plt.plot(cdfListPos[i]['shares'], cdfListPos[i]['cusum'], label= r'$\gamma$ = ' + str(gammas[i]))
+        plt.title('Positive Points CSP')
         plt.ylabel('Cumulative Normalized Loss')
-        #plt.ylabel('')
-        #plt.legend(loc='lower right')
         plt.legend()
-        plt.savefig('posplot_' +str(date), bbox_inches="tight")
+        plt.savefig('posplotCSP_TX_Higher_' +str(date), bbox_inches="tight")
+    run['posplot'].upload(posplot)
 
     plt.clf()
     plt.cla()
     plt.close()
 
-    for i in range(len(gammas)):
-        plt.plot(cdfListNeg[i]['bincounts'], cdfListNeg[i]['cdf'], label=r'$\gamma$ = ' + str(gammas[i]))
-        #plt.plot(cdfListNeg[i]['cdf'], cdfListNeg[i]['bincounts'],  label=r'$\gamma$ = ' + str(gammas[i]))
-        plt.title('Negative Points CDF')
-        plt.ylabel('Cumulative Normalized Loss')
-        #plt.legend(loc='lower right')
-        plt.legend()
-        plt.savefig('negplot_' + str(date), bbox_inches="tight")
 
+    negplot = plt.figure()
+    for i in range(len(gammas)):
+        plt.plot(cdfListNeg[i]['shares'], cdfListNeg[i]['cusum'], label=r'$\gamma$ = ' + str(gammas[i]))
+        plt.title('Negative Points CSP')
+        plt.ylabel('Cumulative Normalized Loss')
+        plt.legend()
+        plt.savefig('negplotCSP_TX_Higher_' + str(date), bbox_inches="tight")
+    run['negplot'].upload(negplot)
 
 
 
