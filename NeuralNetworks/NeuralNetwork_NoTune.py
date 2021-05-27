@@ -1528,218 +1528,215 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    gammas = [0.25, 0.5, 1, 1.25, 1.5, 1.75]
-    for g in gammas:
+    start_time = time.time()
 
-        start_time = time.time()
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 30,
+              'units_1': 30,
+              'units_2': 30,
+              'final_activation': 'sigmoid',
+              'optimizer': 'Adam',
+              'learning_rate': 0.001,
+              'batch_size': 8192,
+              'bias_init': 0,
+              'epochs': 30,
+              'focal': False,
+              'alpha': 0.92,
+              'gamma': 0,
+              'class_weights': True,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Generator': False,
+              'MAX_TRIALS': 5}
 
-        PARAMS = {'num_layers': 3,
-                  'dense_activation_0': 'tanh',
-                  'dense_activation_1': 'relu',
-                  'dense_activation_2': 'relu',
-                  'units_0': 60,
-                  'units_1': 30,
-                  'units_2': 45,
-                  'final_activation': 'sigmoid',
-                  'optimizer': 'RMSprop',
-                  'learning_rate': 0.001,
-                  'batch_size': 8192,
-                  'bias_init': 0,
-                  'epochs': 30,
-                  'focal': True,
-                  'alpha': 0.95,
-                  'gamma': g,
-                  'class_weights': False,
-                  'initializer': 'RandomUniform',
-                  'Dropout': True,
-                  'Dropout_Rate': 0.20,
-                  'BatchNorm': False,
-                  'Momentum': 0.60,
-                  'Generator': False,
-                  'MAX_TRIALS': 5}
+    run = neptune.init(project='rachellb/CVPreeclampsia',
+                       api_token=api_,
+                       name='Texas Full',
+                       tags=['Weighted', 'Bayesian', 'HP Compare'],
+                       source_files=['NeuralNetwork_NoTune.py'])
 
-        run = neptune.init(project='rachellb/CVPreeclampsia',
-                           api_token=api_,
-                           name='Oklahoma Full',
-                           tags=['Focal Loss', 'Hand Tuned', 'Comparing Gammas'],
-                           source_files=['NeuralNetwork_NoTune.py'])
+    run['hyper-parameters'] = PARAMS
+    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
-        run['hyper-parameters'] = PARAMS
-        #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS)
 
-        if PARAMS['Generator'] == False:
-            model = NoGen(PARAMS)
+    else:
+        model = fullNN(PARAMS)
 
-        else:
-            model = fullNN(PARAMS)
-
-        # Get data
-        parent = os.path.dirname(os.getcwd())
-        #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-        dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
 
 
-        rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
-        X, y = model.prepData(age='Categorical', data=dataPath)
+    X, y = model.prepData(age='Categorical', data=dataPath)
 
-        aucList = []
-        gmeanList = []
-        accList = []
-        precisionList = []
-        recallList = []
-        specList = []
-        lossList = []
-        historyList = []
-        tpList = []
-        fpList = []
-        tnList = []
-        fnList = []
+    aucList = []
+    gmeanList = []
+    accList = []
+    precisionList = []
+    recallList = []
+    specList = []
+    lossList = []
+    historyList = []
+    tpList = []
+    fpList = []
+    tnList = []
+    fnList = []
 
-        for train_index, test_index in rskf.split(X, y):
-            X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
-            y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+    for train_index, test_index in rskf.split(X, y):
+        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
+        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
-            model.setData(X_train, X_test, y_train, y_test)
+        model.setData(X_train, X_test, y_train, y_test)
 
-            features = model.featureSelection(numFeatures=12, method=2)
-            # For hand-tuning
-            model.buildModel(features)
+        features = model.featureSelection(numFeatures=12, method=2)
+        # For hand-tuning
+        model.buildModel(features)
 
-            Results = model.evaluateModel()
+        Results = model.evaluateModel()
 
-            aucList.append(Results["AUC"])
-            gmeanList.append(Results["Gmean"])
-            accList.append(Results["Accuracy"])
-            precisionList.append(Results["Precision"])
-            recallList.append(Results["Recall"])
-            specList.append(Results["Specificity"])
-            lossList.append(Results["Loss"])
-            historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
-            tpList.append(Results['True Positives'])
-            tnList.append(Results['True Negatives'])
-            fpList.append(Results['False Positives'])
-            fnList.append(Results['False Negatives'])
-
-
-        run['List loss'] = lossList
-        run['List accuracy'] = accList
-        run['List AUC'] = aucList
-        run['List specificity'] = specList
-        run['List recall'] = recallList
-        run['List precisio'] = precisionList
-        run['List gmean'] = gmeanList
-        run['List TP'] = tpList
-        run['List TN'] = tnList
-        run['List FP'] = fpList
-        run['List FN'] = fnList
+        aucList.append(Results["AUC"])
+        gmeanList.append(Results["Gmean"])
+        accList.append(Results["Accuracy"])
+        precisionList.append(Results["Precision"])
+        recallList.append(Results["Recall"])
+        specList.append(Results["Specificity"])
+        lossList.append(Results["Loss"])
+        historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
+        tpList.append(Results['True Positives'])
+        tnList.append(Results['True Negatives'])
+        fpList.append(Results['False Positives'])
+        fnList.append(Results['False Negatives'])
 
 
-        # Get Average Results
-        lossMean = statistics.mean(lossList)
-        aucMean = statistics.mean(aucList)
-        gmeanMean = statistics.mean(gmeanList)
-        accMean = statistics.mean(accList)
-        specMean = statistics.mean(specList)
-        recallMean = statistics.mean(recallList)
-        precMean = statistics.mean(precisionList)
-        tpMean = statistics.mean(tpList)
-        tnMean = statistics.mean(tnList)
-        fpMean = statistics.mean(fpList)
-        fnMean = statistics.mean(fnList)
+    run['List loss'] = lossList
+    run['List accuracy'] = accList
+    run['List AUC'] = aucList
+    run['List specificity'] = specList
+    run['List recall'] = recallList
+    run['List precisio'] = precisionList
+    run['List gmean'] = gmeanList
+    run['List TP'] = tpList
+    run['List TN'] = tnList
+    run['List FP'] = fpList
+    run['List FN'] = fnList
 
 
-        run['Mean loss'] = lossMean
-        run['Mean accuracy'] = accMean
-        run['Mean AUC'] = aucMean
-        run['Mean specificity'] = specMean
-        run['Mean recall'] = recallMean
-        run['Mean precisio'] = precMean
-        run['Mean gmean'] = gmeanMean
-        run['Mean TP'] = tpMean
-        run['Mean TN'] = tnMean
-        run['Mean FP'] = fpMean
-        run['Mean FN'] = fnMean
-
-        # Get Standard Deviation of Results
-        lossSD = statistics.pstdev(lossList)
-        aucSD = statistics.pstdev(aucList)
-        gmeanSD = statistics.pstdev(gmeanList)
-        accSD = statistics.pstdev(accList)
-        specSD = statistics.pstdev(specList)
-        recallSD = statistics.pstdev(recallList)
-        precSD = statistics.pstdev(precisionList)
-        tpSD = statistics.pstdev(tpList)
-        fpSD = statistics.pstdev(fpList)
-        tnSD = statistics.pstdev(tnList)
-        fnSD = statistics.pstdev(fnList)
+    # Get Average Results
+    lossMean = statistics.mean(lossList)
+    aucMean = statistics.mean(aucList)
+    gmeanMean = statistics.mean(gmeanList)
+    accMean = statistics.mean(accList)
+    specMean = statistics.mean(specList)
+    recallMean = statistics.mean(recallList)
+    precMean = statistics.mean(precisionList)
+    tpMean = statistics.mean(tpList)
+    tnMean = statistics.mean(tnList)
+    fpMean = statistics.mean(fpList)
+    fnMean = statistics.mean(fnList)
 
 
-        run['SD loss'] = lossSD
-        run['SD accuracy'] = accSD
-        run['SD AUC'] = aucSD
-        run['SD specificity'] = specSD
-        run['SD recall'] = recallSD
-        run['SD precision'] = precSD
-        run['SD gmean'] = gmeanSD
-        run['SD tp'] = tpSD
-        run['SD tn'] = fpSD
-        run['SD fp'] = tnSD
-        run['SD fn'] = fnSD
+    run['Mean loss'] = lossMean
+    run['Mean accuracy'] = accMean
+    run['Mean AUC'] = aucMean
+    run['Mean specificity'] = specMean
+    run['Mean recall'] = recallMean
+    run['Mean precisio'] = precMean
+    run['Mean gmean'] = gmeanMean
+    run['Mean TP'] = tpMean
+    run['Mean TN'] = tnMean
+    run['Mean FP'] = fpMean
+    run['Mean FN'] = fnMean
+
+    # Get Standard Deviation of Results
+    lossSD = statistics.pstdev(lossList)
+    aucSD = statistics.pstdev(aucList)
+    gmeanSD = statistics.pstdev(gmeanList)
+    accSD = statistics.pstdev(accList)
+    specSD = statistics.pstdev(specList)
+    recallSD = statistics.pstdev(recallList)
+    precSD = statistics.pstdev(precisionList)
+    tpSD = statistics.pstdev(tpList)
+    fpSD = statistics.pstdev(fpList)
+    tnSD = statistics.pstdev(tnList)
+    fnSD = statistics.pstdev(fnList)
 
 
-        def plotAvg(historyList):
-            aucAvg = []
-            lossAvg = []
+    run['SD loss'] = lossSD
+    run['SD accuracy'] = accSD
+    run['SD AUC'] = aucSD
+    run['SD specificity'] = specSD
+    run['SD recall'] = recallSD
+    run['SD precision'] = precSD
+    run['SD gmean'] = gmeanSD
+    run['SD tp'] = tpSD
+    run['SD tn'] = fpSD
+    run['SD fp'] = tnSD
+    run['SD fn'] = fnSD
 
-            for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
-                # Clear list
-                auc = []
-                aucVal = []
-                loss = []
-                lossVal = []
 
-                for j in range(len(historyList)): # Iterate through each history object
+    def plotAvg(historyList):
+        aucAvg = []
+        lossAvg = []
 
-                    # Append each model's measurement for epoch i
-                    auc.append(historyList[j].history['auc'][i])
-                    loss.append(historyList[j].history['loss'][i])
+        for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
+            # Clear list
+            auc = []
+            aucVal = []
+            loss = []
+            lossVal = []
 
-                # Once get measurement for each model, get average measurement for that epoch
-                aucAvg.append(statistics.mean(auc))
-                lossAvg.append(statistics.mean(loss))
+            for j in range(len(historyList)): # Iterate through each history object
 
-            # Graphing results
-            plt.clf()
-            plt.cla()
-            plt.close()
+                # Append each model's measurement for epoch i
+                auc.append(historyList[j].history['auc'][i])
+                loss.append(historyList[j].history['loss'][i])
 
-            avgauc = plt.figure()
-            # plt.ylim(0.40, 0.66)
-            plt.plot(aucAvg)
-            plt.title('model auc')
-            plt.ylabel('auc')
-            plt.xlabel('epoch')
-            plt.legend(['training'], loc='upper right')
-            run['Average AUC'].upload(avgauc)
+            # Once get measurement for each model, get average measurement for that epoch
+            aucAvg.append(statistics.mean(auc))
+            lossAvg.append(statistics.mean(loss))
 
-            plt.clf()
-            plt.cla()
-            plt.close()
+        # Graphing results
+        plt.clf()
+        plt.cla()
+        plt.close()
 
-            avgloss = plt.figure()
-            # plt.ylim(0.40, 0.66)
-            plt.plot(lossAvg)
-            plt.title('model loss')
-            plt.ylabel('loss')
-            plt.xlabel('epoch')
-            plt.legend(['training'], loc='upper right')
-            run['Average Loss'].upload(avgloss)
+        avgauc = plt.figure()
+        # plt.ylim(0.40, 0.66)
+        plt.plot(aucAvg)
+        plt.title('model auc')
+        plt.ylabel('auc')
+        plt.xlabel('epoch')
+        plt.legend(['training'], loc='upper right')
+        run['Average AUC'].upload(avgauc)
 
-        plotAvg(historyList)
+        plt.clf()
+        plt.cla()
+        plt.close()
 
-        mins = (time.time() - start_time) / 60  # Time in seconds
+        avgloss = plt.figure()
+        # plt.ylim(0.40, 0.66)
+        plt.plot(lossAvg)
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['training'], loc='upper right')
+        run['Average Loss'].upload(avgloss)
 
-        run['minutes'] = mins
+    plotAvg(historyList)
 
-        run.stop()
+    mins = (time.time() - start_time) / 60  # Time in seconds
+
+    run['minutes'] = mins
+
+    run.stop()
