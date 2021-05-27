@@ -43,7 +43,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -528,7 +528,7 @@ class NoGen(fullNN):
             model = tf.keras.models.Sequential()
             model.add(tf.keras.Input(shape=(inputSize,)))
 
-            for i in range(hp.Int('num_layers', 2, 4)):
+            for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
@@ -677,14 +677,14 @@ if __name__ == "__main__":
               'focal': False,
               'alpha': 0.95,
               'gamma': 0.25,
-              'class_weights': True,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
               'Generator': False,
-              'Tuner': "Bayesian",
+              'Tuner': "Hyperband",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 100,
               'TestSplit': 0.10,
@@ -692,7 +692,7 @@ if __name__ == "__main__":
 
     neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
     neptune.create_experiment(name='Oklahoma Native', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'HP Compare'],
+                              tags=['Unweighted', 'HP Compare', 'Updated'],
                               description='Getting Current Best Results')
 
 

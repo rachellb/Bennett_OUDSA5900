@@ -39,7 +39,7 @@ import tensorflow.keras.backend as K
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 import statistics
@@ -1530,23 +1530,25 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 3,
+    PARAMS = {'num_layers': 4,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
-              'units_0': 30,
-              'units_1': 30,
-              'units_2': 30,
+              'dense_activation_3': 'relu',
+              'units_0': 41,
+              'units_1': 36,
+              'units_2': 45,
+              'units_3': 30,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'NAdam',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
               'focal': False,
-              'alpha': 0.92,
-              'gamma': 0,
-              'class_weights': True,
+              'alpha': 0.94,
+              'gamma': 1.75,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1557,8 +1559,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Texas Full',
-                       tags=['Weighted', 'Bayesian', 'HP Compare'],
+                       name='Oklahoma Native',
+                       tags=['Unweighted', 'Hyperband', 'HP Compare', 'Updated'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1573,8 +1575,8 @@ if __name__ == "__main__":
     # Get data
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_051321.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
