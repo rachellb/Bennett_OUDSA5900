@@ -1535,18 +1535,18 @@ if __name__ == "__main__":
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
               'units_0': 30,
-              'units_1': 30,
-              'units_2': 30,
+              'units_1': 60,
+              'units_2': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': False,
+              'focal': True,
               'alpha': 0.92,
-              'gamma': 0,
-              'class_weights': True,
+              'gamma': 0.25,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1557,8 +1557,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Texas Full',
-                       tags=['Weighted', 'Bayesian', 'HP Compare'],
+                       name='Oklahoma Native',
+                       tags=['Focal Loss', 'HP Compare', 'Hand Tuned'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1574,7 +1574,6 @@ if __name__ == "__main__":
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 

@@ -129,6 +129,155 @@ def cleanTransfusion():
 
     return df
 
+def cleanDataMomi(weeks):
+    system = 'linux'
+    # Prenatal Data
+    parent = os.path.dirname(os.getcwd())
+    if system == 'windows':
+        dataPath = os.path.join(parent, r"Data\MOMI\Final_Prenatal_DeIdentified.xlsx")
+        prenatal = pd.read_excel('file:\\' + dataPath)
+    else:
+        dataPath = os.path.join(parent, r"Data/MOMI/Final_Prenatal_DeIdentified.xlsx")
+        prenatal = pd.read_excel('file://' + dataPath)
+
+    # MOMI Data
+    parent = os.path.dirname(os.getcwd())
+    if system == 'windows':
+        dataPath = os.path.join(parent, r"Data\MOMI\Final_MOMI_DeIdentified_Update_39Mar2021.xlsx")
+        momi = pd.read_excel('file:\\' + dataPath)
+    else:
+        dataPath = os.path.join(parent, r"Data/MOMI/Final_MOMI_DeIdentified_Update_39Mar2021.xlsx")
+        momi = pd.read_excel('file://' + dataPath)
+
+    # Ultrasound Data
+    parent = os.path.dirname(os.getcwd())
+    if system == 'windows':
+        dataPath = os.path.join(parent, r"Data\MOMI\Final_Ultrasound_DeIdentified.xlsx")
+        ultrasound = pd.read_excel('file:\\' + dataPath)
+    else:
+        dataPath = os.path.join(parent, r"Data/MOMI/Final_Ultrasound_DeIdentified.xlsx")
+        ultrasound = pd.read_excel('file://' + dataPath)
+
+
+
+    # Fix MOMI missing values to np.NaN
+    momi['MIDBV'] = np.where(momi['MIDBV'] == 99, np.NaN, momi['MIDBV'])
+    momi['MIDCHLAM'] = np.where(momi['MIDCHLAM'] == 99, np.NaN, momi['MIDCHLAM'])
+    momi['MIDCONDY'] = np.where(momi['MIDCONDY'] == 99, np.NaN, momi['MIDCONDY'])
+    momi['MIDGC'] = np.where(momi['MIDGC'] == 99, np.NaN, momi['MIDGC'])
+    momi['MIDHEPB'] = np.where(momi['MIDHEPB'] == 99, np.NaN, momi['MIDHEPB'])
+    momi['MIDTRICH'] = np.where(momi['MIDTRICH'] == 99, np.NaN, momi['MIDTRICH'])
+    momi['MIDGBS'] = np.where(momi['MIDGBS'] == 99, np.NaN, momi['MIDGBS'])
+    momi['MomEducation_State'] = np.where(momi['MomEducation_State'] == 'Unknown', np.NaN, momi['MomEducation_State'])
+    momi['DadEducation_State'] = np.where(momi['DadEducation_State'] == 'Unknown', np.NaN, momi['DadEducation_State'])
+    momi['Smoke_b'] = np.where(momi['Smoke_b'] == 'Unknown (unable to assess)', np.NaN, momi['Smoke_b'])
+    momi['Race'] = np.where(momi['Race'].isin(['9', 'A']), np.NaN, momi['Race'])
+    momi['Ethnicity'] = np.where(momi['Ethnicity'].isin(['UNSPECIFIED']), np.NaN, momi['Ethnicity'])
+    momi['InfSex'] = np.where(momi['InfSex'] == 'U', np.NaN, momi['InfSex'])
+    momi['InfSex'] = np.where(momi['InfSex'] == 'f', 'F', momi['InfSex'])
+
+    # 99% missing, drop all
+    momi.drop(columns='Alcohol_b', inplace=True)
+
+    # Dropping erroneous prenatal data. This data does not actually exist, is thousands of missing values
+    prenatal.drop(prenatal[prenatal['DELWKSGT'].isnull()].index, inplace=True)
+    prenatal.drop(prenatal[prenatal['PNV_Total_Number'].isnull()].index, inplace=True)
+
+    # Ordering data by earliest visits
+    prenatal.sort_values('PNV_GestAge', inplace=True)
+
+    # Select the values before a set number of weeks. Note: This is inclusive, so will include up to selected number
+    prenatal.drop(prenatal.loc[prenatal['PNV_GestAge'] > weeks].index, inplace=True)
+
+    # Drop duplicates, keeping only the last visit. This captures mothers who come back to the hospital for subsequent
+    # pregnancies
+    prenatal.drop_duplicates(subset=['MOMI_ID', 'Delivery_Number_Per_Mother'], keep='last', inplace=True)
+
+    # Since we're only interested in the momi data, dropping the multiple births for each mom to keep only the last
+    momi.sort_values('MOMI_ID', inplace=True)
+    momi.drop_duplicates(subset=['MOMI_ID', 'Delivery_Number_Per_Mother'], keep='last')
+
+    # Joining the momi and prenatal dataframes, keep only the rows with prenatal information.
+    momi = pd.merge(momi, prenatal, how='right')
+
+    # Ordinal Encoding Education
+    education_map = {'8th grade or less': 1,
+                     '9th-12th grade, no diploma': 2,
+                     'High school graduate or GED completed': 3,
+                     'Some college credit, no degree': 4,
+                     'Associate degree': 5,
+                     "Bachelor's degree": 6,
+                     "Master's degree": 7,
+                     'Doctorate or professional degree': 8,
+                     'Doctorate or Professional degree': 8}
+
+    momi['DadEducation_State'] = momi['DadEducation_State'].map(education_map)
+
+    momi['MomEducation_State'] = momi['MomEducation_State'].map(education_map)
+
+    # Renaming Race variables for easier comparison
+    raceMap = {'B': 'AfricanAmerican', 'C': "Chinese", 'D': "Declined",
+               'E': "OtherAsian", 'F': "Filipino", 'G': "Guam/Chamorro",
+               'I': "Indian(Asian)", 'J': "Japanese", 'K': "Korean",
+               'L': "AlaskanNative", 'N': "NativeAmerican", 'P': "OtherPacificIslander",
+               'Q': "Hawaiian", 'S': "Samoan", 'V': "Vietnamese", 'W': "White", 'D': "Declined", 9: np.NaN}
+
+    momi['Race'] = momi['Race'].map(raceMap)
+
+    # Renaming Hypertensive variables for easier comparison
+    hypMap = {0: 'None', 1: 'TransientHypertension',
+              2: 'Preeclampsia mild', 3: 'PreeclampsiaSevere',
+              5: 'Eclampsia', 6: 'ChronicHypwPre',
+              8: 'MultipleDiagnosticCodes', 9: 'UnspecifiedHyp'}
+
+    momi['MOBHTN'] = momi['MOBHTN'].map(hypMap)
+
+    # Set mildpe to 0 if marked severe
+    momi['Mild_PE'] = np.where(momi['MOBHTN'] == 'PreeclampsiaSevere', 0, momi['Mild_PE'])
+
+    # Looking at any occurance of Preeclampsia/Eclampsia
+    momi['Preeclampsia'] = np.NaN
+    momi['Preeclampsia'] = np.where(
+        (momi['Mild_PE'] == 1) | (momi['Severe_PE'] == 1) | (momi['SIPE'] == 1) | (momi['MOBHTN'] == 'Eclampsia'), 1, 0)
+
+    # Renaming columns for easier analysis
+    momi.rename(columns={"DMOMAGE": "MotherAge", "FatherAge_State": "FatherAge", "DFC": "Insurance",
+                         "DELWKSGT": "GestAgeDelivery", "MHXGRAV": "TotalNumPregnancies",
+                         "MHXPARA": "DeliveriesPriorAdmission",
+                         "MHXABORT": "TotalAbortions", "PRIMIP": "Primagrivada", "DMOMHGT": "MaternalHeightMeters",
+                         "MOBRPWT": "PrePregWeight", "MOBADMWT": "WeightAtAdmission",
+                         "FOBLABHR": "HoursLaborToDelivery",
+                         "FOBROMHR": "HoursMembraneReptureDelivery", "CSREPEAT": "RepeatCesarean",
+                         "FDELTYPE": "DeliveryMethod",
+                         "MMULGSTD": "OutcomeOfDelivery", "FOBDEATH": "FetalDeath",
+                         "MCNSMUSC": "MaternalNeuromuscularDisease",
+                         "MCOLVASC": "MCollagenVascularDisease", "MCVDANAT": "MStructuralHeartDiseas",
+                         "MCVDHTN": "ChronicHypertension",
+                         "MOBHTN": "PregRelatedHypertension", "MDELCOMP": "MPostPartumComplications",
+                         "MDEPRESS": "Depression",
+                         "MENDDIAB": "DiabetesMellitus", "MENDTHY": "ThyroidDisease",
+                         "MGIHYPER": "HyperemesisGravidarum",
+                         "MGILGBP": "MLiverGallPanc", "MGUINFER": "HistoryInfertility", "MGURENAL": "KidneyDisease",
+                         "MHEARTOPER": "OperationsOnHeartandPericardium", "MHEMANEM": "MAnemiaWOHemoglobinopathy",
+                         "MHEMHGB": "MHemoglobinopathy", "MHEMPLT": "Thrombocytopenia", "MHEMTRAN": "TransfusionOfPRBC",
+                         "MIDBV": "BacterialVaginosis", "MIDCHLAM": "Chlamydia", "MIDCONDY": "Condylomata",
+                         "MIDGBS": "GroupBStrep", "MIDGC": "GonococcalInfection", "MIDHEPB": "HepBInfection",
+                         "MIDHSV": "Herpes", "MIDTB": "Tuberculosis", "MIDTRICH": "Trichomonas",
+                         "MIDVIRPR": "ViralOrProtoInf",
+                         "MINTERINJ": "ThoraxAbPelvInjuries", "MMORTECLAMP": "Eclampsia",
+                         "MMORTHEARTFAIL": "HeartFailure",
+                         "MMORTRENAL": "AcuteRenalFailure", "MMORTSICKLECELL": "SickleCell",
+                         "MOBPRECS": "PreviousCesarean",
+                         "MPULASTH": "Asthma", "MTOXCOC": "Cocaine", "MTOXNARC": "Opioid",
+                         "MTOXOTHR": "OtherSubstanceAbuse",
+                         "MTOXTHC": "Marijuana", "IDEMBWT": "InfantWeightGrams", "IGROWTH": "GestWeightCompare",
+                         "ICNSANAT": "CNSAbnormality", "IIDSYPH": "CongenitalSyphilis", "IIDUTI": "UTI",
+                         "Alcohol_a": 'Drinks/Week'}, inplace=True)
+
+
+
+
+
 def cleanDataTX(age):
     parent = os.path.dirname(os.getcwd())
     dataPathq1 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt")

@@ -287,7 +287,7 @@ class fullNN():
                                                                random_state=42)
 
 
-            for i in range(hp.Int('num_layers', 2, 8)):
+            for i in range(hp.Int('num_layers', 2, 4)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
 
@@ -670,29 +670,29 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 8192,
+    PARAMS = {'batch_size': 512,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
               'focal': False,
-              'alpha': 0.95,
-              'gamma': 0.25,
+              'alpha': 0.92,
+              'gamma': 1.75,
               'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
-              'Generator': False,
-              'Tuner': "Bayesian",
+              'Generator': True,
+              'Tuner': "Hyperband",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 100,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
-    neptune.create_experiment(name='Oklahoma Native', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'HP Compare'],
+    neptune.create_experiment(name='Oklahoma African', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted', 'HP Compare', 'Updated', 'Balanced-Batches'],
                               description='Getting Current Best Results')
 
 
@@ -705,7 +705,7 @@ if __name__ == "__main__":
     # Get data
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_051321.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
 
 
