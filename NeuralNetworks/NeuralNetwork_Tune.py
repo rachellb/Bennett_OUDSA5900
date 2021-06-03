@@ -677,22 +677,22 @@ if __name__ == "__main__":
               'focal': False,
               'alpha': 0.95,
               'gamma': 0.25,
-              'class_weights': False,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
-              'Generator': False,
-              'Tuner': "Hyperband",
+              'Generator': True,
+              'Tuner': "Bayesian",
               'EXECUTIONS_PER_TRIAL': 1,
               'MAX_TRIALS': 100,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
-    neptune.create_experiment(name='Oklahoma Native', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Unweighted', 'HP Compare', 'Updated'],
+    neptune.create_experiment(name='Oklahoma Full', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted', 'HP Compare', 'Balanced-Batches'],
                               description='Getting Current Best Results')
 
 
@@ -704,8 +704,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_051321.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_051321.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
 
 

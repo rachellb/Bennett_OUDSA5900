@@ -1354,7 +1354,7 @@ class fullNN():
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC(curve='PR')])
+                                    tf.keras.metrics.AUC()])
 
         # Question - Can you put a list in here?
 
@@ -1530,24 +1530,22 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 4,
+    PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
-              'dense_activation_3': 'relu',
-              'units_0': 41,
-              'units_1': 36,
+              'units_0': 60,
+              'units_1': 30,
               'units_2': 45,
-              'units_3': 30,
               'final_activation': 'sigmoid',
-              'optimizer': 'NAdam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': False,
-              'alpha': 0.94,
-              'gamma': 1.75,
+              'focal': True,
+              'alpha': 0.92,
+              'gamma': 0.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -1559,8 +1557,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma Native',
-                       tags=['Unweighted', 'Hyperband', 'HP Compare', 'Updated'],
+                       name='Oklahoma African',
+                       tags=['Focal Loss', 'Hand Tuned', 'HP Compare', 'Updated'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1576,7 +1574,7 @@ if __name__ == "__main__":
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/Chi2_Categorical_051321.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
