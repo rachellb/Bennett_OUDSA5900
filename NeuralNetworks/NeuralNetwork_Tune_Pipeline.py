@@ -190,7 +190,7 @@ class fullNN():
 
         if self.data.isnull().values.any():
 
-            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train .columns)
+            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train.columns)
             self.X_val = pd.DataFrame(np.round(MI_Imp.transform(self.X_val)), columns=self.X_val.columns)
             self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
 

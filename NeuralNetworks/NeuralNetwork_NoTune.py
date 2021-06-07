@@ -1354,7 +1354,7 @@ class fullNN():
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC(curve='PR')])
+                                    tf.keras.metrics.AUC()])
 
         # Question - Can you put a list in here?
 
@@ -1528,37 +1528,43 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
+
+
     start_time = time.time()
 
-    PARAMS = {'num_layers': 3,
+    PARAMS = {'num_layers': 5,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
-              'units_0': 30,
+              'dense_activation_3': 'relu',
+              'dense_activation_4': 'relu',
+              'units_0': 41,
               'units_1': 60,
-              'units_2': 45,
+              'units_2': 41,
+              'units_3': 30,
+              'units_4': 30,
               'final_activation': 'sigmoid',
-              'optimizer': 'RMSprop',
+              'optimizer': 'Adam',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': True,
-              'alpha': 0.92,
-              'gamma': 0.25,
-              'class_weights': False,
+              'focal': False,
+              'alpha': 0.5,
+              'gamma': 1.75,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
-              'Generator': False,
+              'Generator': True,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma Native',
-                       tags=['Focal Loss', 'HP Compare', 'Hand Tuned'],
+                       name='Texas Full',
+                       tags=['Weighted', 'Bayesian', 'Updated', 'Balanced-Batches'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1572,8 +1578,8 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 

@@ -140,6 +140,8 @@ def cleanDataMomi(weeks):
         dataPath = os.path.join(parent, r"Data/MOMI/Final_Prenatal_DeIdentified.xlsx")
         prenatal = pd.read_excel('file://' + dataPath)
 
+    print("Finished reading prenatal")
+
     # MOMI Data
     parent = os.path.dirname(os.getcwd())
     if system == 'windows':
@@ -148,6 +150,8 @@ def cleanDataMomi(weeks):
     else:
         dataPath = os.path.join(parent, r"Data/MOMI/Final_MOMI_DeIdentified_Update_39Mar2021.xlsx")
         momi = pd.read_excel('file://' + dataPath)
+
+    print("Finished reading momi")
 
     # Ultrasound Data
     parent = os.path.dirname(os.getcwd())
@@ -158,7 +162,7 @@ def cleanDataMomi(weeks):
         dataPath = os.path.join(parent, r"Data/MOMI/Final_Ultrasound_DeIdentified.xlsx")
         ultrasound = pd.read_excel('file://' + dataPath)
 
-
+    print("Finished Reading all data")
 
     # Fix MOMI missing values to np.NaN
     momi['MIDBV'] = np.where(momi['MIDBV'] == 99, np.NaN, momi['MIDBV'])
@@ -176,29 +180,155 @@ def cleanDataMomi(weeks):
     momi['InfSex'] = np.where(momi['InfSex'] == 'U', np.NaN, momi['InfSex'])
     momi['InfSex'] = np.where(momi['InfSex'] == 'f', 'F', momi['InfSex'])
 
-    # 99% missing, drop all
-    momi.drop(columns='Alcohol_b', inplace=True)
 
     # Dropping erroneous prenatal data. This data does not actually exist, is thousands of missing values
     prenatal.drop(prenatal[prenatal['DELWKSGT'].isnull()].index, inplace=True)
     prenatal.drop(prenatal[prenatal['PNV_Total_Number'].isnull()].index, inplace=True)
 
-    # Ordering data by earliest visits
-    prenatal.sort_values('PNV_GestAge', inplace=True)
+    # Fixing categorical variables incorrectly labelled ordinal
+    insuranceMap = {1: 'MedicalAssistance',
+                    2: 'PrivateInsurance',
+                    3: 'Self-pay'}
 
-    # Select the values before a set number of weeks. Note: This is inclusive, so will include up to selected number
-    prenatal.drop(prenatal.loc[prenatal['PNV_GestAge'] > weeks].index, inplace=True)
+    momi['DFC'] = momi['DFC'].map(insuranceMap)
 
-    # Drop duplicates, keeping only the last visit. This captures mothers who come back to the hospital for subsequent
-    # pregnancies
-    prenatal.drop_duplicates(subset=['MOMI_ID', 'Delivery_Number_Per_Mother'], keep='last', inplace=True)
+    neurMuscDiseaseMap = {0: 'None',
+                          1: 'Multiple Sclerosis',
+                          2: 'Cerebal Palsy',
+                          3: 'Myotonic Dystrophy',
+                          4: 'Myasthenia Gravis',
+                          5: 'Other'}
 
-    # Since we're only interested in the momi data, dropping the multiple births for each mom to keep only the last
-    momi.sort_values('MOMI_ID', inplace=True)
-    momi.drop_duplicates(subset=['MOMI_ID', 'Delivery_Number_Per_Mother'], keep='last')
+    momi['MCNSMUSC'] = momi['MCNSMUSC'].map(neurMuscDiseaseMap)
 
-    # Joining the momi and prenatal dataframes, keep only the rows with prenatal information.
-    momi = pd.merge(momi, prenatal, how='right')
+    collagenVascMap = {0: 'None',
+                       1: 'Rhematoid Arthritis',
+                       2: 'Lupus',
+                       8: 'Multiple Diagnostic Codes'}
+
+    momi['MCOLVASC'] = momi['MCOLVASC'].map(collagenVascMap)
+
+    struHeartMap = {0: 'None',
+                    1: 'Congenital Heart Disease',
+                    2: 'Rheumatic Heart Disease',
+                    3: 'Myocarditis/Cardiomyopathy',
+                    4: 'ValveDisorder',
+                    5: 'ArtificialValves',
+                    9: 'Other'}
+
+    momi['MCVDANAT'] = momi['MCVDANAT'].map(struHeartMap)
+
+    postpartMap = {0: 'None',
+                   1: 'Endometritis',
+                   2: 'UrinaryTractInfection',
+                   3: 'Hemmorrage',
+                   4: 'WoundInfection',
+                   5: 'Disseminated',
+                   6: 'Obstruction',
+                   9: 'Other'}
+
+    momi['MDELCOMP'] = momi['MDELCOMP'].map(postpartMap)
+
+    diabetesMap = {0: 'None',
+                   1: 'GestationalDiabetes',
+                   2: 'TypeI',
+                   3: 'TypeII',
+                   4: 'UnspecifiedPriorDiabetes'}
+
+    momi['MENDDIAB'] = momi['MENDDIAB'].map(diabetesMap)
+
+    thyroidMap = {0: 'None',
+                  1: 'Hyperthyroid',
+                  2: 'Hypothyroid',
+                  9: 'Other'}
+
+    momi['MENDTHY'] = momi['MENDTHY'].map(thyroidMap)
+
+    liverGallMap = {0: 'None',
+                    1: 'HepA',
+                    2: 'HepB',
+                    3: 'HepC',
+                    4: 'HepD',
+                    5: 'HepE',
+                    6: 'LiverTransplant',
+                    7: 'Cholelithiasis',
+                    8: 'Pancreatitis',
+                    9: 'Other'}
+
+    momi['MGILGBP'] = momi['MGILGBP'].map(liverGallMap)
+
+    kidneyMap = {0: 'None',
+                 1: 'Glomerulonephritis',
+                 2: 'Pyelonephritis;',
+                 3: 'LupusNephritis',
+                 4: 'NephroticSyndrome',
+                 5: 'Nephrolithiasis',
+                 6: 'Transplant;',
+                 7: 'RenalAbscess',
+                 8: 'MultipleDiagnosticCodes',
+                 9: 'Other'}
+
+    momi['MGURENAL'] = momi['MGURENAL'].map(kidneyMap)
+
+    anemiaMap = {0: 'None',
+                 1: 'IronDeficiencyAnemia',
+                 2: 'B12DeficiencyAnemia',
+                 3: 'FolateDeficiencyAnemia',
+                 9: 'UnspecifiedAnemia'}
+
+    momi['MHEMANEM'] = momi['MHEMANEM'].map(anemiaMap)
+
+    hemoGlob = {0: 'None',
+                1: 'Hgb-SS',
+                2: 'Hgb-SC',
+                3: 'Hgb-Sthal',
+                4: 'AlphaThalassemia',
+                5: 'BetaThalassemia',
+                6: 'SickleCellTrait',
+                9: 'Other'}
+
+    momi['MHEMHGB'] = momi['MHEMHGB'].map(hemoGlob)
+
+    thromMap = {0: 'None',
+                1: 'Gestational',
+                2: 'DisseminatedIntravascularCoagulation',
+                3: 'MultipleDiagnosticCodes',
+                9: 'Other'}
+
+    momi['MHEMPLT'] = momi['MHEMPLT'].map(thromMap)
+
+    viralMap = {0: 'None',
+                1: 'PrimaryCMV',
+                2: 'ParovirusB19',
+                3: 'Rubella',
+                4: 'Toxoplasma',
+                5: np.NaN,
+                8: 'MultipleDiagnosticCodes',
+                9: 'Other'}
+
+    momi['MIDVIRPR'] = momi['MIDVIRPR'].map(viralMap)
+
+    substanceMap = {0: 'None',
+                    1: 'Stimulants',
+                    2: 'Sedatives/Hypnotics/Anxiolytics',
+                    3: 'Anti-depressants/OtherPsychoactives',
+                    4: 'Hallucinogens',
+                    6: 'Alcohol',
+                    8: 'MultipleDiagnosticCodes',
+                    9: 'Other'}
+
+    momi['MTOXOTHR'] = momi['MTOXOTHR'].map(substanceMap)
+
+    anoAnoMap = {0: 'None',
+                 1: 'Anencephaly/Similar',
+                 2: 'Encephalocele',
+                 3: 'Microcephaly',
+                 4: 'CongenitalHydrocephalus',
+                 5: 'SpinaBifida',
+                 8: 'MultipleDiagnosticCodes',
+                 0: 'OtherCongenital'}
+
+    momi['ICNSANAT'] = momi['ICNSANAT'].map(anoAnoMap)
 
     # Ordinal Encoding Education
     education_map = {'8th grade or less': 1,
@@ -224,6 +354,24 @@ def cleanDataMomi(weeks):
 
     momi['Race'] = momi['Race'].map(raceMap)
 
+    # Collapsing Race categories
+    momi['RaceCollapsed'] = np.NaN
+
+    AsianGroups = ['OtherAsian', 'Indian(Asian)', 'Chinese', 'Korean', 'Filipino', 'Japanese', 'Vietnamese']
+    Polynesian = ['Hawaiian', 'Samoan', 'OtherPacificIslander', 'Guam/Chamorro']  # Unsure about Guam
+    NativeGroups = ['NativeAmerican', 'AlaskanNative']
+
+    # Asian
+    momi['RaceCollapsed'] = np.where((momi['Race'].isin(AsianGroups)), 'Asian', momi['RaceCollapsed'])
+    # Polynesian
+    momi['RaceCollapsed'] = np.where((momi['Race'].isin(Polynesian)), 'Polynesian', momi['RaceCollapsed'])
+    # Native
+    momi['RaceCollapsed'] = np.where((momi['Race'].isin(NativeGroups)), 'Native', momi['RaceCollapsed'])
+    # African
+    momi['RaceCollapsed'] = np.where((momi['Race'] == 'AfricanAmerican'), 'African', momi['RaceCollapsed'])
+    # White
+    momi['RaceCollapsed'] = np.where((momi['Race'] == 'White'), 'White', momi['RaceCollapsed'])
+
     # Renaming Hypertensive variables for easier comparison
     hypMap = {0: 'None', 1: 'TransientHypertension',
               2: 'Preeclampsia mild', 3: 'PreeclampsiaSevere',
@@ -236,8 +384,8 @@ def cleanDataMomi(weeks):
     momi['Mild_PE'] = np.where(momi['MOBHTN'] == 'PreeclampsiaSevere', 0, momi['Mild_PE'])
 
     # Looking at any occurance of Preeclampsia/Eclampsia
-    momi['Preeclampsia'] = np.NaN
-    momi['Preeclampsia'] = np.where(
+    momi['Preeclampsia/Eclampsia'] = np.NaN
+    momi['Preeclampsia/Eclampsia'] = np.where(
         (momi['Mild_PE'] == 1) | (momi['Severe_PE'] == 1) | (momi['SIPE'] == 1) | (momi['MOBHTN'] == 'Eclampsia'), 1, 0)
 
     # Renaming columns for easier analysis
@@ -274,7 +422,44 @@ def cleanDataMomi(weeks):
                          "ICNSANAT": "CNSAbnormality", "IIDSYPH": "CongenitalSyphilis", "IIDUTI": "UTI",
                          "Alcohol_a": 'Drinks/Week'}, inplace=True)
 
+    # Dropping variables with more than 20% missing values
+    momi = momi.loc[:, momi.isnull().mean() < .20]
 
+    # Joining the momi data with the prenatal data - we want women who never had preeclampsia and first incidence of
+    # preeclampsia, nothing else
+    # Step 1, split systolic and diastolic
+    new = prenatal["PNV_BP"].str.split("/", n=1, expand=True)
+    prenatal["Systolic"] = new[0]
+    prenatal["Diastolic"] = new[1]
+    prenatal[["Systolic", "Diastolic"]] = prenatal[["Systolic", "Diastolic"]].apply(pd.to_numeric)
+
+    # Step 2, make indicator variable
+    prenatal['High'] = np.where((prenatal['Systolic'] >= 140) & (prenatal['Diastolic'] >= 90), 1, 0)
+
+    # Step 3, make a cumulative sum to count how many times this person has had spikes
+    prenatal['Prev_highBP'] = prenatal.groupby(['MOMI_ID', 'Delivery_Number_Per_Mother'])['High'].cumsum().astype(int)
+
+    # Drop all women under 14 weeks from prenatal data
+    prenatal.drop(prenatal.loc[prenatal['PNV_GestAge'] > weeks].index, inplace=True)
+    momi.sort_values('MOMI_ID', inplace=True)
+    uniquePregMomi = momi.drop_duplicates(subset=['MOMI_ID', 'Delivery_Number_Per_Mother'], keep='last')
+
+    prenatal.sort_values('PNV_GestAge', ascending=False, inplace=True)  # For preferenceing high bp
+    uniquePregPrenatal = prenatal.drop_duplicates(subset=['MOMI_ID', 'Delivery_Number_Per_Mother'], keep='first')
+    join = pd.merge(uniquePregMomi, uniquePregPrenatal, how='right')
+
+    # Removes duplicates, keeping only instances with Preeclampsia
+    join.sort_values('Preeclampsia/Eclampsia', ascending=False, inplace=True)
+    join = join.drop_duplicates(subset=['MOMI_ID'], keep='first')
+
+    # Dropping variables we won't be using
+    join.drop(columns=['MOMI_ID', 'Delivery_Number_Per_Mother', 'InfantWeightGrams', 'IGROWTH', 'Eclampsia',
+                       'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath','OutcomeOfDelivery', 'DeliveryMethod',
+                       'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
+                       'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams',
+                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race'], inplace=True) # Using systolic in this model
+
+    return join
 
 
 

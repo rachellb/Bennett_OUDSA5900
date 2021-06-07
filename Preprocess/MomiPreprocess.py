@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler, StandardScaler
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklearn.linear_model import BayesianRidge
@@ -8,7 +8,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.neighbors import KNeighborsRegressor
 
-#For feature selection
+# For feature selection
 from sklearn.feature_selection import SelectKBest, chi2
 from xgboost import XGBClassifier
 from matplotlib import pyplot
@@ -21,46 +21,26 @@ from openpyxl import Workbook  # For storing results
 from openpyxl.utils.dataframe import dataframe_to_rows
 import openpyxl
 
-#For Outlier Detection
+# For Outlier Detection
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.svm import OneClassSVM
 
 import os
-
+from Cleaning.Clean import *
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
+
 class momi:
 
-    def imputeData(self, method, data1, data2=None):
-        if method == "BayesianRidge":
-            estimator = BayesianRidge()
-        elif method == "DecisionTree":
-            estimator = DecisionTreeRegressor(max_features='sqrt', random_state=0)
-        elif method == "ExtraTrees":
-            estimator = ExtraTreesRegressor(n_estimators=10, random_state=0)
-        elif method == "KNN":
-            estimator = KNeighborsRegressor(n_neighbors=15)
+    def __init__(self, data):
 
-        MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
-
-        if (data2 is not None):  # If running both datasets
-            if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
-                data = data1.append(data2)
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data)), columns=data.columns)
-            else:
-                self.data = data1.append(data2)
-        else:
-            if (data1.isnull().values.any() == True):
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
-            else:
-                self.data = data1
-
-        return self.data
+        self.data = data
 
     def splitData(self, testSize, valSize):
+
         X = self.data.drop(columns='Preeclampsia/Eclampsia')
         Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
@@ -71,15 +51,70 @@ class momi:
                                                                               test_size=valSize,
                                                                               random_state=8)
 
+    def imputeData(self):
+        # Scikitlearn's Iterative imputer
+        # Default imputing method is Bayesian Ridge Regression
+
+        if self.PARAMS['estimator'] == "BayesianRidge":
+            estimator = BayesianRidge()
+        elif self.PARAMS['estimator'] == "DecisionTree":
+            estimator = DecisionTreeRegressor(max_features='sqrt', random_state=0)
+        elif self.PARAMS['estimator'] == "ExtraTrees":
+            estimator = ExtraTreesRegressor(n_estimators=10, random_state=0)
+        elif self.PARAMS['estimator'] == "KNN":
+            estimator = KNeighborsRegressor(n_neighbors=15)
+
+        MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
+
+        if self.data.isnull().values.any():
+            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train.columns)
+            self.X_val = pd.DataFrame(np.round(MI_Imp.transform(self.X_val)), columns=self.X_val.columns)
+            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
+
+    def normalizeData(self, method):
+
+        if method == 'MinMax':
+            scaler = MinMaxScaler()
+        elif method == 'StandardScale':
+            scaler = StandardScaler()
+
+        # Fit and transform training data, then transform val and test using info gained from fitting
+        X_train = scaler.fit_transform(self.X_train[['MotherAge', 'MaternalHeightMeters', 'PrePregWeight', 'WeightAtAdmission',
+                                                     'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions',
+                                                      'HoursMembraneReptureDelivery',
+                                                     'PNV_Total_Number', 'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']])
+        X_val = scaler.transform(self.X_val[['MotherAge', 'MaternalHeightMeters', 'PrePregWeight', 'WeightAtAdmission',
+                                                     'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions',
+                                                     'PrePregWeight', 'WeightAtAdmission', 'HoursMembraneReptureDelivery',
+                                                     'PNV_Total_Number', 'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']])
+        X_test = scaler.transform(self.X_test[['MotherAge', 'MaternalHeightMeters', 'PrePregWeight', 'WeightAtAdmission',
+                                                     'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions',
+                                                     'PrePregWeight', 'WeightAtAdmission', 'HoursMembraneReptureDelivery',
+                                                     'PNV_Total_Number', 'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']])
+
+        X_train_imputed = pd.DataFrame(X_train, columns=self.X_train.columns)
+        X_val_imputed = pd.DataFrame(X_val, columns=self.X_val.columns)
+        X_test_imputed = pd.DataFrame(X_test, columns=self.X_test.columns)
+
+        # Save newly normalized data
+        self.X_train = X_train_imputed
+        self.X_val = X_val_imputed
+        self.X_test = X_test_imputed
+
     def featureSelection(self, numFeatures, method, dataset):
 
-        self.dataset=dataset
+        self.dataset = dataset
         self.method = method
 
         wb = Workbook()
         wsFeatures = wb.active
         wsFeatures.title = "Features"
         filename = self.dataset + '_' + date
+
+        # Reattach the labels - easier than saving everything separately
+        self.X_train['Preeclampsia/Eclampsia'] = self.Y_train
+        self.X_val['Preeclampsia/Eclampsia'] = self.Y_val
+        self.X_test['Preeclampsia/Eclampsia'] = self.Y_test
 
         if method == 1:
             model = XGBClassifier()
@@ -100,7 +135,12 @@ class momi:
             XGBoostFeatures = list(data.index[0:numFeatures])
             XGBoostFeatures.append('Preeclampsia/Eclampsia')
 
-            self.data[XGBoostFeatures].to_csv(dataset + 'XGBoost_' + self.age +'_' + date + '.csv', index=False)
+
+            self.X_train[XGBoostFeatures].to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_train.csv', index=False)
+            self.X_val[XGBoostFeatures].to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_val.csv', index=False)
+            self.X_test[XGBoostFeatures].to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_test.csv', index=False)
+
+
 
         if method == 2:
             # instantiate SelectKBest to determine 20 best features
@@ -121,8 +161,10 @@ class momi:
             for r in dataframe_to_rows(self.Chi2features, index=False, header=True):
                 wsFeatures.append(r)
 
-            wb.save(dataset +'Chi2Features_' + self.age + '_' + date + '.xlsx')
-            self.data[chi2Features].to_csv(dataset + 'Chi2_' + self.age +'_' + date + '.csv', index=False)
+            wb.save(dataset + 'Chi2Features_' + self.age + '_' + date + '.xlsx')
+            self.X_train[chi2Features].to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_train.csv', index=False)
+            self.X_val[chi2Features].to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_val.csv', index=False)
+            self.X_test[chi2Features].to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_test.csv', index=False)
 
         if method == 3:
             # Mutual Information features
@@ -142,6 +184,20 @@ class momi:
 
             for r in dataframe_to_rows(self.MIFeatures, index=False, header=True):
                 wsFeatures.append(r)
-            wb.save(dataset +'MIFeatures_' + self.age + '_' + date + '.xlsx')
+            wb.save(dataset + 'MIFeatures_' + self.age + '_' + date + '.xlsx')
 
-            self.data[mutualInfoFeatures].to_csv(dataset + 'MI_' + self.age + '_' + date +'.csv', index=False)
+            self.X_train[mutualInfoFeatures].to_csv(dataset + 'MI_' + self.age + '_' + date + '_train.csv', index=False)
+            self.X_val[mutualInfoFeatures].to_csv(dataset + 'MI_' + self.age + '_' + date + '_val.csv', index=False)
+            self.X_test[mutualInfoFeatures].to_csv(dataset + 'MI_' + self.age + '_' + date + '_test.csv', index=False)
+
+
+if __name__ == "__main__":
+
+    data = cleanDataMomi(weeks=14)
+    data.splitData(testSplit=0.1, valSplit=0.1)
+    data.imputeData()
+    data.normalDate(method=StandardScaler)
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/')
+    data.featureSelection(numFeatures=20, method=1, dataset=dataPath)
+

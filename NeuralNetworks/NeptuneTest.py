@@ -21,7 +21,7 @@ from sklearn.feature_selection import SelectKBest, chi2
 from xgboost import XGBClassifier
 from matplotlib import pyplot
 from xgboost import plot_importance
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import mutual_info_classif
 from sklearn import preprocessing
@@ -42,7 +42,8 @@ import tensorflow.keras.backend as K
 
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, auc
+
 import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
@@ -1688,7 +1689,7 @@ if __name__ == "__main__":
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
                        name='Texas Full',
-                       tags=['Focal Loss', 'Hand Tuned', 'PR-AUC', 'Test'],
+                       tags=['Focal Loss', 'Hand Tuned', 'Compare Gammas', 'Compare Metrics'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1746,24 +1747,6 @@ if __name__ == "__main__":
             y = yNeg
             title = "Negative Loss Distribution"
 
-        def focalLoss(y,p, label):
-            a = PARAMS['alpha']
-
-            loss = y * (-tf.math.log(p)) + (1 - y) * (-tf.math.log(1 - p))
-
-            if label == 1:
-                #loss = -(a*((1-p)**g) * math.log(p))
-                sub = np.subtract(1,p)
-                power = np.power(sub,g)
-                mult = np.multiply(a,power)
-                loss = np.multiply(mult, np.log(p))
-                loss = np.multiply(-1,loss)
-            else:
-                loss = -((1-a)*(p**g) * math.log(1-p))
-            #loss = -((a*((1-p)**g) * math.log(p)) + ((1-a)*(p**g) * math.log(1-p)))
-            return loss
-
-        #focalLoss = np.vectorize(focalLoss)
 
         #loss2 = focalLoss(y, p, label)
 
@@ -1774,20 +1757,18 @@ if __name__ == "__main__":
 
         fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=g)
 
-        # Checking to see if this works, I'm turning it into a graph instead
 
         @tf.function
         def loss_graph(y,p):
             return fl(y,p)
 
 
+        loss = loss_graph(y,p)
 
-        #loss_graph = fl_graph(y,p)
-        #loss = fl(y, p)
-        loss2 = loss_graph(y,p)
+
 
         #x = np.sort(loss)
-        x = np.sort(loss2)
+        x = np.sort(loss)
         # Normalized Data
         x = x/sum(x)
 
