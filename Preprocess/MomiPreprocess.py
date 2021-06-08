@@ -51,25 +51,29 @@ class momi:
                                                                               test_size=valSize,
                                                                               random_state=8)
 
-    def imputeData(self):
+    def imputeData(self, method):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
 
-        if self.PARAMS['estimator'] == "BayesianRidge":
+        if method == "BayesianRidge":
             estimator = BayesianRidge()
-        elif self.PARAMS['estimator'] == "DecisionTree":
+        elif method == "DecisionTree":
             estimator = DecisionTreeRegressor(max_features='sqrt', random_state=0)
-        elif self.PARAMS['estimator'] == "ExtraTrees":
+        elif method == "ExtraTrees":
             estimator = ExtraTreesRegressor(n_estimators=10, random_state=0)
-        elif self.PARAMS['estimator'] == "KNN":
+        elif method == "KNN":
             estimator = KNeighborsRegressor(n_neighbors=15)
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
+
+
 
         if self.data.isnull().values.any():
             self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train.columns)
             self.X_val = pd.DataFrame(np.round(MI_Imp.transform(self.X_val)), columns=self.X_val.columns)
             self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
+
+
 
     def normalizeData(self, method):
 
@@ -135,10 +139,15 @@ class momi:
             XGBoostFeatures = list(data.index[0:numFeatures])
             XGBoostFeatures.append('Preeclampsia/Eclampsia')
 
+            encodeColumns = list(self.X_train.select_dtypes(include=['object']).columns)
 
-            self.X_train[XGBoostFeatures].to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_train.csv', index=False)
-            self.X_val[XGBoostFeatures].to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_val.csv', index=False)
-            self.X_test[XGBoostFeatures].to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_test.csv', index=False)
+            self.X_train = pd.get_dummies(self.X_train, columns=encodeColumns)
+            self.X_val = pd.get_dummies(self.X_val, columns=encodeColumns)
+            self.X_test = pd.get_dummies(self.X_test, columns=encodeColumns)
+
+            self.X_train.to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_train.csv', index=False)
+            self.X_val.to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_val.csv', index=False)
+            self.X_test.to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_test.csv', index=False)
 
 
 
@@ -161,10 +170,16 @@ class momi:
             for r in dataframe_to_rows(self.Chi2features, index=False, header=True):
                 wsFeatures.append(r)
 
+            encodeColumns = list(self.X_train.select_dtypes(include=['object']).columns)
+
+            self.X_train = pd.get_dummies(self.X_train, columns=encodeColumns)
+            self.X_val = pd.get_dummies(self.X_val, columns=encodeColumns)
+            self.X_test = pd.get_dummies(self.X_test, columns=encodeColumns)
+
             wb.save(dataset + 'Chi2Features_' + self.age + '_' + date + '.xlsx')
-            self.X_train[chi2Features].to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_train.csv', index=False)
-            self.X_val[chi2Features].to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_val.csv', index=False)
-            self.X_test[chi2Features].to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_test.csv', index=False)
+            self.X_train.to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_train.csv', index=False)
+            self.X_val.to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_val.csv', index=False)
+            self.X_test.to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_test.csv', index=False)
 
         if method == 3:
             # Mutual Information features
@@ -186,18 +201,30 @@ class momi:
                 wsFeatures.append(r)
             wb.save(dataset + 'MIFeatures_' + self.age + '_' + date + '.xlsx')
 
-            self.X_train[mutualInfoFeatures].to_csv(dataset + 'MI_' + self.age + '_' + date + '_train.csv', index=False)
-            self.X_val[mutualInfoFeatures].to_csv(dataset + 'MI_' + self.age + '_' + date + '_val.csv', index=False)
-            self.X_test[mutualInfoFeatures].to_csv(dataset + 'MI_' + self.age + '_' + date + '_test.csv', index=False)
+            self.X_train = self.X_train[mutualInfoFeatures]
+            self.X_val = self.X_val[mutualInfoFeatures]
+            self.X_test = self.X_test[mutualInfoFeatures]
+
+            encodeColumns = list(self.X_train.select_dtypes(include=['object']).columns)
+
+            self.X_train = pd.get_dummies(self.X_train, columns=encodeColumns)
+            self.X_val = pd.get_dummies(self.X_val, columns=encodeColumns)
+            self.X_test = pd.get_dummies(self.X_test, columns=encodeColumns)
+
+            self.X_train.to_csv(dataset + 'MI_' + self.age + '_' + date + '_train.csv', index=False)
+            self.X_val.to_csv(dataset + 'MI_' + self.age + '_' + date + '_val.csv', index=False)
+            self.X_test.to_csv(dataset + 'MI_' + self.age + '_' + date + '_test.csv', index=False)
 
 
 if __name__ == "__main__":
 
     data = cleanDataMomi(weeks=14)
-    data.splitData(testSplit=0.1, valSplit=0.1)
-    data.imputeData()
-    data.normalDate(method=StandardScaler)
+    preProcess = momi(data)
+    preProcess.splitData(testSize=0.1, valSize=0.1)
+    preProcess.imputeData(method="BayesianRidge")
+    preProcess.normalizeData(method=MinMaxScaler)
+
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/')
-    data.featureSelection(numFeatures=20, method=1, dataset=dataPath)
+    preProcess.featureSelection(numFeatures=20, method=1, dataset=dataPath)
 

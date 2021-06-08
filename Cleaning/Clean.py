@@ -386,7 +386,7 @@ def cleanDataMomi(weeks):
     # Looking at any occurance of Preeclampsia/Eclampsia
     momi['Preeclampsia/Eclampsia'] = np.NaN
     momi['Preeclampsia/Eclampsia'] = np.where(
-        (momi['Mild_PE'] == 1) | (momi['Severe_PE'] == 1) | (momi['SIPE'] == 1) | (momi['MOBHTN'] == 'Eclampsia'), 1, 0)
+        (momi['Mild_PE'] == 1) | (momi['Severe_PE'] == 1) | (momi['SIPE'] == 1) | (momi['MOBHTN'] == 5), 1, 0)
 
     # Renaming columns for easier analysis
     momi.rename(columns={"DMOMAGE": "MotherAge", "FatherAge_State": "FatherAge", "DFC": "Insurance",
@@ -434,7 +434,7 @@ def cleanDataMomi(weeks):
     prenatal[["Systolic", "Diastolic"]] = prenatal[["Systolic", "Diastolic"]].apply(pd.to_numeric)
 
     # Step 2, make indicator variable
-    prenatal['High'] = np.where((prenatal['Systolic'] >= 140) & (prenatal['Diastolic'] >= 90), 1, 0)
+    prenatal['High'] = np.where((prenatal['Systolic'] >= 130) | (prenatal['Diastolic'] >= 80), 1, 0)
 
     # Step 3, make a cumulative sum to count how many times this person has had spikes
     prenatal['Prev_highBP'] = prenatal.groupby(['MOMI_ID', 'Delivery_Number_Per_Mother'])['High'].cumsum().astype(int)
@@ -453,11 +453,11 @@ def cleanDataMomi(weeks):
     join = join.drop_duplicates(subset=['MOMI_ID'], keep='first')
 
     # Dropping variables we won't be using
-    join.drop(columns=['MOMI_ID', 'Delivery_Number_Per_Mother', 'InfantWeightGrams', 'IGROWTH', 'Eclampsia',
-                       'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath','OutcomeOfDelivery', 'DeliveryMethod',
+    join.drop(columns=['MOMI_ID', 'Delivery_Number_Per_Mother', 'InfantWeightGrams', 'Eclampsia',
+                       'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath', 'OutcomeOfDelivery', 'DeliveryMethod',
                        'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
                        'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams',
-                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race'], inplace=True) # Using systolic in this model
+                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race'], inplace=True)
 
     return join
 
