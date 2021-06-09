@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# this particular network does no tuning or cross validation.
+
+
 # For handling data
 from datetime import datetime
 import os
@@ -58,11 +61,8 @@ from sklearn.svm import OneClassSVM
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
 # For recording results
-
-import neptune
-from neptunecontrib.api.table import log_table
-from neptunecontrib.monitoring.keras import NeptuneMonitor
-import neptunecontrib.monitoring.kerastuner as npt_utils
+import neptune.new as neptune
+from neptune.new.integrations.tensorflow_keras import NeptuneCallback
 from neptune.new.types import File
 from secret import api_
 from Cleaning.Clean import *
@@ -157,8 +157,6 @@ class fullNN():
 
         self.X_test = pd.concat([self.X_test.drop(columns=encodeCols),
                                   pd.DataFrame(X_testCodes, columns=feature_names).astype(int)], axis=1)
-
-
 
     def imputeData(self, data1=None, data2=None):
         # Scikitlearn's Iterative imputer
@@ -333,10 +331,8 @@ class fullNN():
             features = self.X_train.columns
             return features
 
-    def hpTuning(self, topFeatures):
-        self.start_time = time.time()
+    def buildModel(self, topFeatures):
 
-        tf.keras.backend.clear_session()
 
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures].to_numpy()
@@ -349,139 +345,82 @@ class fullNN():
         inputSize = self.X_train.shape[1]
 
 
+        self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
+                                                         batch_size=self.PARAMS['batch_size'],
+                                                         sampler=RandomOverSampler(),
+                                                         random_state=42)
+
+        self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
+                                                           batch_size=self.PARAMS['batch_size'],
+                                                           sampler=RandomOverSampler(),
+                                                           random_state=42)
+
+        # define the keras model
+        tf.keras.backend.clear_session()
+        self.model = tf.keras.models.Sequential()
+        self.model.add(tf.keras.Input(shape=(inputSize,)))
+
+        # Hidden Layers
+        for i in range(self.PARAMS['num_layers']):
+            self.model.add(
+                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
+            if self.PARAMS['Dropout']:
+                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+            if self.PARAMS['BatchNorm']:
+                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
         class_weight_dict = dict(enumerate(class_weights))
         pos = class_weight_dict[1]
         neg = class_weight_dict[0]
-
         bias = np.log(pos / neg)
 
-        def build_model(hp):
-            # define the keras model
-            model = tf.keras.models.Sequential()
-            model.add(tf.keras.Input(shape=(inputSize,)))
+        if self.PARAMS['bias_init'] == 0:
+            # Final Layer
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
 
-            self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
-                                                             batch_size=self.PARAMS['batch_size'],
-                                                             sampler=RandomOverSampler(),
-                                                             random_state=42)
+        elif self.PARAMS['bias_init'] == 1:
+            # Final Layer
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
+                                 bias_initializer=tf.keras.initializers.Constant(
+                                     value=bias)))
 
-            self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
-                                                               batch_size=self.PARAMS['batch_size'],
-                                                               sampler=RandomOverSampler(),
-                                                               random_state=42)
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-            for i in range(hp.Int('num_layers', 2, 4)):
-                units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
-                deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-                if self.PARAMS['Dropout']:
-                    model.add(Dropout(self.PARAMS['Dropout_Rate']))
-
-                if self.PARAMS['BatchNorm']:
-                    model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
-
-            #final_activation = hp.Choice('final_activation', values=['softmax', 'sigmoid'])
-            final_activation = 'sigmoid'
-
-            if self.PARAMS['bias_init']:
-                model.add(
-                    Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
-            else:
-                model.add(Dense(1, activation=final_activation))
-
-                # Select optimizer
-                optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
-
-            lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
-
-            # Conditional for each optimizer
-            if optimizer == 'adam':
-                optimizer = tf.keras.optimizers.Adam(lr, clipnorm=0.0001)
-
-            elif optimizer == 'RMSprop':
-                optimizer = tf.keras.optimizers.RMSprop(lr, clipnorm=0.0001)
-
-            elif optimizer == 'SGD':
-                optimizer = tf.keras.optimizers.SGD(lr, clipnorm=0.0001)
-
-            elif optimizer == 'NAdam':
-                optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
+        # Loss Function
+        if self.PARAMS['focal']:
+            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
+        else:
+            loss = 'binary_crossentropy'
 
 
-            # Loss function
-            if self.PARAMS['focal']:
-                loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
-            elif self.PARAMS['class_weights']:
-                loss = weighted_binary_cross_entropy(class_weight_dict)
-            else:
-                loss = 'binary_crossentropy'
+        # Compilation
+        self.model.compile(optimizer=optimizer,
+                           loss=loss,
+                           metrics=['accuracy',
+                                    tf.keras.metrics.Precision(),
+                                    tf.keras.metrics.Recall(),
+                                    tf.keras.metrics.AUC()])
 
-            # Compilation
-            model.compile(optimizer=optimizer,
-                          loss=loss,
-                          metrics=['accuracy',
-                                   tf.keras.metrics.Precision(),
-                                   tf.keras.metrics.Recall(),
-                                   tf.keras.metrics.AUC()])
+        from neptunecontrib.monitoring.keras import NeptuneMonitor
 
-            return model
-
-
-        if self.PARAMS['Tuner'] == 'Hyperband':
-            self.tuner = Hyperband(build_model,
-                                   objective=kerastuner.Objective('val_auc', direction="max"),
-                                   max_epochs=self.PARAMS['epochs'],
-                                   seed=1234,
-                                   factor=3,
-                                   overwrite=True,
-                                   logger=npt_utils.NeptuneLogger(),
-                                   directory=os.path.normpath('C:/'))
-
-        elif self.PARAMS['Tuner'] == 'Bayesian':
-            self.tuner = BayesianOptimization(build_model,
-                                              objective=kerastuner.Objective('val_auc', direction="max"),
-                                              overwrite=True,
-                                              max_trials=self.PARAMS['MAX_TRIALS'],
-                                              seed=1234,
-                                              executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                              logger=npt_utils.NeptuneLogger(),
-                                              directory=os.path.normpath('C:/'))
-
-        elif self.PARAMS['Tuner'] == 'Random':
-            self.tuner = RandomSearch(
-                build_model,
-                objective=kerastuner.Objective('val_auc', direction="max"),
-                overwrite=True,
-                seed=1234,
-                max_trials=self.PARAMS['MAX_TRIALS'],
-                executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                logger=npt_utils.NeptuneLogger(),
-                directory=os.path.normpath('C:/')
-            )
-
-        self.tuner.search(self.training_generator,
-                          epochs=self.PARAMS['epochs'],
-                          verbose=2,
-                          validation_data=(self.validation_generator),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
-        # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
-
-        # self.best_model = self.hb_tuner.get_best_models(num_models=1)[0]
-        self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
-
-        self.best_model = self.tuner.hypermodel.build(self.best_hps)
-
-        self.history = self.best_model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
-                                           validation_data=(self.validation_generator), verbose=2)
-
-        # Logs best scores, best parameters
-        npt_utils.log_tuner_info(self.tuner)
+        self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
+                                      validation_data=(self.validation_generator),
+                                      verbose=2,  callbacks=[NeptuneMonitor()])
 
     def evaluateModel(self):
 
@@ -561,14 +500,15 @@ class fullNN():
             image = Image.open('XGBoostTopFeatures.png')
             neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
-        elif self.PARAMS['Feature_Selection'] == 'Chi2':
-            log_table('Chi2features', self.Chi2features)
 
-        elif self.PARAMS['Feature_Selection'] == 'MI':
-            log_table('MIFeatures', self.MIFeatures)
+        elif self.method == 2:
 
-        mins = (time.time() - self.start_time) / 60  # Time in seconds
-        neptune.log_metric('minutes', mins)
+            run['Chi2features'].upload(File.as_html(self.Chi2features))
+
+        elif self.method == 3:
+
+            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
+
 
 class NoGen(fullNN):
     def __init__(self, PARAMS, name=None):
@@ -576,229 +516,156 @@ class NoGen(fullNN):
         self.PARAMS = PARAMS
         self.name = name
 
-    def hpTuning(self, topFeatures=None):
+    def buildModel(self, topFeatures):
+
         self.start_time = time.time()
 
-        tf.keras.backend.clear_session()
+        LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures]
+        self.Y_train = self.Y_train
         self.X_val = self.X_val[topFeatures]
+        self.Y_val = self.Y_val
         self.X_test = self.X_test[topFeatures]
-
-
+        self.Y_test = self.Y_test
 
         inputSize = self.X_train.shape[1]
+
+        # define the keras model
+        tf.keras.backend.clear_session()
+        self.model = tf.keras.models.Sequential()
+        self.model.add(tf.keras.Input(shape=(inputSize,)))
+
+        # Hidden Layers
+        for i in range(self.PARAMS['num_layers']):
+            self.model.add(
+                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
+            if self.PARAMS['Dropout']:
+                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+            if self.PARAMS['BatchNorm']:
+                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
         class_weight_dict = dict(enumerate(class_weights))
         pos = class_weight_dict[1]
         neg = class_weight_dict[0]
-
         bias = np.log(pos / neg)
 
-        scalar = len(self.Y_train)
-        #class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        #class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+        if self.PARAMS['bias_init'] == 0:
+            # Final Layer
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
 
+        elif self.PARAMS['bias_init'] == 1:
+            # Final Layer
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
+                                 bias_initializer=tf.keras.initializers.Constant(
+                                     value=bias)))
+
+        # Reset class weights for use in loss function
+        scalar = len(self.Y_train)
+        # class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        # class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
         weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
         weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+
         class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-        def build_model(hp):
-            # define the keras model
-            model = tf.keras.models.Sequential()
-            model.add(tf.keras.Input(shape=(inputSize,)))
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-            for i in range(hp.Int('num_layers', 2, 4)):
-                units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
-                deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
-                if self.PARAMS['Dropout']:
-                    model.add(Dropout(self.PARAMS['Dropout_Rate']))
+        # Loss Function
+        if self.PARAMS['focal']:
+            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
 
-                if self.PARAMS['BatchNorm']:
-                    model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
+        else:
+            loss = 'binary_crossentropy'
 
-            if self.PARAMS['bias_init']:
-                model.add(
-                    Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias)))
-            elif not self.PARAMS['bias_init']:
-                model.add(Dense(1, activation='sigmoid'))
+        # Compilation
+        self.model.compile(optimizer=optimizer,
+                           loss=loss,
+                           metrics=['accuracy',
+                                    tf.keras.metrics.Precision(),
+                                    tf.keras.metrics.Recall(),
+                                    tf.keras.metrics.AUC(),
+                                    tf.keras.metrics.AUC(curve='PR')])
 
-            # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
+        neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
 
-            lr = hp.Choice('learning_rate', [1e-3, 1e-4])
+        self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
+                                      epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
+                                      verbose=2, callbacks=[neptune_cbk])
 
-            # Conditional for each optimizer
-            if optimizer == 'adam':
-                optimizer = tf.keras.optimizers.Adam(lr, clipnorm=0.0001)
-
-            elif optimizer == 'RMSprop':
-                optimizer = tf.keras.optimizers.RMSprop(lr, clipnorm=0.0001)
-
-            elif optimizer == 'SGD':
-                optimizer = tf.keras.optimizers.SGD(lr, clipnorm=0.0001)
-
-            elif optimizer == 'NAdam':
-                optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
-
-            # Loss Function
-            if self.PARAMS['focal']:
-                loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
-            elif self.PARAMS['class_weights']:
-                loss = weighted_binary_cross_entropy(class_weight_dict)
-            else:
-                loss = 'binary_crossentropy'
-
-
-            # Compilation
-            model.compile(optimizer=optimizer,
-                          loss=loss,
-                          metrics=['accuracy',
-                                   tf.keras.metrics.Precision(),
-                                   tf.keras.metrics.Recall(),
-                                   tf.keras.metrics.AUC(),
-                                   tf.keras.metrics.AUC(curve='PR')])
-
-            return model
-
-        #batches = [32, 64, 128, 256]
-        #batches = [32, 64, 128, 256, 2048, 4096, 8192]
-        #batches = [128, 256, 2048, 4096]
-
-        # Tuners don't tune batch_size, need to subclass in order to change that.
-        # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
-        # it isn't advisable in that tuner.
-
-        class MyBayes(kerastuner.tuners.BayesianOptimization):
-            def run_trial(self, trial, *args, **kwargs):
-                # You can add additional HyperParameters for preprocessing and custom training loops
-                # via overriding `run_trial`
-
-                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
-                super(MyBayes, self).run_trial(trial, *args, **kwargs)
-
-        class MyHB(kerastuner.tuners.Hyperband):
-            def run_trial(self, trial, *args, **kwargs):
-                # You can add additional HyperParameters for preprocessing and custom training loops
-                # via overriding `run_trial`
-                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                super(MyHB, self).run_trial(trial, *args, **kwargs)
-
-        class MyRand(kerastuner.tuners.RandomSearch):
-            def run_trial(self, trial, *args, **kwargs):
-                # You can add additional HyperParameters for preprocessing and custom training loops
-                # via overriding `run_trial`
-                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
-                # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
-                super(MyRand, self).run_trial(trial, *args, **kwargs)
-
-        if self.PARAMS['Tuner'] == 'Hyperband':
-            self.tuner = MyHB(build_model,
-                              objective=kerastuner.Objective('val_auc', direction="max"),
-                              max_epochs=self.PARAMS['epochs'],
-                              hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                              seed=1234,
-                              factor=3,
-                              overwrite=True,
-                              logger=npt_utils.NeptuneLogger(),
-                              directory=os.path.normpath('C:/'))
-
-        elif self.PARAMS['Tuner'] == 'Bayesian':
-            self.tuner = MyBayes(build_model,
-                                 objective=kerastuner.Objective('val_auc', direction="max"),
-                                 overwrite=True,
-                                 max_trials=self.PARAMS['MAX_TRIALS'],
-                                 seed=1234,
-                                 executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                 logger=npt_utils.NeptuneLogger(),
-                                 directory=os.path.normpath('C:/'))
-
-        elif self.PARAMS['Tuner'] == 'Random':
-            self.tuner = MyRand(
-                build_model,
-                objective=kerastuner.Objective('val_auc', direction="max"),
-                overwrite=True,
-                seed=1234,
-                max_trials=self.PARAMS['MAX_TRIALS'],
-                executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                logger=npt_utils.NeptuneLogger(),
-                directory=os.path.normpath('C:/')
-            )
-
-        self.tuner.search(self.X_train, self.Y_train,
-                          epochs=self.PARAMS['epochs'],
-                          batch_size=self.PARAMS['batch_size'],
-                          verbose=2,
-                          validation_data=(self.X_val, self.Y_val),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=10)])
-        # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
-
-        self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
-
-        self.best_model = self.tuner.hypermodel.build(self.best_hps)
-
-        self.history = self.best_model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
-                                           epochs=self.PARAMS['epochs'],
-                                           validation_data=(self.X_val, self.Y_val), verbose=2)
-
-        # Logs best scores, best parameters
-        npt_utils.log_tuner_info(self.tuner)
 
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 8192,
-              'bias_init': False,
-              'estimator': "BayesianRidge",
-              'epochs': 30,
-              'focal': False,
-              'alpha': 0.92,
-              'gamma': 1.75,
-              'class_weights': True,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.20,
-              'BatchNorm': False,
-              'Momentum': 0.60,
-              'Normalize': 'MinMax',
-              'Feature_Selection': 'MI',
-              'Generator': False,
-              'Tuner': "Hyperband",
-              'EXECUTIONS_PER_TRIAL': 1,
-              'MAX_TRIALS': 100,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10}
 
-    neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
-    neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'HP Compare', 'OHE', 'Test'],
-                              description='Testing out updated algo')
+    alpha = [0.90, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]
+    gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
+
+    for i in alpha:
+        for j in gamma:
+
+            PARAMS = {'batch_size': 8192,
+                      'bias_init': False,
+                      'estimator': "BayesianRidge",
+                      'epochs': 30,
+                      'focal': True,
+                      'alpha': i,
+                      'gamma': j,
+                      'class_weights': False,
+                      'initializer': 'RandomUniform',
+                      'Dropout': True,
+                      'Dropout_Rate': 0.20,
+                      'BatchNorm': False,
+                      'Momentum': 0.60,
+                      'Normalize': 'MinMax',
+                      'Feature_Selection': 'Chi2',
+                      'Generator': False,
+                      'MAX_TRIALS': 100,
+                      'TestSplit': 0.10,
+                      'ValSplit': 0.10}
+
+            run = neptune.init(project='rachellb/FocalPre',
+                               api_token=api_,
+                               name='MOMI Full',
+                               tags=['Focal Loss', 'Hand Tuned'],
+                               source_files=[])
+
+            run['hyper-parameters'] = PARAMS
 
 
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS, name="MOMI")
-    else:
-        model = fullNN(PARAMS, name="MOMI")
+            if PARAMS['Generator'] == False:
+                model = NoGen(PARAMS, name="MOMI")
+            else:
+                model = fullNN(PARAMS, name="MOMI")
 
 
-    # Get data
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
-    data = model.prepData(data=dataPath)
-    model.splitData()
-    data = model.imputeData()
-    model.normalizeData()
-    model.encodeData()
-    features = model.featureSelection(numFeatures=20, encode=True)
-    model.hpTuning(features)
-    model.evaluateModel()
+            # Get data
+            parent = os.path.dirname(os.getcwd())
+            dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
+            data = model.prepData(data=dataPath)
+            model.splitData()
+            data = model.imputeData()
+            model.normalizeData()
+            model.encodeData()
+            features = model.featureSelection(numFeatures=20, encode=True)
+            model.buildModel(features)
+            model.evaluateModel()
+            run.stop()
 

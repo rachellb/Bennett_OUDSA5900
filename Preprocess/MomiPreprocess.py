@@ -80,6 +80,7 @@ class momi:
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
+
         if self.data.isnull().values.any():
             self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
             self.X_val_imputed = pd.DataFrame(MI_Imp.transform(self.X_val), columns=self.X_val.columns)
@@ -148,6 +149,12 @@ class momi:
         wsFeatures.title = "Features"
         filename = self.dataset + '_' + date
 
+
+        # One hot encoding
+        self.X_train = encodeCols(self.X_train)
+        self.X_val = encodeCols(self.X_val)
+        self.X_test = encodeCols(self.X_test)
+
         if method == 1:
             model = XGBClassifier()
             model.fit(self.X_train, self.Y_train)
@@ -179,10 +186,6 @@ class momi:
             self.X_train = self.X_train[XGBoostFeatures]
             self.X_val = self.X_val[XGBoostFeatures]
             self.X_test = self.X_test[XGBoostFeatures]
-
-            self.X_train = encodeCols(self.X_train)
-            self.X_val = encodeCols(self.X_val)
-            self.X_test = encodeCols(self.X_test)
 
             self.X_train.to_csv(dataset + 'XGBoost_' + date + '_train.csv', index=False)
             self.X_val.to_csv(dataset + 'XGBoost_' + date + '_val.csv', index=False)
@@ -216,13 +219,6 @@ class momi:
             self.X_val['Preeclampsia/Eclampsia'] = self.Y_val
             self.X_test['Preeclampsia/Eclampsia'] = self.Y_test
 
-            self.X_train = self.X_train[self.Chi2features]
-            self.X_val = self.X_val[self.Chi2features]
-            self.X_test = self.X_test[self.Chi2features]
-
-            self.X_train = encodeCols(self.X_train)
-            self.X_val = encodeCols(self.X_val)
-            self.X_test = encodeCols(self.X_test)
 
             wb.save(dataset + 'Chi2Features_' + date + '.xlsx')
             self.X_train.to_csv(dataset + 'Chi2_' + date + '_train.csv', index=False)
@@ -247,7 +243,7 @@ class momi:
 
             for r in dataframe_to_rows(self.MIFeatures, index=False, header=True):
                 wsFeatures.append(r)
-            wb.save(dataset + 'MIFeatures_' + self.age + '_' + date + '.xlsx')
+            wb.save(dataset + 'MIFeatures_' + date + '.xlsx')
 
             self.X_train = self.X_train.set_index(self.Y_train.index)
             self.X_val = self.X_val.set_index(self.Y_val.index)
@@ -263,18 +259,14 @@ class momi:
             self.X_val = self.X_val[mutualInfoFeatures]
             self.X_test = self.X_test[mutualInfoFeatures]
 
-            # One hot encode the present categorical variables
-            self.X_train = encodeCols(self.X_train)
-            self.X_val = encodeCols(self.X_val)
-            self.X_test = encodeCols(self.X_test)
-
-            self.X_train.to_csv(dataset + 'MI_' + self.age + '_' + date + '_train.csv', index=False)
-            self.X_val.to_csv(dataset + 'MI_' + self.age + '_' + date + '_val.csv', index=False)
-            self.X_test.to_csv(dataset + 'MI_' + self.age + '_' + date + '_test.csv', index=False)
+            self.X_train.to_csv(dataset + 'MI_' + date + '_train.csv', index=False)
+            self.X_val.to_csv(dataset + 'MI_' + date + '_val.csv', index=False)
+            self.X_test.to_csv(dataset + 'MI_' + date + '_test.csv', index=False)
 
 
 if __name__ == "__main__":
-    # data = cleanDataMomi(weeks=14)
+
+    #data = cleanDataMomi(weeks=14)
     data = pd.read_csv('momiEncoded_Full_060821.csv')
     preProcess = momi(data)
     preProcess.splitData(testSize=0.1, valSize=0.1)
@@ -282,5 +274,5 @@ if __name__ == "__main__":
     preProcess.normalizeData(method="MinMax")
 
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/')
-    preProcess.featureSelection(numFeatures=20, method=2, dataset=dataPath)
+    dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/oneHot/')
+    preProcess.featureSelection(numFeatures=20, method=3, dataset=dataPath)
