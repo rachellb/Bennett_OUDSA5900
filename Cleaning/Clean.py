@@ -185,6 +185,165 @@ def cleanDataMomi(weeks):
     prenatal.drop(prenatal[prenatal['DELWKSGT'].isnull()].index, inplace=True)
     prenatal.drop(prenatal[prenatal['PNV_Total_Number'].isnull()].index, inplace=True)
 
+
+    insuranceMap = {1: 'MedicalAssistance',
+                    2: 'PrivateInsurance',
+                    3: 'Self-pay'}
+
+    momi['DFC'] = momi['DFC'].map(insuranceMap)
+
+    outcomeMap = {1: 'SingleStillborn',
+                  2: 'TwinsLiveborn',
+                  3: 'TwinsOneLive',
+                  4: 'TwinsStillborn',
+                  5: 'MultsLiveborn',
+                  6: 'OtherMultSomeLive',
+                  7: 'OtherMultStillborn',
+                  9: np.NaN,
+                  10: 'SingleLiveborn'}
+
+    momi['MMULGSTD'] = momi['MMULGSTD'].map(outcomeMap)
+
+    neurMuscDiseaseMap = {0: 'None',
+                          1: 'Multiple Sclerosis',
+                          2: 'Cerebal Palsy',
+                          3: 'Myotonic Dystrophy',
+                          4: 'Myasthenia Gravis',
+                          5: 'Other'}
+
+    momi['MCNSMUSC'] = momi['MCNSMUSC'].map(neurMuscDiseaseMap)
+
+    collagenVascMap = {0: 'None',
+                       1: 'Rhematoid Arthritis',
+                       2: 'Lupus',
+                       8: 'Multiple Diagnostic Codes'}
+
+    momi['MCOLVASC'] = momi['MCOLVASC'].map(collagenVascMap)
+
+    struHeartMap = {0: 'None',
+                    1: 'Congenital Heart Disease',
+                    2: 'Rheumatic Heart Disease',
+                    3: 'Myocarditis/Cardiomyopathy',
+                    4: 'ValveDisorder',
+                    5: 'ArtificialValves',
+                    9: 'Other'}
+
+    momi['MCVDANAT'] = momi['MCVDANAT'].map(struHeartMap)
+
+    postpartMap = {0: 'None',
+                   1: 'Endometritis',
+                   2: 'UrinaryTractInfection',
+                   3: 'Hemmorrage',
+                   4: 'WoundInfection',
+                   5: 'Disseminated',
+                   6: 'Obstruction',
+                   9: 'Other'}
+
+    momi['MDELCOMP'] = momi['MDELCOMP'].map(postpartMap)
+
+    diabetesMap = {0: 'None',
+                   1: 'GestationalDiabetes',
+                   2: 'TypeI',
+                   3: 'TypeII',
+                   4: 'UnspecifiedPriorDiabetes'}
+
+    momi['MENDDIAB'] = momi['MENDDIAB'].map(diabetesMap)
+
+    thyroidMap = {0: 'None',
+                  1: 'Hyperthyroid',
+                  2: 'Hypothyroid',
+                  9: 'Other'}
+
+    momi['MENDTHY'] = momi['MENDTHY'].map(thyroidMap)
+
+    liverGallMap = {0: 'None',
+                    1: 'HepA',
+                    2: 'HepB',
+                    3: 'HepC',
+                    4: 'HepD',
+                    5: 'HepE',
+                    6: 'LiverTransplant',
+                    7: 'Cholelithiasis',
+                    8: 'Pancreatitis',
+                    9: 'Other'}
+
+    momi['MGILGBP'] = momi['MGILGBP'].map(liverGallMap)
+
+    kidneyMap = {0: 'None',
+                 1: 'Glomerulonephritis',
+                 2: 'Pyelonephritis;',
+                 3: 'LupusNephritis',
+                 4: 'NephroticSyndrome',
+                 5: 'Nephrolithiasis',
+                 6: 'Transplant;',
+                 7: 'RenalAbscess',
+                 8: 'MultipleDiagnosticCodes',
+                 9: 'Other'}
+
+    momi['MGURENAL'] = momi['MGURENAL'].map(kidneyMap)
+
+    anemiaMap = {0: 'None',
+                 1: 'IronDeficiencyAnemia',
+                 2: 'B12DeficiencyAnemia',
+                 3: 'FolateDeficiencyAnemia',
+                 9: 'UnspecifiedAnemia'}
+
+    momi['MHEMANEM'] = momi['MHEMANEM'].map(anemiaMap)
+
+    hemoGlob = {0: 'None',
+                1: 'Hgb-SS',
+                2: 'Hgb-SC',
+                3: 'Hgb-Sthal',
+                4: 'AlphaThalassemia',
+                5: 'BetaThalassemia',
+                6: 'SickleCellTrait',
+                9: 'Other'}
+
+    momi['MHEMHGB'] = momi['MHEMHGB'].map(hemoGlob)
+
+    thromMap = {0: 'None',
+                1: 'Gestational',
+                2: 'DisseminatedIntravascularCoagulation',
+                3: 'MultipleDiagnosticCodes',
+                9: 'Other'}
+
+    momi['MHEMPLT'] = momi['MHEMPLT'].map(thromMap)
+
+    viralMap = {0: 'None',
+                1: 'PrimaryCMV',
+                2: 'ParovirusB19',
+                3: 'Rubella',
+                4: 'Toxoplasma',
+                5: np.NaN,
+                8: 'MultipleDiagnosticCodes',
+                9: 'Other'}
+
+    momi['MIDVIRPR'] = momi['MIDVIRPR'].map(viralMap)
+
+    substanceMap = {0: 'None',
+                    1: 'Stimulants',
+                    2: 'Sedatives/Hypnotics/Anxiolytics',
+                    3: 'Anti-depressants/OtherPsychoactives',
+                    4: 'Hallucinogens',
+                    6: 'Alcohol',
+                    8: 'MultipleDiagnosticCodes',
+                    9: 'Other'}
+
+    momi['MTOXOTHR'] = momi['MTOXOTHR'].map(substanceMap)
+
+    anoAnoMap = {0: 'None',
+                 1: 'Anencephaly/Similar',
+                 2: 'Encephalocele',
+                 3: 'Microcephaly',
+                 4: 'CongenitalHydrocephalus',
+                 5: 'SpinaBifida',
+                 8: 'MultipleDiagnosticCodes',
+                 0: 'OtherCongenital'}
+
+    momi['ICNSANAT'] = momi['ICNSANAT'].map(anoAnoMap)
+    
+    
+
     # Ordinal Encoding Education
     education_map = {'8th grade or less': 1,
                      '9th-12th grade, no diploma': 2,
@@ -241,7 +400,7 @@ def cleanDataMomi(weeks):
     # Looking at any occurance of Preeclampsia/Eclampsia
     momi['Preeclampsia/Eclampsia'] = np.NaN
     momi['Preeclampsia/Eclampsia'] = np.where(
-        (momi['Mild_PE'] == 1) | (momi['Severe_PE'] == 1) | (momi['SIPE'] == 1) | (momi['MOBHTN'] == 5), 1, 0)
+        (momi['Mild_PE'] == 1) | (momi['Severe_PE'] == 1) | (momi['SIPE'] == 1) | (momi['MOBHTN'] == 'Eclampsia'), 1, 0)
 
     # Renaming columns for easier analysis
     momi.rename(columns={"DMOMAGE": "MotherAge", "FatherAge_State": "FatherAge", "DFC": "Insurance",
@@ -312,10 +471,24 @@ def cleanDataMomi(weeks):
                        'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath', 'OutcomeOfDelivery', 'DeliveryMethod',
                        'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
                        'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams',
-                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race'], inplace=True)
+                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race', 'DeliveryYear', 'PNV_Total_Number'], inplace=True)
 
 
-    join.to_csv('momiEncoded_060821.csv', index=False)
+    # One hot encoding everything
+
+    """
+    # Renaming Hypertensive variables for easier comparison
+    hypMap = {'African': 0, 'Asian': 1,
+              'Native': 2, 'Polynesian': 3,
+              'White': 4}
+
+    momi['RaceCollapsed'] = momi['RaceCollapsed'].map(hypMap)
+
+    hypMap = {'F': 0, 'M': 1}
+    momi['InfSex'] = momi['InfSex'].map(hypMap)
+    """
+
+    join.to_csv('momiCategories_060821.csv', index=False)
 
     return join
 

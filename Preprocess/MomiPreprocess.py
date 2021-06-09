@@ -33,6 +33,20 @@ from Cleaning.Clean import *
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
 
+def encodeCols(data):
+    encodeCols = ['Insurance', 'OutcomeOfDelivery','MaternalNeuromuscularDisease','MCollagenVascularDisease',
+                  'MStructuralHeartDiseas', 'MPostPartumComplications','DiabetesMellitus', 'ThyroidDisease',
+                  'MLiverGallPanc','KidneyDisease', 'MAnemiaWOHemoglobinopathy',  'MHemoglobinopathy',
+                  'Thrombocytopenia','ViralOrProtoInf','OtherSubstanceAbuse', 'InfSex',  'CNSAbnormality',
+                  'RaceCollapsed']
+
+    for column in data.columns:
+        if column in encodeCols:
+            data = pd.get_dummies(data, columns=[column])
+
+    return data
+
+
 class momi:
 
     def __init__(self, data):
@@ -66,14 +80,47 @@ class momi:
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
-
-
         if self.data.isnull().values.any():
-            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train.columns)
-            self.X_val = pd.DataFrame(np.round(MI_Imp.transform(self.X_val)), columns=self.X_val.columns)
-            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
+            self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
+            self.X_val_imputed = pd.DataFrame(MI_Imp.transform(self.X_val), columns=self.X_val.columns)
+            self.X_test_imputed = pd.DataFrame(MI_Imp.transform(self.X_test), columns=self.X_test.columns)
 
+            # Rounding only the categorical variables that were imputed
+            self.X_train = self.X_train_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
+                                                       'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
+                                                       'Primagrivada': 0, 'MaternalNeuromuscularDisease': 0,
+                                                       'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
+                                                       'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
+                                                       'RaceCollapsed': 0, 'Systolic': 0})
+            self.X_val = self.X_val_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
+                                                   'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
+                                                   'Primagrivada': 0, 'MaternalNeuromuscularDisease': 0,
+                                                   'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
+                                                   'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
+                                                   'RaceCollapsed': 0, 'Systolic': 0})
 
+            self.X_test = self.X_test_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
+                                                     'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
+                                                     'Primagrivada': 0, 'MaternalNeuromuscularDisease': 0,
+                                                     'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
+                                                     'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
+                                                     'RaceCollapsed': 0, 'Systolic': 0})
+
+        # Fix incorrectly imputed value
+        self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] > 4)), 4,
+                                                 self.X_train['RaceCollapsed'])
+        self.X_val['RaceCollapsed'] = np.where(((self.X_val['RaceCollapsed'] > 4)), 4,
+                                               self.X_val['RaceCollapsed'])
+        self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] > 4)), 4,
+                                                self.X_test['RaceCollapsed'])
+
+        # Fix incorrectly imputed value
+        self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] < 0)), 0,
+                                                 self.X_train['RaceCollapsed'])
+        self.X_val['RaceCollapsed'] = np.where(((self.X_val['RaceCollapsed'] < 0)), 0,
+                                               self.X_val['RaceCollapsed'])
+        self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] < 0)), 0,
+                                                self.X_test['RaceCollapsed'])
 
     def normalizeData(self, method):
 
@@ -83,27 +130,13 @@ class momi:
             scaler = StandardScaler()
 
         # Fit and transform training data, then transform val and test using info gained from fitting
-        X_train = scaler.fit_transform(self.X_train[['MotherAge', 'MaternalHeightMeters', 'PrePregWeight', 'WeightAtAdmission',
-                                                     'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions',
-                                                      'HoursMembraneReptureDelivery',
-                                                     'PNV_Total_Number', 'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']])
-        X_val = scaler.transform(self.X_val[['MotherAge', 'MaternalHeightMeters', 'PrePregWeight', 'WeightAtAdmission',
-                                                     'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions',
-                                                     'PrePregWeight', 'WeightAtAdmission', 'HoursMembraneReptureDelivery',
-                                                     'PNV_Total_Number', 'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']])
-        X_test = scaler.transform(self.X_test[['MotherAge', 'MaternalHeightMeters', 'PrePregWeight', 'WeightAtAdmission',
-                                                     'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions',
-                                                     'PrePregWeight', 'WeightAtAdmission', 'HoursMembraneReptureDelivery',
-                                                     'PNV_Total_Number', 'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']])
+        scaleColumns = ['MotherAge', 'WeightAtAdmission',
+                        'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
+                        'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']
 
-        X_train_imputed = pd.DataFrame(X_train, columns=self.X_train.columns)
-        X_val_imputed = pd.DataFrame(X_val, columns=self.X_val.columns)
-        X_test_imputed = pd.DataFrame(X_test, columns=self.X_test.columns)
-
-        # Save newly normalized data
-        self.X_train = X_train_imputed
-        self.X_val = X_val_imputed
-        self.X_test = X_test_imputed
+        self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
+        self.X_val[scaleColumns] = scaler.fit_transform(self.X_val[scaleColumns])
+        self.X_test[scaleColumns] = scaler.fit_transform(self.X_test[scaleColumns])
 
     def featureSelection(self, numFeatures, method, dataset):
 
@@ -115,11 +148,6 @@ class momi:
         wsFeatures.title = "Features"
         filename = self.dataset + '_' + date
 
-        # Reattach the labels - easier than saving everything separately
-        self.X_train['Preeclampsia/Eclampsia'] = self.Y_train
-        self.X_val['Preeclampsia/Eclampsia'] = self.Y_val
-        self.X_test['Preeclampsia/Eclampsia'] = self.Y_test
-
         if method == 1:
             model = XGBClassifier()
             model.fit(self.X_train, self.Y_train)
@@ -128,7 +156,7 @@ class momi:
             ax = plot_importance(model, max_num_features=numFeatures)
             fig1 = pyplot.gcf()
             # pyplot.show()
-            fig1.savefig(self.dataset + 'XGBoostTopFeatures_' + self.age + '_' + date + '.png', bbox_inches='tight')
+            fig1.savefig(self.dataset + 'XGBoostTopFeatures_' + date + '.png', bbox_inches='tight')
 
             # Get and save best features
             feature_important = model.get_booster().get_fscore()
@@ -139,17 +167,26 @@ class momi:
             XGBoostFeatures = list(data.index[0:numFeatures])
             XGBoostFeatures.append('Preeclampsia/Eclampsia')
 
-            encodeColumns = list(self.X_train.select_dtypes(include=['object']).columns)
+            self.X_train = self.X_train.set_index(self.Y_train.index)
+            self.X_val = self.X_val.set_index(self.Y_val.index)
+            self.X_test = self.X_test.set_index(self.Y_test.index)
 
-            self.X_train = pd.get_dummies(self.X_train, columns=encodeColumns)
-            self.X_val = pd.get_dummies(self.X_val, columns=encodeColumns)
-            self.X_test = pd.get_dummies(self.X_test, columns=encodeColumns)
+            # Reattach the labels - easier than saving everything separately
+            self.X_train['Preeclampsia/Eclampsia'] = self.Y_train
+            self.X_val['Preeclampsia/Eclampsia'] = self.Y_val
+            self.X_test['Preeclampsia/Eclampsia'] = self.Y_test
 
-            self.X_train.to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_train.csv', index=False)
-            self.X_val.to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_val.csv', index=False)
-            self.X_test.to_csv(dataset + 'XGBoost_' + self.age + '_' + date + '_test.csv', index=False)
+            self.X_train = self.X_train[XGBoostFeatures]
+            self.X_val = self.X_val[XGBoostFeatures]
+            self.X_test = self.X_test[XGBoostFeatures]
 
+            self.X_train = encodeCols(self.X_train)
+            self.X_val = encodeCols(self.X_val)
+            self.X_test = encodeCols(self.X_test)
 
+            self.X_train.to_csv(dataset + 'XGBoost_' + date + '_train.csv', index=False)
+            self.X_val.to_csv(dataset + 'XGBoost_' + date + '_val.csv', index=False)
+            self.X_test.to_csv(dataset + 'XGBoost_' + date + '_test.csv', index=False)
 
         if method == 2:
             # instantiate SelectKBest to determine 20 best features
@@ -159,7 +196,7 @@ class momi:
             df_columns = pd.DataFrame(self.X_train.columns)
             # concatenate dataframes
             feature_scores = pd.concat([df_columns, df_scores], axis=1)
-            feature_scores.columns = ['Feature_Name', 'Chi2 Score']  # name output columns
+            feature_scores.columns = ['Feature_Name', 'Chi2 Score', 'P-value']  # name output columns
             feature_scores.sort_values(by=['Chi2 Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             chi2Features = features['Feature_Name']
@@ -170,16 +207,27 @@ class momi:
             for r in dataframe_to_rows(self.Chi2features, index=False, header=True):
                 wsFeatures.append(r)
 
-            encodeColumns = list(self.X_train.select_dtypes(include=['object']).columns)
+            self.X_train = self.X_train.set_index(self.Y_train.index)
+            self.X_val = self.X_val.set_index(self.Y_val.index)
+            self.X_test = self.X_test.set_index(self.Y_test.index)
 
-            self.X_train = pd.get_dummies(self.X_train, columns=encodeColumns)
-            self.X_val = pd.get_dummies(self.X_val, columns=encodeColumns)
-            self.X_test = pd.get_dummies(self.X_test, columns=encodeColumns)
+            # Reattach the labels - easier than saving everything separately
+            self.X_train['Preeclampsia/Eclampsia'] = self.Y_train
+            self.X_val['Preeclampsia/Eclampsia'] = self.Y_val
+            self.X_test['Preeclampsia/Eclampsia'] = self.Y_test
 
-            wb.save(dataset + 'Chi2Features_' + self.age + '_' + date + '.xlsx')
-            self.X_train.to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_train.csv', index=False)
-            self.X_val.to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_val.csv', index=False)
-            self.X_test.to_csv(dataset + 'Chi2_' + self.age + '_' + date + '_test.csv', index=False)
+            self.X_train = self.X_train[self.Chi2features]
+            self.X_val = self.X_val[self.Chi2features]
+            self.X_test = self.X_test[self.Chi2features]
+
+            self.X_train = encodeCols(self.X_train)
+            self.X_val = encodeCols(self.X_val)
+            self.X_test = encodeCols(self.X_test)
+
+            wb.save(dataset + 'Chi2Features_' + date + '.xlsx')
+            self.X_train.to_csv(dataset + 'Chi2_' + date + '_train.csv', index=False)
+            self.X_val.to_csv(dataset + 'Chi2_' + date + '_val.csv', index=False)
+            self.X_test.to_csv(dataset + 'Chi2_' + date + '_test.csv', index=False)
 
         if method == 3:
             # Mutual Information features
@@ -201,15 +249,24 @@ class momi:
                 wsFeatures.append(r)
             wb.save(dataset + 'MIFeatures_' + self.age + '_' + date + '.xlsx')
 
+            self.X_train = self.X_train.set_index(self.Y_train.index)
+            self.X_val = self.X_val.set_index(self.Y_val.index)
+            self.X_test = self.X_test.set_index(self.Y_test.index)
+
+            # Reattach the labels - easier than saving everything separately
+            self.X_train['Preeclampsia/Eclampsia'] = self.Y_train
+            self.X_val['Preeclampsia/Eclampsia'] = self.Y_val
+            self.X_test['Preeclampsia/Eclampsia'] = self.Y_test
+
+            # Select only the top 20 features plus label
             self.X_train = self.X_train[mutualInfoFeatures]
             self.X_val = self.X_val[mutualInfoFeatures]
             self.X_test = self.X_test[mutualInfoFeatures]
 
-            encodeColumns = list(self.X_train.select_dtypes(include=['object']).columns)
-
-            self.X_train = pd.get_dummies(self.X_train, columns=encodeColumns)
-            self.X_val = pd.get_dummies(self.X_val, columns=encodeColumns)
-            self.X_test = pd.get_dummies(self.X_test, columns=encodeColumns)
+            # One hot encode the present categorical variables
+            self.X_train = encodeCols(self.X_train)
+            self.X_val = encodeCols(self.X_val)
+            self.X_test = encodeCols(self.X_test)
 
             self.X_train.to_csv(dataset + 'MI_' + self.age + '_' + date + '_train.csv', index=False)
             self.X_val.to_csv(dataset + 'MI_' + self.age + '_' + date + '_val.csv', index=False)
@@ -217,14 +274,13 @@ class momi:
 
 
 if __name__ == "__main__":
-
-    data = cleanDataMomi(weeks=14)
+    # data = cleanDataMomi(weeks=14)
+    data = pd.read_csv('momiEncoded_Full_060821.csv')
     preProcess = momi(data)
     preProcess.splitData(testSize=0.1, valSize=0.1)
     preProcess.imputeData(method="BayesianRidge")
-    preProcess.normalizeData(method=MinMaxScaler)
+    preProcess.normalizeData(method="MinMax")
 
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/')
-    preProcess.featureSelection(numFeatures=20, method=1, dataset=dataPath)
-
+    preProcess.featureSelection(numFeatures=20, method=2, dataset=dataPath)
