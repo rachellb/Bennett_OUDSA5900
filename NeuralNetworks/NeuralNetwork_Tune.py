@@ -760,17 +760,17 @@ if __name__ == "__main__":
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
-              'focal': False,
-              'alpha': 0.92,
-              'gamma': 1.75,
-              'class_weights': True,
+              'focal': True,
+              'alpha': 0.89,
+              'gamma': 0.25,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
               'Normalize': 'MinMax',
-              'Feature_Selection': 'MI',
+              'Feature_Selection': 'Chi2',
               'Generator': False,
               'Tuner': "Hyperband",
               'EXECUTIONS_PER_TRIAL': 1,
@@ -780,7 +780,7 @@ if __name__ == "__main__":
 
     neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
     neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'HP Compare', 'OHE', 'Test'],
+                              tags=['Focal Loss', 'HP Compare', 'OHE', 'Test'],
                               description='Testing out updated algo')
 
 

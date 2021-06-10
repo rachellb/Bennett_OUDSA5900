@@ -40,8 +40,8 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 import kerastuner
 from kerastuner.tuners import Hyperband, BayesianOptimization, RandomSearch
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-
+from tensorflow.keras import layers
+from tensorflow.keras.models import Model, load_model
 
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
@@ -51,8 +51,7 @@ import time
 import matplotlib.pyplot as plt
 from PIL import Image
 
-
-#For Outlier Detection
+# For Outlier Detection
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
@@ -69,7 +68,6 @@ from Cleaning.Clean import *
 
 
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
-
     assert 0 in weights
     assert 1 in weights
 
@@ -87,8 +85,6 @@ def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
     return weighted_cross_entropy_fn
 
 
-
-
 class fullNN():
 
     def __init__(self, PARAMS, name=None):
@@ -98,7 +94,7 @@ class fullNN():
 
     def prepData(self, data, age=None):
 
-        if (self.name=="MOMI"):
+        if (self.name == "MOMI"):
             data = pd.read_csv(data)
             self.data = data
         else:
@@ -114,8 +110,7 @@ class fullNN():
         elif self.PARAMS['Normalize'] == 'StandardScale':
             scaler = StandardScaler()
 
-
-        if (self.name=="MOMI"):
+        if (self.name == "MOMI"):
             # Fit and transform training data, then transform val and test using info gained from fitting
             scaleColumns = ['MotherAge', 'WeightAtAdmission',
                             'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
@@ -129,7 +124,6 @@ class fullNN():
             data_imputed = scaler.fit_transform(data)
             X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
             self.data = X_imputed_df
-
 
     def encodeData(self):
 
@@ -153,17 +147,25 @@ class fullNN():
                                   pd.DataFrame(X_trainCodes, columns=feature_names).astype(int)], axis=1)
 
         self.X_val = pd.concat([self.X_val.drop(columns=encodeCols),
-                                  pd.DataFrame(X_valCodes, columns=feature_names).astype(int)], axis=1)
+                                pd.DataFrame(X_valCodes, columns=feature_names).astype(int)], axis=1)
 
         self.X_test = pd.concat([self.X_test.drop(columns=encodeCols),
-                                  pd.DataFrame(X_testCodes, columns=feature_names).astype(int)], axis=1)
+                                 pd.DataFrame(X_testCodes, columns=feature_names).astype(int)], axis=1)
 
+    def labelEncode(self):
+        encodeCols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
+                      'MStructuralHeartDiseas', 'MPostPartumComplications', 'DiabetesMellitus', 'ThyroidDisease',
+                      'MLiverGallPanc', 'KidneyDisease', 'MAnemiaWOHemoglobinopathy', 'MHemoglobinopathy',
+                      'Thrombocytopenia', 'ViralOrProtoInf', 'OtherSubstanceAbuse', 'InfSex', 'CNSAbnormality',
+                      'RaceCollapsed']
 
+        for feat in encodeCols:
+            lbl_enc = preprocessing.LabelEncoder()
+            self.data[feat] = lbl_enc.fit_transform(data[feat].values)
 
     def imputeData(self, data1=None, data2=None):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
-
 
         if self.PARAMS['estimator'] == "BayesianRidge":
             estimator = BayesianRidge()
@@ -176,8 +178,7 @@ class fullNN():
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
-
-        if (self.name=='MOMI'):
+        if (self.name == 'MOMI'):
             if self.data.isnull().values.any():
                 self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
                 self.X_val_imputed = pd.DataFrame(MI_Imp.transform(self.X_val), columns=self.X_val.columns)
@@ -235,8 +236,8 @@ class fullNN():
 
     def splitData(self):
 
-        self.split1=5
-        self.split2=107
+        self.split1 = 5
+        self.split2 = 107
         X = self.data.drop(columns='Preeclampsia/Eclampsia')
         Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
@@ -270,11 +271,10 @@ class fullNN():
 
         print(self.X_train.shape, self.Y_train.shape)
 
-    def featureSelection(self, numFeatures, encode=False):
+    def featureSelection(self, numFeatures):
 
         # If there are less features than the number selected
         numFeatures = min(numFeatures, (self.X_train.shape[1]))
-
 
         if self.PARAMS['Feature_Selection'] == "XGBoost":
             model = XGBClassifier()
@@ -283,7 +283,7 @@ class fullNN():
             # Save graph
             ax = plot_importance(model, max_num_features=numFeatures)
             fig1 = pyplot.gcf()
-            #pyplot.show()
+			# pyplot.show()
 
             fig1.savefig('XGBoostTopFeatures.png', bbox_inches='tight')
 
@@ -335,7 +335,6 @@ class fullNN():
 
     def buildModel(self, topFeatures):
 
-
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures].to_numpy()
         self.Y_train = self.Y_train.to_numpy()
@@ -345,7 +344,6 @@ class fullNN():
         self.Y_test = self.Y_test.to_numpy()
 
         inputSize = self.X_train.shape[1]
-
 
         self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
                                                          batch_size=self.PARAMS['batch_size'],
@@ -359,17 +357,36 @@ class fullNN():
 
         # define the keras model
         tf.keras.backend.clear_session()
-        self.model = tf.keras.models.Sequential()
-        self.model.add(tf.keras.Input(shape=(inputSize,)))
+
+        catcols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
+                   'MStructuralHeartDiseas', 'MPostPartumComplications', 'DiabetesMellitus', 'ThyroidDisease',
+                   'MLiverGallPanc', 'KidneyDisease', 'MAnemiaWOHemoglobinopathy', 'MHemoglobinopathy',
+                   'Thrombocytopenia', 'ViralOrProtoInf', 'OtherSubstanceAbuse', 'InfSex', 'CNSAbnormality',
+                   'RaceCollapsed']
+
+        inputs = []
+        outputs = []
+        for c in catcols:
+            num_unique_values = int(self.data[c].nunique())
+            embed_dim = int(min(np.ceil((num_unique_values) / 2), 50))
+            inp = layers.Input(shape=(1,))
+            out = layers.Embedding(num_unique_values + 1, embed_dim, name=c)(inp)
+            out = layers.SpatialDropout1D(0.3)(out)
+            out = layers.Reshape(target_shape=(embed_dim,))(out)
+
+            inputs.apend(inp)
+            outputs.append(out)
+
+        x = layers.Concatenate()(outputs)
+        x = layers.BatchNormalization()(x)
 
         # Hidden Layers
         for i in range(self.PARAMS['num_layers']):
-            self.model.add(
-                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
+            x = layers.Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)])
             if self.PARAMS['Dropout']:
-                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                x = layers.Dropout(self.PARAMS['Dropout_Rate'])
             if self.PARAMS['BatchNorm']:
-                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                x = layers.BatchNormalization(momentum=self.PARAMS['Momentum'])
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
@@ -380,13 +397,23 @@ class fullNN():
 
         if self.PARAMS['bias_init'] == 0:
             # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
+            y = layers.Dense(1, activation=self.PARAMS['final_activation'])
 
         elif self.PARAMS['bias_init'] == 1:
             # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
-                                 bias_initializer=tf.keras.initializers.Constant(
-                                     value=bias)))
+            y = layers.Dense(1, activation=self.PARAMS['final_activation'],
+                             bias_initializer=tf.keras.initializers.Constant(
+                                 value=bias))(x)
+
+        self.model = Model(inputs=inputs, outputs=y)
+
+        # Reset class weights for use in loss function
+        scalar = len(self.Y_train)
+
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
         # Conditional for each optimizer
         if self.PARAMS['optimizer'] == 'Adam':
@@ -404,11 +431,11 @@ class fullNN():
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+
         elif self.PARAMS['class_weights']:
             loss = weighted_binary_cross_entropy(class_weight_dict)
         else:
             loss = 'binary_crossentropy'
-
 
         # Compilation
         self.model.compile(optimizer=optimizer,
@@ -416,13 +443,14 @@ class fullNN():
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
+                                    tf.keras.metrics.AUC(),
+                                    tf.keras.metrics.AUC(curve='PR')])
 
         from neptunecontrib.monitoring.keras import NeptuneMonitor
 
         self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
                                       validation_data=(self.validation_generator),
-                                      verbose=2,  callbacks=[NeptuneMonitor()])
+                                      verbose=2, callbacks=[NeptuneMonitor()])
 
     def evaluateModel(self):
 
@@ -487,8 +515,6 @@ class fullNN():
         run['False Positive'] = self.fp
         run['False Negative'] = self.fn
 
-
-
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
         print(f'True Positives #: {self.tp} / True Negatives # {self.tn}')
@@ -537,17 +563,36 @@ class NoGen(fullNN):
 
         # define the keras model
         tf.keras.backend.clear_session()
-        self.model = tf.keras.models.Sequential()
-        self.model.add(tf.keras.Input(shape=(inputSize,)))
+
+        catcols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
+                      'MStructuralHeartDiseas', 'MPostPartumComplications', 'DiabetesMellitus', 'ThyroidDisease',
+                      'MLiverGallPanc', 'KidneyDisease', 'MAnemiaWOHemoglobinopathy', 'MHemoglobinopathy',
+                      'Thrombocytopenia', 'ViralOrProtoInf', 'OtherSubstanceAbuse', 'InfSex', 'CNSAbnormality',
+                      'RaceCollapsed']
+
+        inputs = []
+        outputs = []
+        for c in catcols:
+            num_unique_values = int(self.data[c].nunique())
+            embed_dim = int(min(np.ceil((num_unique_values)/2)+1, 50))
+            inp = layers.Input(shape=(1,))
+            out = layers.Embedding(num_unique_values + 1, embed_dim, name=c)(inp)
+            #out = layers.SpatialDropout1D(0.3)(out)
+            out = layers.Reshape(target_shape=(embed_dim, ))(out)
+
+            inputs.append(inp)
+            outputs.append(out)
+
+        x = layers.Concatenate()(outputs)
+        x = layers.BatchNormalization()(x)
 
         # Hidden Layers
         for i in range(self.PARAMS['num_layers']):
-            self.model.add(
-                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
+            x = layers.Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)])(x)
             if self.PARAMS['Dropout']:
-                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                x = layers.Dropout(self.PARAMS['Dropout_Rate'])(x)
             if self.PARAMS['BatchNorm']:
-                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                x = layers.BatchNormalization(momentum=self.PARAMS['Momentum'])(x)
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
@@ -558,18 +603,18 @@ class NoGen(fullNN):
 
         if self.PARAMS['bias_init'] == 0:
             # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
+            y = layers.Dense(1, activation=self.PARAMS['final_activation'])(x)
 
         elif self.PARAMS['bias_init'] == 1:
             # Final Layer
-            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
+            y = layers.Dense(1, activation=self.PARAMS['final_activation'],
                                  bias_initializer=tf.keras.initializers.Constant(
-                                     value=bias)))
+                                     value=bias))(x)
+
+        self.model = Model(inputs=inputs, outputs=y)
 
         # Reset class weights for use in loss function
         scalar = len(self.Y_train)
-        # class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
-        # class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
 
         weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
         weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
@@ -598,6 +643,7 @@ class NoGen(fullNN):
         else:
             loss = 'binary_crossentropy'
 
+
         # Compilation
         self.model.compile(optimizer=optimizer,
                            loss=loss,
@@ -609,76 +655,69 @@ class NoGen(fullNN):
 
         neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
 
+        self.X_train = [self.X_train.loc[:, features].values[:, k] for k in range(self.X_train.loc[:, features].values.shape[1])]
+        self.X_val = [self.X_val.loc[:, features].values[:, k] for k in range(self.X_val.loc[:, features].values.shape[1])]
+        self.X_test = [self.X_test.loc[:, features].values[:, k] for k in range(self.X_test.loc[:, features].values.shape[1])]
+
         self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
                                       epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
                                       verbose=2, callbacks=[neptune_cbk])
 
 
-
 if __name__ == "__main__":
 
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
+              'units_1': 30,
+              'units_2': 45,
+              'final_activation': 'sigmoid',
+              'optimizer': 'RMSprop',
+              'learning_rate': 0.001,
+              'batch_size': 8192,
+              'bias_init': False,
+              'estimator': "BayesianRidge",
+              'epochs': 30,
+              'focal': True,
+              'alpha': 0.89,
+              'gamma': 0.25,
+              'class_weights': False,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Normalize': 'MinMax',
+              'Feature_Selection': 'Chi2',
+              'Generator': False,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
 
-    alpha = [0.80, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89]
-    gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
+    run = neptune.init(project='rachellb/FocalPre',
+                       api_token=api_,
+                       name='MOMI Full',
+                       tags=['Focal Loss', 'Hand Tuned', 'Test', 'Entity-Embedding'],
+                       source_files=['Embedding.py'])
 
-    for i in alpha:
-        for j in gamma:
+    run['hyper-parameters'] = PARAMS
 
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS, name="MOMI")
+    else:
+        model = fullNN(PARAMS, name="MOMI")
 
-            PARAMS = {'num_layers': 3,
-                      'dense_activation_0': 'tanh',
-                      'dense_activation_1': 'relu',
-                      'dense_activation_2': 'relu',
-                      'units_0': 60,
-                      'units_1': 30,
-                      'units_2': 45,
-                      'final_activation': 'sigmoid',
-                      'optimizer': 'RMSprop',
-                      'learning_rate': 0.001,
-                      'batch_size': 8192,
-                      'bias_init': False,
-                      'estimator': "BayesianRidge",
-                      'epochs': 30,
-                      'focal': True,
-                      'alpha': i,
-                      'gamma': j,
-                      'class_weights': False,
-                      'initializer': 'RandomUniform',
-                      'Dropout': True,
-                      'Dropout_Rate': 0.20,
-                      'BatchNorm': False,
-                      'Momentum': 0.60,
-                      'Normalize': 'MinMax',
-                      'Feature_Selection': 'Chi2',
-                      'Generator': False,
-                      'TestSplit': 0.10,
-                      'ValSplit': 0.10}
-
-            run = neptune.init(project='rachellb/FocalPre',
-                               api_token=api_,
-                               name='MOMI Full',
-                               tags=['Focal Loss', 'Hand Tuned', 'Test'],
-                               source_files=[])
-
-            run['hyper-parameters'] = PARAMS
-
-
-            if PARAMS['Generator'] == False:
-                model = NoGen(PARAMS, name="MOMI")
-            else:
-                model = fullNN(PARAMS, name="MOMI")
-
-
-            # Get data
-            parent = os.path.dirname(os.getcwd())
-            dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
-            data = model.prepData(data=dataPath)
-            model.splitData()
-            data = model.imputeData()
-            model.normalizeData()
-            model.encodeData()
-            features = model.featureSelection(numFeatures=20, encode=True)
-            model.buildModel(features)
-            model.evaluateModel()
-            run.stop()
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
+    data = model.prepData(data=dataPath)
+    model.labelEncode()
+    model.splitData()
+    data = model.imputeData()
+    model.normalizeData()
+    features = model.featureSelection(numFeatures=20)
+    model.buildModel(features)
+    model.evaluateModel()
+    run.stop()
 

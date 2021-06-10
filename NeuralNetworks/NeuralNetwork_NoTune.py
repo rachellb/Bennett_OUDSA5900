@@ -57,6 +57,8 @@ import neptune.new as neptune
 from neptune.new.integrations.tensorflow_keras import NeptuneCallback
 from neptune.new.types import File
 
+# For Reproducibility
+import random
 
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
@@ -1528,43 +1530,46 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
+    # Set seeds
+    def reset_random_seeds():
+        os.environ['PYTHONHASHSEED'] = str(1)
+        tf.random.set_seed(1)
+        np.random.seed(1)
+        random.seed(1)
 
+    reset_random_seeds()
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 5,
+    PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'relu',
               'dense_activation_2': 'relu',
-              'dense_activation_3': 'relu',
-              'dense_activation_4': 'relu',
-              'units_0': 41,
-              'units_1': 60,
-              'units_2': 41,
-              'units_3': 30,
-              'units_4': 30,
+              'units_0': 60,
+              'units_1': 30,
+              'units_2': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': False,
-              'alpha': 0.5,
-              'gamma': 1.75,
-              'class_weights': True,
+              'focal': True,
+              'alpha': 0.94,
+              'gamma': 0.25,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
-              'Generator': True,
+              'Generator': False,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Texas Full',
-                       tags=['Weighted', 'Bayesian', 'Updated', 'Balanced-Batches'],
+                       name='Oklahoma African',
+                       tags=['Focal Loss', 'Hand Tuned', 'Test', 'Old Data'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1578,8 +1583,9 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_042021.csv')
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
