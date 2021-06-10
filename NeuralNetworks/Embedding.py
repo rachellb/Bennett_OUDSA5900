@@ -66,6 +66,7 @@ from neptune.new.types import File
 from secret import api_
 from Cleaning.Clean import *
 
+# https://www.kaggle.com/abhishek/entity-embeddings-to-handle-categories
 
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
     assert 0 in weights
@@ -486,13 +487,13 @@ class fullNN():
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
 
-        y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
+        y_predict = (self.model.predict(self.X_test_list) > 0.5).astype("int32")
 
         self.specificity = specificity_score(self.Y_test, y_predict)
 
         self.gmean = geometric_mean_score(self.Y_test, y_predict)
 
-        score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
+        score = self.model.evaluate(self.X_test_list, self.Y_test, verbose=0)
         self.loss = score[0]
         self.accuracy = score[1]
         self.AUC = score[4]
@@ -573,15 +574,28 @@ class NoGen(fullNN):
         inputs = []
         outputs = []
         for c in catcols:
-            num_unique_values = int(self.data[c].nunique())
-            embed_dim = int(min(np.ceil((num_unique_values)/2)+1, 50))
-            inp = layers.Input(shape=(1,))
-            out = layers.Embedding(num_unique_values + 1, embed_dim, name=c)(inp)
-            #out = layers.SpatialDropout1D(0.3)(out)
-            out = layers.Reshape(target_shape=(embed_dim, ))(out)
+            if c in list(self.X_train.columns): #If this categorical column has been selected.
+                num_unique_values = int(self.data[c].nunique())
+                embed_dim = int(min(np.ceil((num_unique_values)/2)+1, 50))
+                inp = layers.Input(shape=(1,))
+                out = layers.Embedding(num_unique_values + 1, embed_dim, name=c)(inp)
+                out = layers.SpatialDropout1D(0.3)(out)
+                out = layers.Reshape(target_shape=(embed_dim, ))(out)
 
-            inputs.append(inp)
-            outputs.append(out)
+                inputs.append(inp)
+                outputs.append(out)
+
+        #Now for the numeric columns
+        numCols = self.X_train.columns
+        other_cols = [c for c in self.X_train.columns if (not c in catcols)]
+        selectCat = [c for c in self.X_train.columns if (c in catcols)]
+        # Other non-categorical data columns (numerical).
+        # I define single another network for the other columns and add them to our models list.
+        input_numeric = layers.Input(shape=(len(other_cols),))
+        embedding_numeric = layers.Dense(128)(input_numeric)
+        inputs.append(input_numeric)
+        outputs.append(embedding_numeric)
+
 
         x = layers.Concatenate()(outputs)
         x = layers.BatchNormalization()(x)
@@ -655,12 +669,32 @@ class NoGen(fullNN):
 
         neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
 
-        self.X_train = [self.X_train.loc[:, features].values[:, k] for k in range(self.X_train.loc[:, features].values.shape[1])]
-        self.X_val = [self.X_val.loc[:, features].values[:, k] for k in range(self.X_val.loc[:, features].values.shape[1])]
-        self.X_test = [self.X_test.loc[:, features].values[:, k] for k in range(self.X_test.loc[:, features].values.shape[1])]
+        #self.X_train = [self.X_train.loc[:, topFeatures].values[:, k] for k in range(self.X_train.loc[:, topFeatures].values.shape[1])]
+        #self.X_val = [self.X_val.loc[:, topFeatures].values[:, k] for k in range(self.X_val.loc[:, topFeatures].values.shape[1])]
+        #self.X_test = [self.X_test.loc[:, topFeatures].values[:, k] for k in range(self.X_test.loc[:, topFeatures].values.shape[1])]
 
-        self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
-                                      epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
+        self.X_train_list = []
+        self.X_val_list = []
+        self.X_test_list = []
+
+        # the cols to be embedded: rescaling to range [0, # values)
+        for c in selectCat:
+            raw_vals = np.unique(self.X_train[c])
+            val_map = {}
+            for i in range(len(raw_vals)):
+                val_map[raw_vals[i]] = i
+            self.X_train_list.append(self.X_train[c].map(val_map).values)
+            self.X_val_list.append(self.X_val[c].map(val_map).fillna(0).values)
+            self.X_test_list.append(self.X_test[c].map(val_map).fillna(0).values)
+
+        # the rest of the columns
+        self.X_train_list.append(self.X_train[other_cols].values)
+        self.X_val_list.append(self.X_val[other_cols].values)
+        self.X_test_list.append(self.X_test[other_cols].values)
+
+
+        self.history = self.model.fit(self.X_train_list, self.Y_train, batch_size=self.PARAMS['batch_size'],
+                                      epochs=self.PARAMS['epochs'], validation_data=(self.X_val_list, self.Y_val),
                                       verbose=2, callbacks=[neptune_cbk])
 
 
@@ -679,15 +713,15 @@ if __name__ == "__main__":
               'batch_size': 8192,
               'bias_init': False,
               'estimator': "BayesianRidge",
-              'epochs': 30,
+              'epochs': 100,
               'focal': True,
-              'alpha': 0.89,
-              'gamma': 0.25,
+              'alpha': 0.90,
+              'gamma': 2,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
-              'BatchNorm': False,
+              'BatchNorm': True,
               'Momentum': 0.60,
               'Normalize': 'MinMax',
               'Feature_Selection': 'Chi2',

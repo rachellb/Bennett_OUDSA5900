@@ -309,9 +309,7 @@ class fullNN():
             feature_scores.sort_values(by=['Chi2 Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             chi2Features = features['Feature_Name']
-            chi2Features = list(chi2Features)
-            self.Chi2features = features
-            return chi2Features
+            topFeatures = list(chi2Features)
 
         if self.PARAMS['Feature_Selection'] == "MI":
             # Mutual Information features
@@ -325,13 +323,16 @@ class fullNN():
             feature_scores.sort_values(by=['MI Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             mutualInfoFeatures = features['Feature_Name']
-            mutualInfoFeatures = list(mutualInfoFeatures)
-            self.MIFeatures = features
-            return mutualInfoFeatures
+            topFeatures = list(mutualInfoFeatures)
+
 
         if self.PARAMS['Feature_Selection'] == None:
-            features = self.X_train.columns
-            return features
+            topFeatures = self.X_train.columns
+
+
+        self.X_train = self.X_train[topFeatures]
+        self.X_val = self.X_val[topFeatures]
+        self.X_test = self.X_test[topFeatures]
 
     def buildModel(self, topFeatures):
 
@@ -617,68 +618,68 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-
+    """
     alpha = [0.80, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89]
     gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
 
     for i in alpha:
         for j in gamma:
+    """
+
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
+              'units_1': 30,
+              'units_2': 45,
+              'final_activation': 'sigmoid',
+              'optimizer': 'RMSprop',
+              'learning_rate': 0.001,
+              'batch_size': 8192,
+              'bias_init': False,
+              'estimator': "BayesianRidge",
+              'epochs': 30,
+              'focal': True,
+              'alpha': 0.89,
+              'gamma': 0.25,
+              'class_weights': False,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Normalize': 'MinMax',
+              'Feature_Selection': 'Chi2',
+              'Generator': False,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
+
+    run = neptune.init(project='rachellb/FocalPre',
+                       api_token=api_,
+                       name='MOMI Full',
+                       tags=['Focal Loss', 'Hand Tuned', 'Test'],
+                       source_files=[])
+
+    run['hyper-parameters'] = PARAMS
 
 
-            PARAMS = {'num_layers': 3,
-                      'dense_activation_0': 'tanh',
-                      'dense_activation_1': 'relu',
-                      'dense_activation_2': 'relu',
-                      'units_0': 60,
-                      'units_1': 30,
-                      'units_2': 45,
-                      'final_activation': 'sigmoid',
-                      'optimizer': 'RMSprop',
-                      'learning_rate': 0.001,
-                      'batch_size': 8192,
-                      'bias_init': False,
-                      'estimator': "BayesianRidge",
-                      'epochs': 30,
-                      'focal': True,
-                      'alpha': i,
-                      'gamma': j,
-                      'class_weights': False,
-                      'initializer': 'RandomUniform',
-                      'Dropout': True,
-                      'Dropout_Rate': 0.20,
-                      'BatchNorm': False,
-                      'Momentum': 0.60,
-                      'Normalize': 'MinMax',
-                      'Feature_Selection': 'Chi2',
-                      'Generator': False,
-                      'TestSplit': 0.10,
-                      'ValSplit': 0.10}
-
-            run = neptune.init(project='rachellb/FocalPre',
-                               api_token=api_,
-                               name='MOMI Full',
-                               tags=['Focal Loss', 'Hand Tuned', 'Test'],
-                               source_files=[])
-
-            run['hyper-parameters'] = PARAMS
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS, name="MOMI")
+    else:
+        model = fullNN(PARAMS, name="MOMI")
 
 
-            if PARAMS['Generator'] == False:
-                model = NoGen(PARAMS, name="MOMI")
-            else:
-                model = fullNN(PARAMS, name="MOMI")
-
-
-            # Get data
-            parent = os.path.dirname(os.getcwd())
-            dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
-            data = model.prepData(data=dataPath)
-            model.splitData()
-            data = model.imputeData()
-            model.normalizeData()
-            model.encodeData()
-            features = model.featureSelection(numFeatures=20, encode=True)
-            model.buildModel(features)
-            model.evaluateModel()
-            run.stop()
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
+    data = model.prepData(data=dataPath)
+    model.splitData()
+    data = model.imputeData()
+    model.normalizeData()
+    features = model.featureSelection(numFeatures=20, encode=True)
+    model.encodeData()
+    model.buildModel()
+    model.evaluateModel()
+    run.stop()
 
