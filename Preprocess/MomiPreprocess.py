@@ -266,8 +266,8 @@ class momi:
 
 if __name__ == "__main__":
 
-    #data = cleanDataMomi(weeks=14)
-    data = pd.read_csv('momiEncoded_Full_060821.csv')
+    data = cleanDataMomi(weeks=14)
+    #data = pd.read_csv('momiEncoded_Full_060821.csv')
     preProcess = momi(data)
     preProcess.splitData(testSize=0.1, valSize=0.1)
     preProcess.imputeData(method="BayesianRidge")

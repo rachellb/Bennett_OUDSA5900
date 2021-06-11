@@ -139,24 +139,34 @@ class fullNN():
                       'Thrombocytopenia', 'ViralOrProtoInf', 'OtherSubstanceAbuse', 'InfSex', 'CNSAbnormality',
                       'RaceCollapsed']
 
-        ohe = OneHotEncoder()
+        selectCat = [c for c in self.X_train.columns if (c in encodeCols)]
+
+        ohe = OneHotEncoder(handle_unknown='ignore')
 
         # Train on the categorical variables
-        ohe.fit(self.data[encodeCols])
+        ohe.fit(self.data[selectCat])
 
-        X_trainCodes = ohe.transform(self.X_train[encodeCols]).toarray()
-        X_valCodes = ohe.transform(self.X_val[encodeCols]).toarray()
-        X_testCodes = ohe.transform(self.X_test[encodeCols]).toarray()
-        feature_names = ohe.get_feature_names(encodeCols)
+        X_trainCodes = ohe.transform(self.X_train[selectCat]).toarray()
+        X_valCodes = ohe.transform(self.X_val[selectCat]).toarray()
+        X_testCodes = ohe.transform(self.X_test[selectCat]).toarray()
+        feature_names = ohe.get_feature_names(selectCat)
 
-        self.X_train = pd.concat([self.X_train.drop(columns=encodeCols),
-                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int)], axis=1)
+        self.X_train = pd.concat([self.X_train.drop(columns=selectCat).reset_index(drop=True),
+                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                 axis=1)
 
-        self.X_val = pd.concat([self.X_val.drop(columns=encodeCols),
-                                  pd.DataFrame(X_valCodes, columns=feature_names).astype(int)], axis=1)
+        self.X_val = pd.concat([self.X_val.drop(columns=selectCat).reset_index(drop=True),
+                                pd.DataFrame(X_valCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                               axis=1)
 
-        self.X_test = pd.concat([self.X_test.drop(columns=encodeCols),
-                                  pd.DataFrame(X_testCodes, columns=feature_names).astype(int)], axis=1)
+        self.X_test = pd.concat([self.X_test.drop(columns=selectCat).reset_index(drop=True),
+                                 pd.DataFrame(X_testCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                axis=1)
+
+        # OHE adds unnecessary nan column, which needs to be dropped
+        self.X_train = self.X_train.loc[:, ~self.X_train.columns.str.endswith('_nan')]
+        self.X_val = self.X_val.loc[:, ~self.X_val.columns.str.endswith('_nan')]
+        self.X_test = self.X_test.loc[:, ~self.X_test.columns.str.endswith('_nan')]
 
 
 
@@ -270,11 +280,12 @@ class fullNN():
 
         print(self.X_train.shape, self.Y_train.shape)
 
-    def featureSelection(self, numFeatures, encode=False):
+
+
+    def featureSelection(self, numFeatures):
 
         # If there are less features than the number selected
         numFeatures = min(numFeatures, (self.X_train.shape[1]))
-
 
         if self.PARAMS['Feature_Selection'] == "XGBoost":
             model = XGBClassifier()
@@ -283,7 +294,7 @@ class fullNN():
             # Save graph
             ax = plot_importance(model, max_num_features=numFeatures)
             fig1 = pyplot.gcf()
-            #pyplot.show()
+            # pyplot.show()
 
             fig1.savefig('XGBoostTopFeatures.png', bbox_inches='tight')
 
@@ -293,9 +304,7 @@ class fullNN():
             values = list(feature_important.values())
 
             data = pd.DataFrame(data=values, index=keys, columns=["score"]).sort_values(by="score", ascending=False)
-            XGBoostFeatures = list(data.index[0:numFeatures])
-
-            return XGBoostFeatures
+            topFeatures = list(data.index[0:numFeatures])
 
         if self.PARAMS['Feature_Selection'] == "Chi2":
             # instantiate SelectKBest to determine 20 best features
@@ -309,9 +318,8 @@ class fullNN():
             feature_scores.sort_values(by=['Chi2 Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             chi2Features = features['Feature_Name']
-            chi2Features = list(chi2Features)
-            self.Chi2features = features
-            return chi2Features
+            topFeatures = list(chi2Features)
+            self.Chi2Features = features
 
         if self.PARAMS['Feature_Selection'] == "MI":
             # Mutual Information features
@@ -325,13 +333,16 @@ class fullNN():
             feature_scores.sort_values(by=['MI Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             mutualInfoFeatures = features['Feature_Name']
-            mutualInfoFeatures = list(mutualInfoFeatures)
-            self.MIFeatures = features
-            return mutualInfoFeatures
+            topFeatures = list(mutualInfoFeatures)
+            self.MIFeatures = mutualInfoFeatures
 
         if self.PARAMS['Feature_Selection'] == None:
-            features = self.X_train.columns
-            return features
+            topFeatures = self.X_train.columns
+
+        self.X_train = self.X_train[topFeatures]
+        self.X_val = self.X_val[topFeatures]
+        self.X_test = self.X_test[topFeatures]
+
 
     def hpTuning(self, topFeatures):
         self.start_time = time.time()
@@ -576,18 +587,10 @@ class NoGen(fullNN):
         self.PARAMS = PARAMS
         self.name = name
 
-    def hpTuning(self, topFeatures=None):
+    def hpTuning(self):
         self.start_time = time.time()
 
         tf.keras.backend.clear_session()
-
-        # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures]
-        self.X_val = self.X_val[topFeatures]
-        self.X_test = self.X_test[topFeatures]
-
-
-
         inputSize = self.X_train.shape[1]
 
         # Class weights
@@ -792,13 +795,13 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
+    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061021.csv')
     data = model.prepData(data=dataPath)
     model.splitData()
     data = model.imputeData()
+    model.detectOutliers(method='iso')
     model.normalizeData()
-    model.encodeData()
-    features = model.featureSelection(numFeatures=20, encode=True)
+    features = model.featureSelection(numFeatures=20)
     model.hpTuning(features)
     model.evaluateModel()
 

@@ -66,7 +66,7 @@ from neptune.new.integrations.tensorflow_keras import NeptuneCallback
 from neptune.new.types import File
 from secret import api_
 from Cleaning.Clean import *
-
+import random
 
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
@@ -130,7 +130,6 @@ class fullNN():
             X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
             self.data = X_imputed_df
 
-
     def encodeData(self):
 
         encodeCols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
@@ -139,26 +138,32 @@ class fullNN():
                       'Thrombocytopenia', 'ViralOrProtoInf', 'OtherSubstanceAbuse', 'InfSex', 'CNSAbnormality',
                       'RaceCollapsed']
 
-        ohe = OneHotEncoder()
+        selectCat = [c for c in self.X_train.columns if (c in encodeCols)]
+
+        ohe = OneHotEncoder(handle_unknown='ignore')
 
         # Train on the categorical variables
-        ohe.fit(self.data[encodeCols])
+        ohe.fit(self.data[selectCat])
 
-        X_trainCodes = ohe.transform(self.X_train[encodeCols]).toarray()
-        X_valCodes = ohe.transform(self.X_val[encodeCols]).toarray()
-        X_testCodes = ohe.transform(self.X_test[encodeCols]).toarray()
-        feature_names = ohe.get_feature_names(encodeCols)
-
-        self.X_train = pd.concat([self.X_train.drop(columns=encodeCols),
-                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int)], axis=1)
-
-        self.X_val = pd.concat([self.X_val.drop(columns=encodeCols),
-                                  pd.DataFrame(X_valCodes, columns=feature_names).astype(int)], axis=1)
-
-        self.X_test = pd.concat([self.X_test.drop(columns=encodeCols),
-                                  pd.DataFrame(X_testCodes, columns=feature_names).astype(int)], axis=1)
+        X_trainCodes = ohe.transform(self.X_train[selectCat]).toarray()
+        X_valCodes = ohe.transform(self.X_val[selectCat]).toarray()
+        X_testCodes = ohe.transform(self.X_test[selectCat]).toarray()
+        feature_names = ohe.get_feature_names(selectCat)
 
 
+        self.X_train = pd.concat([self.X_train.drop(columns=selectCat).reset_index(drop=True),
+                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int).reset_index(drop=True)], axis=1)
+
+        self.X_val = pd.concat([self.X_val.drop(columns=selectCat).reset_index(drop=True),
+                                  pd.DataFrame(X_valCodes, columns=feature_names).astype(int).reset_index(drop=True)], axis=1)
+
+        self.X_test = pd.concat([self.X_test.drop(columns=selectCat).reset_index(drop=True),
+                                  pd.DataFrame(X_testCodes, columns=feature_names).astype(int).reset_index(drop=True)], axis=1)
+
+        # OHE adds unnecessary nan column, which needs to be dropped
+        self.X_train = self.X_train.loc[:, ~self.X_train.columns.str.endswith('_nan')]
+        self.X_val = self.X_val.loc[:, ~self.X_val.columns.str.endswith('_nan')]
+        self.X_test = self.X_test.loc[:, ~self.X_test.columns.str.endswith('_nan')]
 
     def imputeData(self, data1=None, data2=None):
         # Scikitlearn's Iterative imputer
@@ -247,7 +252,7 @@ class fullNN():
                                                                               test_size=self.PARAMS['ValSplit'],
                                                                               random_state=self.split2)
 
-    def detectOutliers(self, method, con):
+    def detectOutliers(self, method, con='auto'):
 
         print(self.X_train.shape, self.Y_train.shape)
 
@@ -262,6 +267,9 @@ class fullNN():
 
         yhat = out.fit_predict(self.X_train)
 
+        #self.X_train = self.X_train.loc[np.where(yhat == 1, True, False)]
+        #self.Y_train = self.X_train.loc[np.where(yhat == 1, True, False)]
+
         # select all rows that are not outliers
         mask = (yhat != -1)
 
@@ -270,7 +278,7 @@ class fullNN():
 
         print(self.X_train.shape, self.Y_train.shape)
 
-    def featureSelection(self, numFeatures, encode=False):
+    def featureSelection(self, numFeatures):
 
         # If there are less features than the number selected
         numFeatures = min(numFeatures, (self.X_train.shape[1]))
@@ -293,9 +301,7 @@ class fullNN():
             values = list(feature_important.values())
 
             data = pd.DataFrame(data=values, index=keys, columns=["score"]).sort_values(by="score", ascending=False)
-            XGBoostFeatures = list(data.index[0:numFeatures])
-
-            return XGBoostFeatures
+            topFeatures = list(data.index[0:numFeatures])
 
         if self.PARAMS['Feature_Selection'] == "Chi2":
             # instantiate SelectKBest to determine 20 best features
@@ -310,6 +316,7 @@ class fullNN():
             features = feature_scores.iloc[0:numFeatures]
             chi2Features = features['Feature_Name']
             topFeatures = list(chi2Features)
+            self.Chi2Features = features
 
         if self.PARAMS['Feature_Selection'] == "MI":
             # Mutual Information features
@@ -324,6 +331,7 @@ class fullNN():
             features = feature_scores.iloc[0:numFeatures]
             mutualInfoFeatures = features['Feature_Name']
             topFeatures = list(mutualInfoFeatures)
+            self.MIFeatures = mutualInfoFeatures
 
 
         if self.PARAMS['Feature_Selection'] == None:
@@ -334,15 +342,15 @@ class fullNN():
         self.X_val = self.X_val[topFeatures]
         self.X_test = self.X_test[topFeatures]
 
-    def buildModel(self, topFeatures):
+    def buildModel(self):
 
 
         # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures].to_numpy()
+        self.X_train = self.X_train.to_numpy()
         self.Y_train = self.Y_train.to_numpy()
-        self.X_val = self.X_val[topFeatures].to_numpy()
+        self.X_val = self.X_val.to_numpy()
         self.Y_val = self.Y_val.to_numpy()
-        self.X_test = self.X_test[topFeatures].to_numpy()
+        self.X_test = self.X_test.to_numpy()
         self.Y_test = self.Y_test.to_numpy()
 
         inputSize = self.X_train.shape[1]
@@ -507,7 +515,7 @@ class fullNN():
 
         elif self.PARAMS['Feature_Selection'] == 'Chi2':
 
-            run['Chi2features'].upload(File.as_html(self.Chi2features))
+            run['Chi2features'].upload(File.as_html(self.Chi2Features))
 
         elif self.PARAMS['Feature_Selection'] == 'MI':
 
@@ -520,19 +528,9 @@ class NoGen(fullNN):
         self.PARAMS = PARAMS
         self.name = name
 
-    def buildModel(self, topFeatures):
+    def buildModel(self):
 
         self.start_time = time.time()
-
-        LOG_DIR = f"{int(time.time())}"
-
-        # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures]
-        self.Y_train = self.Y_train
-        self.X_val = self.X_val[topFeatures]
-        self.Y_val = self.Y_val
-        self.X_test = self.X_test[topFeatures]
-        self.Y_test = self.Y_test
 
         inputSize = self.X_train.shape[1]
 
@@ -618,6 +616,13 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
+    # Set seeds
+    def reset_random_seeds():
+        os.environ['PYTHONHASHSEED'] = str(1)
+        tf.random.set_seed(1)
+        np.random.seed(1)
+        random.seed(1)
+    reset_random_seeds()
     """
     alpha = [0.80, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89]
     gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
@@ -640,10 +645,10 @@ if __name__ == "__main__":
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
-              'focal': True,
+              'focal': False,
               'alpha': 0.89,
               'gamma': 0.25,
-              'class_weights': False,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -655,10 +660,10 @@ if __name__ == "__main__":
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
-    run = neptune.init(project='rachellb/FocalPre',
+    run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
                        name='MOMI Full',
-                       tags=['Focal Loss', 'Hand Tuned', 'Test'],
+                       tags=['Weighted', 'Hand Tuned', 'Test', 'FS then Encode', 'RemoveOutliers'],
                        source_files=[])
 
     run['hyper-parameters'] = PARAMS
@@ -676,8 +681,9 @@ if __name__ == "__main__":
     data = model.prepData(data=dataPath)
     model.splitData()
     data = model.imputeData()
+    model.detectOutliers(method='iso')
     model.normalizeData()
-    features = model.featureSelection(numFeatures=20, encode=True)
+    features = model.featureSelection(numFeatures=20)
     model.encodeData()
     model.buildModel()
     model.evaluateModel()

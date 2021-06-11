@@ -185,7 +185,7 @@ def cleanDataMomi(weeks):
     prenatal.drop(prenatal[prenatal['DELWKSGT'].isnull()].index, inplace=True)
     prenatal.drop(prenatal[prenatal['PNV_Total_Number'].isnull()].index, inplace=True)
 
-
+    """
     insuranceMap = {1: 'MedicalAssistance',
                     2: 'PrivateInsurance',
                     3: 'Self-pay'}
@@ -341,7 +341,7 @@ def cleanDataMomi(weeks):
                  0: 'OtherCongenital'}
 
     momi['ICNSANAT'] = momi['ICNSANAT'].map(anoAnoMap)
-    
+    """
     
 
     # Ordinal Encoding Education
@@ -471,12 +471,13 @@ def cleanDataMomi(weeks):
                        'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath', 'OutcomeOfDelivery', 'DeliveryMethod',
                        'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
                        'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams',
-                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race', 'DeliveryYear', 'PNV_Total_Number'], inplace=True)
+                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race', 'DeliveryYear', 'PNV_Total_Number',
+                       'MPostPartumComplications'], inplace=True)
 
 
     # One hot encoding everything
 
-    """
+
     # Renaming Hypertensive variables for easier comparison
     hypMap = {'African': 0, 'Asian': 1,
               'Native': 2, 'Polynesian': 3,
@@ -486,9 +487,9 @@ def cleanDataMomi(weeks):
 
     hypMap = {'F': 0, 'M': 1}
     momi['InfSex'] = momi['InfSex'].map(hypMap)
-    """
 
-    join.to_csv('momiCategories_060821.csv', index=False)
+
+    join.to_csv('momiEncoded_061021.csv', index=False)
 
     return join
 
