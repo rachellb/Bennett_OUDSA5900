@@ -475,7 +475,6 @@ def cleanDataMomi(weeks):
                        'MPostPartumComplications'], inplace=True)
 
 
-    # One hot encoding everything
 
 
     # Renaming Hypertensive variables for easier comparison
@@ -483,10 +482,10 @@ def cleanDataMomi(weeks):
               'Native': 2, 'Polynesian': 3,
               'White': 4}
 
-    momi['RaceCollapsed'] = momi['RaceCollapsed'].map(hypMap)
+    join['RaceCollapsed'] = join['RaceCollapsed'].map(hypMap)
 
     hypMap = {'F': 0, 'M': 1}
-    momi['InfSex'] = momi['InfSex'].map(hypMap)
+    join['InfSex'] = join['InfSex'].map(hypMap)
 
 
     join.to_csv('momiEncoded_061021.csv', index=False)

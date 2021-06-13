@@ -616,20 +616,23 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
+
+    """
+    alpha = [0.90, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]
+    gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
+
+    for i in alpha:
+        for j in gamma:
+    """
     # Set seeds
     def reset_random_seeds():
         os.environ['PYTHONHASHSEED'] = str(1)
         tf.random.set_seed(1)
         np.random.seed(1)
         random.seed(1)
-    reset_random_seeds()
-    """
-    alpha = [0.80, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89]
-    gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
 
-    for i in alpha:
-        for j in gamma:
-    """
+
+    reset_random_seeds()
 
     PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
@@ -644,18 +647,18 @@ if __name__ == "__main__":
               'batch_size': 8192,
               'bias_init': False,
               'estimator': "BayesianRidge",
-              'epochs': 30,
-              'focal': False,
-              'alpha': 0.89,
-              'gamma': 0.25,
-              'class_weights': True,
+              'epochs': 50,
+              'focal': True,
+              'alpha': 0.92,
+              'gamma': 2,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
               'Normalize': 'MinMax',
-              'Feature_Selection': 'Chi2',
+              'Feature_Selection': 'MI',
               'Generator': False,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
@@ -663,8 +666,8 @@ if __name__ == "__main__":
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
                        name='MOMI Full',
-                       tags=['Weighted', 'Hand Tuned', 'Test', 'FS then Encode', 'RemoveOutliers'],
-                       source_files=[])
+                       tags=['Focal Loss', 'Hand Tuned', 'Test', 'FS then encode'],
+                       source_files=['NeuralNetwork_Simple.py'])
 
     run['hyper-parameters'] = PARAMS
 
@@ -677,14 +680,14 @@ if __name__ == "__main__":
 
     # Get data
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_Full_060821.csv')
+    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061021.csv')
     data = model.prepData(data=dataPath)
     model.splitData()
     data = model.imputeData()
-    model.detectOutliers(method='iso')
+    #model.detectOutliers(method='iso')
     model.normalizeData()
-    features = model.featureSelection(numFeatures=20)
     model.encodeData()
+    features = model.featureSelection(numFeatures=20)
     model.buildModel()
     model.evaluateModel()
     run.stop()

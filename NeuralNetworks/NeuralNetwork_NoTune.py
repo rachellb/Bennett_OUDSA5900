@@ -1396,14 +1396,12 @@ class fullNN():
 
         y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
 
-        self.specificity = specificity_score(self.Y_test, y_predict)
+        specificity = specificity_score(self.Y_test, y_predict)
 
         gmean = geometric_mean_score(self.Y_test, y_predict)
 
         score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
-        self.predictedNo = y_predict.sum()
-        self.trueNo = self.Y_test.sum()
-        self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
+        tn, fp, fn, tp = confusion_matrix(self.Y_test, y_predict).ravel()
 
         Results = {"Loss": score[0],
                    "Accuracy": score[1],
@@ -1411,20 +1409,20 @@ class fullNN():
                    "Gmean": gmean,
                    "Recall": score[3],
                    "Precision": score[2],
-                   "Specificity": self.specificity,
-                   "True Positives": self.tp,
-                   "True Negatives": self.tn,
-                   "False Positives": self.fp,
-                   "False Negatives": self.fn,
+                   "Specificity": specificity,
+                   "True Positives": tp,
+                   "True Negatives": tn,
+                   "False Positives": fp,
+                   "False Negatives": fn,
                    "History": self.history}
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
-        print(f'True Positives #: {self.tp} / True Negatives # {self.tn}')
-        print(f'False Positives #: {self.fp} / False Negatives # {self.fn}')
+        print(f'True Positives #: {tp} / True Negatives # {tn}')
+        print(f'False Positives #: {fp} / False Negatives # {fn}')
         print(f'Test loss: {score[0]:.6f} / Test accuracy: {score[1]:.6f} / Test AUC: {score[4]:.6f}')
         print(f'Test Recall: {score[3]:.6f} / Test Precision: {score[2]:.6f}')
-        print(f'Test Specificity: {self.specificity:.6f}')
+        print(f'Test Specificity: {specificity:.6f}')
         print(f'Test Gmean: {gmean:.6f}')
 
         # Feature Selection
@@ -1537,27 +1535,29 @@ if __name__ == "__main__":
         np.random.seed(1)
         random.seed(1)
 
-    reset_random_seeds()
+    #reset_random_seeds()
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
+    PARAMS = {'num_layers': 4,
+              'dense_activation_0': 'relu',
+              'dense_activation_1': 'tanh',
+              'dense_activation_2': 'tanh',
+              'dense_activation_3': 'tanh',
               'units_0': 60,
-              'units_1': 30,
-              'units_2': 45,
+              'units_1': 60,
+              'units_2': 60,
+              'units_3': 30,
               'final_activation': 'sigmoid',
-              'optimizer': 'RMSprop',
+              'optimizer': 'NAdam',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': True,
+              'focal': False,
               'alpha': 0.94,
               'gamma': 0.25,
-              'class_weights': False,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1569,7 +1569,7 @@ if __name__ == "__main__":
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='Oklahoma African',
-                       tags=['Focal Loss', 'Hand Tuned', 'Test', 'Old Data'],
+                       tags=['Weighted', 'Random', 'Updated', '330 CV'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1585,9 +1585,9 @@ if __name__ == "__main__":
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
 
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=33, random_state=36851234)
 
     X, y = model.prepData(age='Categorical', data=dataPath)
 

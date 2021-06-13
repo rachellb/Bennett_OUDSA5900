@@ -4,7 +4,7 @@
 # For handling data
 from datetime import datetime
 import os
-
+import random
 from sklearn.utils import class_weight
 
 # For imputing data
@@ -130,7 +130,6 @@ class fullNN():
             X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
             self.data = X_imputed_df
 
-
     def encodeData(self):
 
         encodeCols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
@@ -167,8 +166,6 @@ class fullNN():
         self.X_train = self.X_train.loc[:, ~self.X_train.columns.str.endswith('_nan')]
         self.X_val = self.X_val.loc[:, ~self.X_val.columns.str.endswith('_nan')]
         self.X_test = self.X_test.loc[:, ~self.X_test.columns.str.endswith('_nan')]
-
-
 
     def imputeData(self, data1=None, data2=None):
         # Scikitlearn's Iterative imputer
@@ -257,17 +254,17 @@ class fullNN():
                                                                               test_size=self.PARAMS['ValSplit'],
                                                                               random_state=self.split2)
 
-    def detectOutliers(self, method, con):
+    def detectOutliers(self, con='auto'):
 
         print(self.X_train.shape, self.Y_train.shape)
 
-        if method == 'iso':
+        if self.PARAMS['OutlierRemove'] == 'iso':
             out = IsolationForest(contamination=con)
-        elif method == 'lof':
+        elif self.PARAMS['OutlierRemove'] == 'lof':
             out = LocalOutlierFactor(contamination=con)
-        elif method == 'ocsvm':
+        elif self.PARAMS['OutlierRemove'] == 'ocsvm':
             out = OneClassSVM(nu=0.01)
-        elif method == 'ee':
+        elif self.PARAMS['OutlierRemove'] == 'ee':
             out = EllipticEnvelope(contamination=con)
 
         yhat = out.fit_predict(self.X_train)
@@ -279,8 +276,6 @@ class fullNN():
         self.Y_train = self.Y_train.loc[mask]
 
         print(self.X_train.shape, self.Y_train.shape)
-
-
 
     def featureSelection(self, numFeatures):
 
@@ -343,18 +338,17 @@ class fullNN():
         self.X_val = self.X_val[topFeatures]
         self.X_test = self.X_test[topFeatures]
 
-
-    def hpTuning(self, topFeatures):
+    def hpTuning(self):
         self.start_time = time.time()
 
         tf.keras.backend.clear_session()
 
         # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures].to_numpy()
+        self.X_train = self.X_train.to_numpy()
         self.Y_train = self.Y_train.to_numpy()
-        self.X_val = self.X_val[topFeatures].to_numpy()
+        self.X_val = self.X_val.to_numpy()
         self.Y_val = self.Y_val.to_numpy()
-        self.X_test = self.X_test[topFeatures].to_numpy()
+        self.X_test = self.X_test.to_numpy()
         self.Y_test = self.Y_test.to_numpy()
 
         inputSize = self.X_train.shape[1]
@@ -573,7 +567,7 @@ class fullNN():
             neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
         elif self.PARAMS['Feature_Selection'] == 'Chi2':
-            log_table('Chi2features', self.Chi2features)
+            log_table('Chi2features', self.Chi2Features)
 
         elif self.PARAMS['Feature_Selection'] == 'MI':
             log_table('MIFeatures', self.MIFeatures)
@@ -759,20 +753,30 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
+    def reset_random_seeds():
+        os.environ['PYTHONHASHSEED'] = str(1)
+        tf.random.set_seed(1)
+        np.random.seed(1)
+        random.seed(1)
+
+
+    reset_random_seeds()
+
     PARAMS = {'batch_size': 8192,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
-              'focal': True,
+              'focal': False,
               'alpha': 0.89,
               'gamma': 0.25,
-              'class_weights': False,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
               'Normalize': 'MinMax',
+              'OutlierRemove': 'iso',
               'Feature_Selection': 'Chi2',
               'Generator': False,
               'Tuner': "Hyperband",
@@ -783,7 +787,7 @@ if __name__ == "__main__":
 
     neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
     neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Focal Loss', 'HP Compare', 'OHE', 'Test'],
+                              tags=['Weighted', 'HP Compare', 'OHE', 'Test', 'RemoveOutliers'],
                               description='Testing out updated algo')
 
 
@@ -799,9 +803,9 @@ if __name__ == "__main__":
     data = model.prepData(data=dataPath)
     model.splitData()
     data = model.imputeData()
-    model.detectOutliers(method='iso')
+    model.detectOutliers()
     model.normalizeData()
     features = model.featureSelection(numFeatures=20)
-    model.hpTuning(features)
+    model.hpTuning()
     model.evaluateModel()
 
