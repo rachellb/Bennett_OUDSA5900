@@ -1210,12 +1210,12 @@ class fullNN():
 
         print(self.X_train.shape, self.Y_train.shape)
 
-    def featureSelection(self, numFeatures, method):
+    def featureSelection(self, numFeatures):
 
+        # If there are less features than the number selected
+        numFeatures = min(numFeatures, (self.X_train.shape[1]))
 
-        self.method = method
-
-        if method == 1:
+        if self.PARAMS['Feature_Selection'] == "XGBoost":
             model = XGBClassifier()
             model.fit(self.X_train, self.Y_train)
 
@@ -1230,25 +1230,24 @@ class fullNN():
             values = list(feature_important.values())
 
             data = pd.DataFrame(data=values, index=keys, columns=["score"]).sort_values(by="score", ascending=False)
-            XGBoostFeatures = list(data.index[0:numFeatures])
-            return XGBoostFeatures
+            topFeatures = list(data.index[0:numFeatures])
 
-        if method == 2:
+        if self.PARAMS['Feature_Selection'] == "Chi2":
             # instantiate SelectKBest to determine 20 best features
             fs = SelectKBest(score_func=chi2, k=numFeatures)
             fs.fit(self.X_train, self.Y_train)
-            df_scores = pd.DataFrame(fs.scores_)
+            df_scores = pd.DataFrame({"Scores": fs.scores_, "P-values": fs.pvalues_})
             df_columns = pd.DataFrame(self.X_train.columns)
             # concatenate dataframes
             feature_scores = pd.concat([df_columns, df_scores], axis=1)
-            feature_scores.columns = ['Feature_Name', 'Chi2 Score']  # name output columns
+            feature_scores.columns = ['Feature_Name', 'Chi2 Score', 'P-value']  # name output columns
             feature_scores.sort_values(by=['Chi2 Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             chi2Features = features['Feature_Name']
-            self.Chi2features = features
-            return chi2Features
+            topFeatures = list(chi2Features)
+            self.Chi2Features = features
 
-        if method == 3:
+        if self.PARAMS['Feature_Selection'] == "MI":
             # Mutual Information features
             fs = SelectKBest(score_func=mutual_info_classif, k=numFeatures)
             fs.fit(self.X_train, self.Y_train)
@@ -1260,14 +1259,24 @@ class fullNN():
             feature_scores.sort_values(by=['MI Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             mutualInfoFeatures = features['Feature_Name']
-            self.MIFeatures = features
-            return mutualInfoFeatures
+            topFeatures = list(mutualInfoFeatures)
+            self.MIFeatures = mutualInfoFeatures
+
+        self.X_train = self.X_train[topFeatures]
+        self.X_val = self.X_val[topFeatures]
+        self.X_test = self.X_test[topFeatures]
 
     def prepData(self, age, data):
 
         self.age = age
 
         data = pd.read_csv(data)
+
+        # Trying to save memory
+        for col in list(data.columns):
+            if list(data[col].unique()) == [0, 1]:
+                data[col] = data[col].astype('int8')
+
 
         X = data.drop(columns='Preeclampsia/Eclampsia')
         Y = data['Preeclampsia/Eclampsia']
@@ -1286,9 +1295,9 @@ class fullNN():
         LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures].to_numpy()
+        self.X_train = self.X_train.to_numpy()
         self.Y_train = self.Y_train.to_numpy()
-        self.X_test = self.X_test[topFeatures].to_numpy()
+        self.X_test = self.X_test.to_numpy()
         self.Y_test = self.Y_test.to_numpy()
 
         inputSize = self.X_train.shape[1]
@@ -1413,8 +1422,8 @@ class fullNN():
                    "True Positives": tp,
                    "True Negatives": tn,
                    "False Positives": fp,
-                   "False Negatives": fn,
-                   "History": self.history}
+                   "False Negatives": fn}
+                   #"History": self.history}
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -1440,19 +1449,21 @@ class fullNN():
 
         return Results
 
+
+
 class NoGen(fullNN):
     def __init__(self, PARAMS):
 
         self.PARAMS = PARAMS
 
-    def buildModel(self, topFeatures):
+    def buildModel(self):
 
         LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures]
+        self.X_train = self.X_train
         self.Y_train = self.Y_train
-        self.X_test = self.X_test[topFeatures]
+        self.X_test = self.X_test
         self.Y_test = self.Y_test
 
         inputSize = self.X_train.shape[1]
@@ -1539,37 +1550,36 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 4,
-              'dense_activation_0': 'relu',
-              'dense_activation_1': 'tanh',
-              'dense_activation_2': 'tanh',
-              'dense_activation_3': 'tanh',
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
               'units_0': 60,
-              'units_1': 60,
-              'units_2': 60,
-              'units_3': 30,
+              'units_1': 30,
+              'units_2': 45,
               'final_activation': 'sigmoid',
-              'optimizer': 'NAdam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': False,
+              'focal': True,
               'alpha': 0.94,
               'gamma': 0.25,
-              'class_weights': True,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
+              'Feature_Selection': 'Chi2',
               'Generator': False,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma African',
-                       tags=['Weighted', 'Random', 'Updated', '330 CV'],
+                       name='Oklahoma Native',
+                       tags=['Focal Loss', 'Hand Tuned', 'General Pop Features', '350 CV'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1585,9 +1595,9 @@ if __name__ == "__main__":
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/GenFeatChi2.csv')
 
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=33, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=35, random_state=36851234)
 
     X, y = model.prepData(age='Categorical', data=dataPath)
 
@@ -1610,10 +1620,9 @@ if __name__ == "__main__":
 
         model.setData(X_train, X_test, y_train, y_test)
 
-        features = model.featureSelection(numFeatures=12, method=2)
+        model.featureSelection(numFeatures=20)
         # For hand-tuning
-        model.buildModel(features)
-
+        model.buildModel()
         Results = model.evaluateModel()
 
         aucList.append(Results["AUC"])
@@ -1623,11 +1632,12 @@ if __name__ == "__main__":
         recallList.append(Results["Recall"])
         specList.append(Results["Specificity"])
         lossList.append(Results["Loss"])
-        historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
+        #historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
         tpList.append(Results['True Positives'])
         tnList.append(Results['True Negatives'])
         fpList.append(Results['False Positives'])
         fnList.append(Results['False Negatives'])
+
 
 
     run['List loss'] = lossList
@@ -1703,9 +1713,7 @@ if __name__ == "__main__":
         for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
             # Clear list
             auc = []
-            aucVal = []
             loss = []
-            lossVal = []
 
             for j in range(len(historyList)): # Iterate through each history object
 
@@ -1744,7 +1752,7 @@ if __name__ == "__main__":
         plt.legend(['training'], loc='upper right')
         run['Average Loss'].upload(avgloss)
 
-    plotAvg(historyList)
+    #plotAvg(historyList)
 
     mins = (time.time() - start_time) / 60  # Time in seconds
 
