@@ -1569,14 +1569,14 @@ class NoGen(NoTune):
         plt.close()
 
         auc = plt.figure()
-        #plt.ylim(0.06, 0.12)
+        plt.ylim(0.50, 0.66)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='lower right')
-        run['AUC/Epochs'].upload(auc)
+        plt.title('Model AUC')
+        plt.ylabel('AUC')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/AUC'].upload(auc)
 
         plt.clf()
         plt.cla()
@@ -1586,18 +1586,34 @@ class NoGen(NoTune):
         #plt.ylim(0.032, 0.432)
         plt.plot(self.history.history['loss'])
         plt.plot(self.history.history['val_loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        run['Loss/Epochs'].upload(loss)
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='upper right')
+        run['Graph/Loss'].upload(loss)
         # plt.show()
+
+        plt.clf()
+        plt.cla()
+        plt.close()
+
+        loss = plt.figure()
+        plt.ylim(0.50, 1)
+        plt.plot(self.history.history['accuracy'])
+        plt.plot(self.history.history['val_accuracy'])
+        plt.title('Model Accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/Acc'].upload(loss)
+        # plt.show()
+
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
 
-
-
         y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
+
+
 
         self.specificity = specificity_score(self.Y_test, y_predict)
 
@@ -1660,22 +1676,22 @@ if __name__ == "__main__":
 
     PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 60,
-              'units_1': 30,
-              'units_2': 45,
+              'dense_activation_1': 'tanh',
+              'dense_activation_2': 'tanh',
+              'units_0': 30,
+              'units_1': 60,
+              'units_2': 41,
               'final_activation': 'sigmoid',
               'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 100,
+              'epochs': 30,
               'features': 2,
-              'focal': True,
-              'alpha': 0.5,
-              'gamma': 1.25,
-              'class_weights': False,
+              'focal': False,
+              'alpha': 0.95,
+              'gamma': 1,
+              'class_weights': True,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1688,8 +1704,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
-                       name='Texas Full',
-                       tags=['Focal Loss', 'Hand Tuned', 'Compare Gammas', 'Compare Metrics'],
+                       name='Oklahoma Full',
+                       tags=['Unweighted', 'Hyperband', 'Getting Graphs'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1705,8 +1721,8 @@ if __name__ == "__main__":
         # Get data
 
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)
@@ -1722,8 +1738,10 @@ if __name__ == "__main__":
 
     else:
         preds = model.buildModel(features)
+        #np.save('OKFullUnweighted', preds)
 
 
+    """
     def calcCDF(pred, Y_test, g, label):
 
         # Step 1: get the loss of the already fit model for positive and negative samples separately
@@ -1824,7 +1842,7 @@ if __name__ == "__main__":
         plt.legend()
         plt.savefig('negplotCSP_TX_Higher_' + str(date), bbox_inches="tight")
     run['negplot'].upload(negplot)
-
+    """
 
 
     model.evaluateModel()

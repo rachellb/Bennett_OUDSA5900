@@ -119,11 +119,11 @@ class fullNN():
             # Fit and transform training data, then transform val and test using info gained from fitting
             scaleColumns = ['MotherAge', 'WeightAtAdmission',
                             'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
-                            'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']
+                            'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
 
             self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
-            self.X_val[scaleColumns] = scaler.fit_transform(self.X_val[scaleColumns])
-            self.X_test[scaleColumns] = scaler.fit_transform(self.X_test[scaleColumns])
+            self.X_val[scaleColumns] = scaler.transform(self.X_val[scaleColumns])
+            self.X_test[scaleColumns] = scaler.transform(self.X_test[scaleColumns])
 
         else:
             data_imputed = scaler.fit_transform(data)
@@ -265,7 +265,7 @@ class fullNN():
         elif self.PARAMS['OutlierRemove'] == 'ocsvm':
             out = OneClassSVM(nu=0.01)
         elif self.PARAMS['OutlierRemove'] == 'ee':
-            out = EllipticEnvelope(contamination=con)
+            out = EllipticEnvelope()
 
         yhat = out.fit_predict(self.X_train)
 
@@ -277,10 +277,10 @@ class fullNN():
 
         print(self.X_train.shape, self.Y_train.shape)
 
-    def featureSelection(self, numFeatures):
+    def featureSelection(self):
 
         # If there are less features than the number selected
-        numFeatures = min(numFeatures, (self.X_train.shape[1]))
+        numFeatures = min(self.PARAMS['Feature_Num'], (self.X_train.shape[1]))
 
         if self.PARAMS['Feature_Selection'] == "XGBoost":
             model = XGBClassifier()
@@ -329,7 +329,7 @@ class fullNN():
             features = feature_scores.iloc[0:numFeatures]
             mutualInfoFeatures = features['Feature_Name']
             topFeatures = list(mutualInfoFeatures)
-            self.MIFeatures = mutualInfoFeatures
+            self.MIFeatures = features
 
         if self.PARAMS['Feature_Selection'] == None:
             topFeatures = self.X_train.columns
@@ -379,7 +379,7 @@ class fullNN():
                                                                random_state=42)
 
 
-            for i in range(hp.Int('num_layers', 2, 4)):
+            for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
 
@@ -611,7 +611,7 @@ class NoGen(fullNN):
             model = tf.keras.models.Sequential()
             model.add(tf.keras.Input(shape=(inputSize,)))
 
-            for i in range(hp.Int('num_layers', 2, 4)):
+            for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
                 model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
@@ -753,59 +753,63 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    def reset_random_seeds():
-        os.environ['PYTHONHASHSEED'] = str(1)
-        tf.random.set_seed(1)
-        np.random.seed(1)
-        random.seed(1)
+    outliers = ['iso', 'lof','ocsvm', 'ee']
+    for o in outliers:
+        def reset_random_seeds():
+            os.environ['PYTHONHASHSEED'] = str(1)
+            tf.random.set_seed(1)
+            np.random.seed(1)
+            random.seed(1)
 
 
-    reset_random_seeds()
+        reset_random_seeds()
 
-    PARAMS = {'batch_size': 8192,
-              'bias_init': False,
-              'estimator': "BayesianRidge",
-              'epochs': 30,
-              'focal': False,
-              'alpha': 0.89,
-              'gamma': 0.25,
-              'class_weights': True,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.20,
-              'BatchNorm': False,
-              'Momentum': 0.60,
-              'Normalize': 'MinMax',
-              'OutlierRemove': 'iso',
-              'Feature_Selection': 'Chi2',
-              'Generator': False,
-              'Tuner': "Hyperband",
-              'EXECUTIONS_PER_TRIAL': 1,
-              'MAX_TRIALS': 100,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10}
+        PARAMS = {'batch_size': 8192,
+                  'bias_init': False,
+                  'estimator': "BayesianRidge",
+                  'epochs': 30,
+                  'focal': True,
+                  'alpha': 0.89,
+                  'gamma': 0.25,
+                  'class_weights': False,
+                  'initializer': 'RandomUniform',
+                  'Dropout': True,
+                  'Dropout_Rate': 0.20,
+                  'BatchNorm': False,
+                  'Momentum': 0.60,
+                  'Normalize': 'MinMax',
+                  'OutlierRemove': o,
+                  'Feature_Selection': 'Chi2',
+                  'Feature_Num': 90,
+                  'Generator': False,
+                  'Tuner': "Hyperband",
+                  'EXECUTIONS_PER_TRIAL': 1,
+                  'MAX_TRIALS': 200,
+                  'TestSplit': 0.10,
+                  'ValSplit': 0.10}
 
-    neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
-    neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'HP Compare', 'OHE', 'Test', 'RemoveOutliers'],
-                              description='Testing out updated algo')
-
-
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS, name="MOMI")
-    else:
-        model = fullNN(PARAMS, name="MOMI")
+        neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
+        neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
+                                  tags=['Focal Loss', 'HP Compare', 'OHE', 'FS then encode'],
+                                  description='Testing out updated algo')
 
 
-    # Get data
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061021.csv')
-    data = model.prepData(data=dataPath)
-    model.splitData()
-    data = model.imputeData()
-    model.detectOutliers()
-    model.normalizeData()
-    features = model.featureSelection(numFeatures=20)
-    model.hpTuning()
-    model.evaluateModel()
+        if PARAMS['Generator'] == False:
+            model = NoGen(PARAMS, name="MOMI")
+        else:
+            model = fullNN(PARAMS, name="MOMI")
+
+
+        # Get data
+        parent = os.path.dirname(os.getcwd())
+        dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+        data = model.prepData(data=dataPath)
+        model.splitData()
+        data = model.imputeData()
+        model.detectOutliers()
+        model.normalizeData()
+        features = model.featureSelection()
+        model.encodeData()
+        model.hpTuning()
+        model.evaluateModel()
 

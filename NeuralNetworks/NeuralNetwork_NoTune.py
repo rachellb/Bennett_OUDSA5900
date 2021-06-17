@@ -1263,7 +1263,6 @@ class fullNN():
             self.MIFeatures = mutualInfoFeatures
 
         self.X_train = self.X_train[topFeatures]
-        self.X_val = self.X_val[topFeatures]
         self.X_test = self.X_test[topFeatures]
 
     def prepData(self, age, data):
@@ -1290,7 +1289,7 @@ class fullNN():
         self.Y_train = Y_train
         self.Y_test = Y_test
 
-    def buildModel(self, topFeatures):
+    def buildModel(self):
 
         LOG_DIR = f"{int(time.time())}"
 
@@ -1435,16 +1434,16 @@ class fullNN():
         print(f'Test Gmean: {gmean:.6f}')
 
         # Feature Selection
-        if self.method == 1:
+        if self.PARAMS['Feature_Selection'] == "XGBoost":
             # TODO: figure out how to load and save this image
             image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
             neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
-        elif self.method == 2:
-            run['Chi2features'].upload(File.as_html(self.Chi2features))
+        elif self.PARAMS['Feature_Selection'] == "Chi2":
+            run['Chi2features'].upload(File.as_html(self.Chi2Features))
 
 
-        elif self.method == 3:
+        elif self.PARAMS['Feature_Selection'] == "MI":
             run['MIFeatures'].upload(File.as_html(self.MIFeatures))
 
         return Results
@@ -1564,7 +1563,7 @@ if __name__ == "__main__":
               'bias_init': 0,
               'epochs': 30,
               'focal': True,
-              'alpha': 0.94,
+              'alpha': 0.92,
               'gamma': 0.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
@@ -1578,8 +1577,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma Native',
-                       tags=['Focal Loss', 'Hand Tuned', 'General Pop Features', '350 CV'],
+                       name='Texas African',
+                       tags=['Focal Loss', 'Hyperband', 'Updated', '350 CV', 'General Pop Features'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1595,7 +1594,8 @@ if __name__ == "__main__":
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/GenFeatChi2.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/African/GenFeatChi2.csv')
+
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=35, random_state=36851234)
 

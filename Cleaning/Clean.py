@@ -447,6 +447,10 @@ def cleanDataMomi(weeks):
     prenatal["Diastolic"] = new[1]
     prenatal[["Systolic", "Diastolic"]] = prenatal[["Systolic", "Diastolic"]].apply(pd.to_numeric)
 
+    # MAP = (Sys + (2*Dias))/3
+    prenatal['MAP'] = np.NaN
+    prenatal['MAP'] = (prenatal['Systolic'] + (2 * prenatal['Diastolic'])) / 3
+
     # Step 2, make indicator variable
     prenatal['High'] = np.where((prenatal['Systolic'] >= 130) | (prenatal['Diastolic'] >= 80), 1, 0)
 
@@ -470,9 +474,9 @@ def cleanDataMomi(weeks):
     join.drop(columns=['MOMI_ID', 'Delivery_Number_Per_Mother', 'InfantWeightGrams', 'Eclampsia',
                        'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath', 'OutcomeOfDelivery', 'DeliveryMethod',
                        'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
-                       'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams',
-                       'GestWeightCompare', 'DELWKSGT', 'MMULGSTD', 'Diastolic', 'Race', 'DeliveryYear', 'PNV_Total_Number',
-                       'MPostPartumComplications'], inplace=True)
+                       'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams','GestWeightCompare',
+                       'DELWKSGT', 'MMULGSTD', 'Systolic','Diastolic', 'Race', 'DeliveryYear',
+                       'PNV_Total_Number', 'MPostPartumComplications'], inplace=True)
 
 
 
@@ -488,7 +492,7 @@ def cleanDataMomi(weeks):
     join['InfSex'] = join['InfSex'].map(hypMap)
 
 
-    join.to_csv('momiEncoded_061021.csv', index=False)
+    join.to_csv('momiEncoded_061521.csv', index=False)
 
     return join
 
