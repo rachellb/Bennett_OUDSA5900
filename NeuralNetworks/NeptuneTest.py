@@ -1279,6 +1279,7 @@ class NoTune(fullNN):
 
     def buildModel(self, topFeatures):
 
+        self.start_time = time.time()
 
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures].to_numpy()
@@ -1376,28 +1377,43 @@ class NoTune(fullNN):
         plt.close()
 
         auc = plt.figure()
-        # plt.ylim(0.40, 0.66)
+        plt.ylim(0.52, 0.69)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        run['AUC/Epochs'].upload(auc)
+        plt.title('Model AUC')
+        plt.ylabel('AUC')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/AUC'].upload(auc)
 
         plt.clf()
         plt.cla()
         plt.close()
 
         loss = plt.figure()
-        # plt.ylim(0.0, 0.15)
+        # plt.ylim(0.032, 0.432)
         plt.plot(self.history.history['loss'])
         plt.plot(self.history.history['val_loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        run['Loss/Epochs'].upload(loss)
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='upper right')
+        run['Graph/Loss'].upload(loss)
+        # plt.show()
+
+        plt.clf()
+        plt.cla()
+        plt.close()
+
+        loss = plt.figure()
+        plt.ylim(0.50, 1)
+        plt.plot(self.history.history['accuracy'])
+        plt.plot(self.history.history['val_accuracy'])
+        plt.title('Model Accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/Acc'].upload(loss)
         # plt.show()
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
@@ -1569,7 +1585,7 @@ class NoGen(NoTune):
         plt.close()
 
         auc = plt.figure()
-        plt.ylim(0.50, 0.66)
+        #plt.ylim(0.5, 0.8)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
         plt.title('Model AUC')
@@ -1598,7 +1614,7 @@ class NoGen(NoTune):
         plt.close()
 
         loss = plt.figure()
-        plt.ylim(0.50, 1)
+        plt.ylim(0.4, 1)
         plt.plot(self.history.history['accuracy'])
         plt.plot(self.history.history['val_accuracy'])
         plt.title('Model Accuracy')
@@ -1676,22 +1692,22 @@ if __name__ == "__main__":
 
     PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
-              'dense_activation_1': 'tanh',
-              'dense_activation_2': 'tanh',
-              'units_0': 30,
-              'units_1': 60,
-              'units_2': 41,
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
+              'units_1': 30,
+              'units_2': 45,
               'final_activation': 'sigmoid',
               'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
-              'epochs': 30,
+              'epochs': 200,
               'features': 2,
-              'focal': False,
-              'alpha': 0.95,
+              'focal': True,
+              'alpha': 0.97,
               'gamma': 1,
-              'class_weights': True,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
@@ -1704,8 +1720,8 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/PreeclampsiaCompare',
                        api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Unweighted', 'Hyperband', 'Getting Graphs'],
+                       name='Texas Native',
+                       tags=['Focal Loss', 'Hyperband', 'Getting Graphs'],
                        source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1722,7 +1738,8 @@ if __name__ == "__main__":
 
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
     data = model.prepData(age='Categorical',
                            data=dataPath)

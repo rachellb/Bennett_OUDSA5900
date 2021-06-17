@@ -18,6 +18,10 @@ from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 
 class NeuralNetwork():
 
+    def __init__(self, PARAMS):
+
+        self.PARAMS = PARAMS
+
     def prepData(self, data):
         path = data
 
@@ -127,6 +131,22 @@ class NeuralNetwork():
         np.save('Predictions/Texas/nn_pred', y_pred_keras)
 
 if __name__ == "__main__":
+    PARAMS = {'batch_size': 8192,
+              'bias_init': False,
+              'epochs': 30,
+              'focal': True,
+              'alpha': 0.89,
+              'gamma': 0.25,
+              'class_weights': False,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Feature_Num': 90,
+              'Generator': False,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
 
     neuralnet = NeuralNetwork()
     neuralnet.prepData(data='Data/Texas/')

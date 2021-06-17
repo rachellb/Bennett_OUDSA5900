@@ -34,6 +34,8 @@ class dataSplitter():
         
 if __name__ == "__main__":
 
+
+
     parent = os.path.dirname(os.getcwd())
 
     #pathOK=os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
