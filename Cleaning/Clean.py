@@ -473,10 +473,10 @@ def cleanDataMomi(weeks):
     # Dropping variables we won't be using
     join.drop(columns=['MOMI_ID', 'Delivery_Number_Per_Mother', 'InfantWeightGrams', 'Eclampsia',
                        'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath', 'OutcomeOfDelivery', 'DeliveryMethod',
-                       'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
+                       'PregRelatedHypertension', 'Mild_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
                        'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams','GestWeightCompare',
-                       'DELWKSGT', 'MMULGSTD', 'Systolic','Diastolic', 'Race', 'DeliveryYear',
-                       'PNV_Total_Number', 'MPostPartumComplications'], inplace=True)
+                       'DELWKSGT', 'MMULGSTD', 'Systolic', 'Diastolic', 'Race', 'DeliveryYear',
+                       'PNV_Total_Number', 'MPostPartumComplications', 'Preeclampsia/Eclampsia'], inplace=True)
 
 
 
@@ -492,7 +492,7 @@ def cleanDataMomi(weeks):
     join['InfSex'] = join['InfSex'].map(hypMap)
 
 
-    join.to_csv('momiEncoded_061521.csv', index=False)
+    join.to_csv('momiSeverePE_062221.csv', index=False)
 
     return join
 
@@ -1575,7 +1575,5 @@ def age_encoderOK(data):
                          'Age__3.0': 'Ages 30-39',
                          'Age__2.0': 'Ages 20-29',
                          'Age__4.0': 'Ages 40+'}, inplace=True)
-
-
 
     return data

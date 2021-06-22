@@ -25,7 +25,7 @@ from matplotlib import pyplot
 from xgboost import plot_importance
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import mutual_info_classif
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder, RobustScaler
 from sklearn.feature_selection import f_classif
 
 # For balancing batches
@@ -107,11 +107,35 @@ class fullNN():
 
         return data
 
-    def normalizeData(self):
+    def scaleData(self):
 
         if self.PARAMS['Normalize'] == 'MinMax':
             scaler = MinMaxScaler()
         elif self.PARAMS['Normalize'] == 'StandardScale':
+            scaler = StandardScaler()
+        elif self.PARAMS['Normalize'] == 'Robust':
+            scaler = RobustScaler()
+
+        if (self.name=="MOMI"):
+            # Fit and transform training data, then transform val and test using info gained from fitting
+            scaleColumns = ['MotherAge', 'WeightAtAdmission',
+                            'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
+                            'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
+
+            self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
+            self.X_val[scaleColumns] = scaler.transform(self.X_val[scaleColumns])
+            self.X_test[scaleColumns] = scaler.transform(self.X_test[scaleColumns])
+
+        else:
+            data_imputed = scaler.fit_transform(data)
+            X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
+            self.data = X_imputed_df
+
+    def normalizeData(self, method='MinMax'):
+
+        if method == 'MinMax':
+            scaler = MinMaxScaler()
+        elif method == 'StandardScale':
             scaler = StandardScaler()
 
 
@@ -244,8 +268,8 @@ class fullNN():
 
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Preeclampsia/Eclampsia')
-        Y = self.data['Preeclampsia/Eclampsia']
+        X = self.data.drop(columns='Mild_PE')
+        Y = self.data['Mild_PE']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
                                                                                 test_size=self.PARAMS['TestSplit'],
                                                                                 random_state=self.split1)
@@ -753,7 +777,7 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    outliers = ['iso', 'lof','ocsvm', 'ee']
+    outliers = ['iso','lof','ocsvm','ee']
     for o in outliers:
         def reset_random_seeds():
             os.environ['PYTHONHASHSEED'] = str(1)
@@ -768,10 +792,10 @@ if __name__ == "__main__":
                   'bias_init': False,
                   'estimator': "BayesianRidge",
                   'epochs': 30,
-                  'focal': True,
+                  'focal': False,
                   'alpha': 0.89,
                   'gamma': 0.25,
-                  'class_weights': False,
+                  'class_weights': True,
                   'initializer': 'RandomUniform',
                   'Dropout': True,
                   'Dropout_Rate': 0.20,
@@ -779,8 +803,8 @@ if __name__ == "__main__":
                   'Momentum': 0.60,
                   'Normalize': 'MinMax',
                   'OutlierRemove': o,
-                  'Feature_Selection': 'Chi2',
-                  'Feature_Num': 90,
+                  'Feature_Selection': 'None',
+                  'Feature_Num': 30,
                   'Generator': False,
                   'Tuner': "Hyperband",
                   'EXECUTIONS_PER_TRIAL': 1,
@@ -790,8 +814,8 @@ if __name__ == "__main__":
 
         neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
         neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                                  tags=['Focal Loss', 'HP Compare', 'OHE', 'FS then encode'],
-                                  description='Testing out updated algo')
+                                  tags=['Weighted', 'OHE', 'FS then encode', 'Predict Mild'],
+                                  description='Standardize and then Normalize')
 
 
         if PARAMS['Generator'] == False:
@@ -802,13 +826,13 @@ if __name__ == "__main__":
 
         # Get data
         parent = os.path.dirname(os.getcwd())
-        dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+        dataPath = os.path.join(parent, 'Preprocess/momiMildPE_061821.csv')
         data = model.prepData(data=dataPath)
         model.splitData()
         data = model.imputeData()
         model.detectOutliers()
-        model.normalizeData()
-        features = model.featureSelection()
+        model.scaleData()
+        #features = model.featureSelection()
         model.encodeData()
         model.hpTuning()
         model.evaluateModel()

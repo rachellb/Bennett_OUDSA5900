@@ -1562,9 +1562,9 @@ if __name__ == "__main__":
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': True,
-              'alpha': 0.92,
-              'gamma': 0.25,
+              'focal': False,
+              'alpha': 0.5,
+              'gamma': 1.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -1572,13 +1572,13 @@ if __name__ == "__main__":
               'BatchNorm': False,
               'Momentum': 0.60,
               'Feature_Selection': 'Chi2',
-              'Generator': False,
+              'Generator': True,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='Texas African',
-                       tags=['Focal Loss', 'Hyperband', 'Updated', '350 CV', 'General Pop Features'],
+                       tags=['Unweighted', 'Hyperband', 'Updated', '350 CV', 'Balanced-Batches'],
                        source_files=['NeuralNetwork_NoTune.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -1594,7 +1594,7 @@ if __name__ == "__main__":
     parent = os.path.dirname(os.getcwd())
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
     #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/African/GenFeatChi2.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/African/Chi2_Categorical_041521.csv')
 
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=35, random_state=36851234)
