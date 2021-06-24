@@ -268,8 +268,8 @@ class fullNN():
 
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Mild_PE')
-        Y = self.data['Mild_PE']
+        X = self.data.drop(columns='Severe_PE')
+        Y = self.data['Severe_PE']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
                                                                                 test_size=self.PARAMS['TestSplit'],
                                                                                 random_state=self.split1)
@@ -803,8 +803,8 @@ if __name__ == "__main__":
                   'Momentum': 0.60,
                   'Normalize': 'MinMax',
                   'OutlierRemove': o,
-                  'Feature_Selection': 'None',
-                  'Feature_Num': 30,
+                  'Feature_Selection': 'Chi2',
+                  'Feature_Num': 150,
                   'Generator': False,
                   'Tuner': "Hyperband",
                   'EXECUTIONS_PER_TRIAL': 1,
@@ -814,7 +814,7 @@ if __name__ == "__main__":
 
         neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
         neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                                  tags=['Weighted', 'OHE', 'FS then encode', 'Predict Mild'],
+                                  tags=['Weighted', 'OHE', 'FS then encode', 'Predict Severe'],
                                   description='Standardize and then Normalize')
 
 
@@ -826,13 +826,13 @@ if __name__ == "__main__":
 
         # Get data
         parent = os.path.dirname(os.getcwd())
-        dataPath = os.path.join(parent, 'Preprocess/momiMildPE_061821.csv')
+        dataPath = os.path.join(parent, 'Preprocess/momiSeverePE_062221.csv')
         data = model.prepData(data=dataPath)
         model.splitData()
         data = model.imputeData()
         model.detectOutliers()
         model.scaleData()
-        #features = model.featureSelection()
+        features = model.featureSelection()
         model.encodeData()
         model.hpTuning()
         model.evaluateModel()
