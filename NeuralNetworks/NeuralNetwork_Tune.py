@@ -4,7 +4,7 @@
 # For handling data
 from datetime import datetime
 import os
-
+import random
 from sklearn.utils import class_weight
 
 # For imputing data
@@ -25,7 +25,7 @@ from matplotlib import pyplot
 from xgboost import plot_importance
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import mutual_info_classif
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder, RobustScaler
 from sklearn.feature_selection import f_classif
 
 # For balancing batches
@@ -38,7 +38,7 @@ import tensorflow.keras.backend as K
 import kerastuner
 from kerastuner.tuners import Hyperband, BayesianOptimization, RandomSearch
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-import neptunecontrib.monitoring.kerastuner as npt_utils
+
 
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
@@ -58,56 +58,15 @@ from sklearn.svm import OneClassSVM
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
 # For recording results
+
 import neptune
 from neptunecontrib.api.table import log_table
 from neptunecontrib.monitoring.keras import NeptuneMonitor
+import neptunecontrib.monitoring.kerastuner as npt_utils
+from neptune.new.types import File
 from secret import api_
 from Cleaning.Clean import *
 
-
-
-
-
-# Initialize the project
-neptune.init(project_qualified_name='rachellb/Comparisons', api_token=api_)
-
-def weighted_loss_persample(weights, batchSize):
-    def loss(y_true, y_pred):
-        # The masks for the true and false values
-
-        idx_1 = y_true == 1.
-        idx_0 = y_true == 0.
-
-        pred_1 = tf.boolean_mask(y_pred, idx_1)
-        pred_1 = tf.expand_dims(pred_1, 1)
-
-        true_1 = tf.boolean_mask(y_true, idx_1)
-        true_1 = tf.expand_dims(true_1, 1)
-
-        pred_0 = tf.boolean_mask(y_pred, idx_0)
-        pred_0 = tf.expand_dims(pred_0, 1)
-
-        true_0 = tf.boolean_mask(y_true, idx_0)
-        true_0 = tf.expand_dims(true_0, 1)
-
-        bce = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-
-        # The losses for the 0 classes
-        losses_0 = bce(pred_0, true_0)
-        losses_0 = tf.reduce_sum(losses_0, 0)  # Add back up
-        losses_0 = losses_0 * weights[0]
-
-        # The losses for the 1 classes
-        losses_1 = bce(pred_1, true_1)
-        losses_1 = tf.reduce_sum(losses_1, 0)  # Add back up
-        losses_1 = losses_1 * weights[1]
-
-        # Add them back up and divide by batch size
-        sum = losses_0 + losses_1
-        total = sum / batchSize
-        return total
-
-    return loss
 
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
@@ -127,21 +86,52 @@ def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
     return weighted_cross_entropy_fn
 
+
+
+
 class fullNN():
 
-    def __init__(self, PARAMS):
+    def __init__(self, PARAMS, name=None):
 
         self.PARAMS = PARAMS
+        self.name = name
 
-    def prepData(self, age, data):
+    def prepData(self, data, age=None):
 
-        self.age = age
-
-        data = pd.read_csv(data)
+        if (self.name=="MOMI"):
+            data = pd.read_csv(data)
+            self.data = data
+        else:
+            self.age = age
+            data = pd.read_csv(data)
 
         return data
 
-    def normalizeData(self,  method):
+    def scaleData(self):
+
+        if self.PARAMS['Normalize'] == 'MinMax':
+            scaler = MinMaxScaler()
+        elif self.PARAMS['Normalize'] == 'StandardScale':
+            scaler = StandardScaler()
+        elif self.PARAMS['Normalize'] == 'Robust':
+            scaler = RobustScaler()
+
+        if (self.name=="MOMI"):
+            # Fit and transform training data, then transform val and test using info gained from fitting
+            scaleColumns = ['MotherAge', 'WeightAtAdmission',
+                            'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
+                            'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
+
+            self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
+            self.X_val[scaleColumns] = scaler.transform(self.X_val[scaleColumns])
+            self.X_test[scaleColumns] = scaler.transform(self.X_test[scaleColumns])
+
+        else:
+            data_imputed = scaler.fit_transform(data)
+            X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
+            self.data = X_imputed_df
+
+    def normalizeData(self, method='MinMax'):
 
         if method == 'MinMax':
             scaler = MinMaxScaler()
@@ -149,22 +139,59 @@ class fullNN():
             scaler = StandardScaler()
 
 
-        data_imputed = scaler.fit_transform(data)
-        X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
-        self.data = X_imputed_df
+        if (self.name=="MOMI"):
+            # Fit and transform training data, then transform val and test using info gained from fitting
+            scaleColumns = ['MotherAge', 'WeightAtAdmission',
+                            'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
+                            'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
 
+            self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
+            self.X_val[scaleColumns] = scaler.transform(self.X_val[scaleColumns])
+            self.X_test[scaleColumns] = scaler.transform(self.X_test[scaleColumns])
 
-        return X_imputed_df
+        else:
+            data_imputed = scaler.fit_transform(data)
+            X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
+            self.data = X_imputed_df
 
-    def encodeData(self, data):
+    def encodeData(self):
 
-        features = [f for f in data.columns if f not in ['Label']]
+        encodeCols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
+                      'MStructuralHeartDiseas', 'MPostPartumComplications', 'DiabetesMellitus', 'ThyroidDisease',
+                      'MLiverGallPanc', 'KidneyDisease', 'MAnemiaWOHemoglobinopathy', 'MHemoglobinopathy',
+                      'Thrombocytopenia', 'ViralOrProtoInf', 'OtherSubstanceAbuse', 'InfSex', 'CNSAbnormality',
+                      'RaceCollapsed']
 
-        for feat in features:
-            lbl_enc = preprocessing.LabelEncoder()
-            data.loc[:, feat] = lbl_enc.fit_transform(data[feat].values)
+        selectCat = [c for c in self.X_train.columns if (c in encodeCols)]
 
-    def imputeData(self, data1, data2=None):
+        ohe = OneHotEncoder(handle_unknown='ignore')
+
+        # Train on the categorical variables
+        ohe.fit(self.data[selectCat])
+
+        X_trainCodes = ohe.transform(self.X_train[selectCat]).toarray()
+        X_valCodes = ohe.transform(self.X_val[selectCat]).toarray()
+        X_testCodes = ohe.transform(self.X_test[selectCat]).toarray()
+        feature_names = ohe.get_feature_names(selectCat)
+
+        self.X_train = pd.concat([self.X_train.drop(columns=selectCat).reset_index(drop=True),
+                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                 axis=1)
+
+        self.X_val = pd.concat([self.X_val.drop(columns=selectCat).reset_index(drop=True),
+                                pd.DataFrame(X_valCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                               axis=1)
+
+        self.X_test = pd.concat([self.X_test.drop(columns=selectCat).reset_index(drop=True),
+                                 pd.DataFrame(X_testCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                axis=1)
+
+        # OHE adds unnecessary nan column, which needs to be dropped
+        self.X_train = self.X_train.loc[:, ~self.X_train.columns.str.endswith('_nan')]
+        self.X_val = self.X_val.loc[:, ~self.X_val.columns.str.endswith('_nan')]
+        self.X_test = self.X_test.loc[:, ~self.X_test.columns.str.endswith('_nan')]
+
+    def imputeData(self, data1=None, data2=None):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
 
@@ -180,41 +207,89 @@ class fullNN():
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
-        if (data2 is not None):  # If running both datasets
-            if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
-                data = data1.append(data2)
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data)), columns=data.columns)
-            else:
-                self.data = data1.append(data2)
-        else:
-            if (data1.isnull().values.any() == True):
-                self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
-            else:
-                self.data = data1
 
-    def splitData(self, testSize, valSize):
+        if (self.name=='MOMI'):
+            if self.data.isnull().values.any():
+                self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
+                self.X_val_imputed = pd.DataFrame(MI_Imp.transform(self.X_val), columns=self.X_val.columns)
+                self.X_test_imputed = pd.DataFrame(MI_Imp.transform(self.X_test), columns=self.X_test.columns)
+
+                # Rounding only the categorical variables that were imputed
+                self.X_train = self.X_train_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
+                                                           'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
+                                                           'Primagrivada': 0, 'MaternalNeuromuscularDisease': 0,
+                                                           'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
+                                                           'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
+                                                           'RaceCollapsed': 0, 'Systolic': 0})
+                self.X_val = self.X_val_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
+                                                       'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
+                                                       'Primagrivada': 0, 'MaternalNeuromuscularDisease': 0,
+                                                       'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
+                                                       'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
+                                                       'RaceCollapsed': 0, 'Systolic': 0})
+
+                self.X_test = self.X_test_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
+                                                         'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
+                                                         'Primagrivada': 0, 'MaternalNeuromuscularDisease': 0,
+                                                         'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
+                                                         'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
+                                                         'RaceCollapsed': 0, 'Systolic': 0})
+
+            # Fix incorrectly imputed value
+            self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] > 4)), 4,
+                                                     self.X_train['RaceCollapsed'])
+            self.X_val['RaceCollapsed'] = np.where(((self.X_val['RaceCollapsed'] > 4)), 4,
+                                                   self.X_val['RaceCollapsed'])
+            self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] > 4)), 4,
+                                                    self.X_test['RaceCollapsed'])
+
+            # Fix incorrectly imputed value
+            self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] < 0)), 0,
+                                                     self.X_train['RaceCollapsed'])
+            self.X_val['RaceCollapsed'] = np.where(((self.X_val['RaceCollapsed'] < 0)), 0,
+                                                   self.X_val['RaceCollapsed'])
+            self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] < 0)), 0,
+                                                    self.X_test['RaceCollapsed'])
+
+        else:
+            if (data2 is not None):  # If running both datasets
+                if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
+                    data = data1.append(data2)
+                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data)), columns=data.columns)
+                else:
+                    self.data = data1.append(data2)
+            else:
+                if (data1.isnull().values.any() == True):
+                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
+                else:
+                    self.data = data1
+
+    def splitData(self):
+
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Label')
-        Y = self.data['Label']
-        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y, test_size=testSize,
+        X = self.data.drop(columns='Mild_PE')
+        Y = self.data['Mild_PE']
+        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
+                                                                                test_size=self.PARAMS['TestSplit'],
                                                                                 random_state=self.split1)
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
-                                                                              stratify=self.Y_train, test_size=valSize,
+                                                                              stratify=self.Y_train,
+                                                                              test_size=self.PARAMS['ValSplit'],
                                                                               random_state=self.split2)
 
-    def detectOutliers(self, method, con):
+    def detectOutliers(self, con='auto'):
 
         print(self.X_train.shape, self.Y_train.shape)
 
-        if method == 'iso':
+        if self.PARAMS['OutlierRemove'] == 'iso':
             out = IsolationForest(contamination=con)
-        elif method == 'lof':
+        elif self.PARAMS['OutlierRemove'] == 'lof':
             out = LocalOutlierFactor(contamination=con)
-        elif method == 'ocsvm':
+        elif self.PARAMS['OutlierRemove'] == 'ocsvm':
             out = OneClassSVM(nu=0.01)
-        elif method == 'ee':
-            out = EllipticEnvelope(contamination=con)
+        elif self.PARAMS['OutlierRemove'] == 'ee':
+            out = EllipticEnvelope()
 
         yhat = out.fit_predict(self.X_train)
 
@@ -226,21 +301,21 @@ class fullNN():
 
         print(self.X_train.shape, self.Y_train.shape)
 
-    def featureSelection(self, numFeatures, method):
+    def featureSelection(self):
 
         # If there are less features than the number selected
-        numFeatures = min(numFeatures, (self.X_train.shape[1]))
-        self.method = method
+        numFeatures = min(self.PARAMS['Feature_Num'], (self.X_train.shape[1]))
 
-        if method == 1:
+        if self.PARAMS['Feature_Selection'] == "XGBoost":
             model = XGBClassifier()
             model.fit(self.X_train, self.Y_train)
 
             # Save graph
             ax = plot_importance(model, max_num_features=numFeatures)
             fig1 = pyplot.gcf()
-            #pyplot.show()
-            fig1.savefig(self.dataset + 'XGBoostTopFeatures.png', bbox_inches='tight')
+            # pyplot.show()
+
+            fig1.savefig('XGBoostTopFeatures.png', bbox_inches='tight')
 
             # Get and save best features
             feature_important = model.get_booster().get_fscore()
@@ -248,27 +323,24 @@ class fullNN():
             values = list(feature_important.values())
 
             data = pd.DataFrame(data=values, index=keys, columns=["score"]).sort_values(by="score", ascending=False)
-            XGBoostFeatures = list(data.index[0:numFeatures])
+            topFeatures = list(data.index[0:numFeatures])
 
-            return XGBoostFeatures
-
-        if method == 2:
+        if self.PARAMS['Feature_Selection'] == "Chi2":
             # instantiate SelectKBest to determine 20 best features
             fs = SelectKBest(score_func=chi2, k=numFeatures)
             fs.fit(self.X_train, self.Y_train)
-            df_scores = pd.DataFrame(fs.scores_)
+            df_scores = pd.DataFrame({"Scores": fs.scores_, "P-values": fs.pvalues_})
             df_columns = pd.DataFrame(self.X_train.columns)
             # concatenate dataframes
             feature_scores = pd.concat([df_columns, df_scores], axis=1)
-            feature_scores.columns = ['Feature_Name', 'Chi2 Score']  # name output columns
+            feature_scores.columns = ['Feature_Name', 'Chi2 Score', 'P-value']  # name output columns
             feature_scores.sort_values(by=['Chi2 Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             chi2Features = features['Feature_Name']
-            self.Chi2features = features
+            topFeatures = list(chi2Features)
+            self.Chi2Features = features
 
-            return chi2Features
-
-        if method == 3:
+        if self.PARAMS['Feature_Selection'] == "MI":
             # Mutual Information features
             fs = SelectKBest(score_func=mutual_info_classif, k=numFeatures)
             fs.fit(self.X_train, self.Y_train)
@@ -280,24 +352,27 @@ class fullNN():
             feature_scores.sort_values(by=['MI Score'], ascending=False, inplace=True)
             features = feature_scores.iloc[0:numFeatures]
             mutualInfoFeatures = features['Feature_Name']
+            topFeatures = list(mutualInfoFeatures)
             self.MIFeatures = features
-            return mutualInfoFeatures
 
-        if method == 4:
-            features = self.X_train.columns
-            return features
+        if self.PARAMS['Feature_Selection'] == None:
+            topFeatures = self.X_train.columns
 
-    def hpTuning(self, topFeatures):
+        self.X_train = self.X_train[topFeatures]
+        self.X_val = self.X_val[topFeatures]
+        self.X_test = self.X_test[topFeatures]
+
+    def hpTuning(self):
         self.start_time = time.time()
 
         tf.keras.backend.clear_session()
 
         # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures].to_numpy()
+        self.X_train = self.X_train.to_numpy()
         self.Y_train = self.Y_train.to_numpy()
-        self.X_val = self.X_val[topFeatures].to_numpy()
+        self.X_val = self.X_val.to_numpy()
         self.Y_val = self.Y_val.to_numpy()
-        self.X_test = self.X_test[topFeatures].to_numpy()
+        self.X_test = self.X_test.to_numpy()
         self.Y_test = self.Y_test.to_numpy()
 
         inputSize = self.X_train.shape[1]
@@ -344,13 +419,13 @@ class fullNN():
             final_activation = 'sigmoid'
 
             if self.PARAMS['bias_init']:
-                model.add(Dense(1, activation=final_activation))
-            elif not self.PARAMS['bias_init']:
                 model.add(
                     Dense(1, activation=final_activation, bias_initializer=tf.keras.initializers.Constant(value=bias)))
+            else:
+                model.add(Dense(1, activation=final_activation))
 
-            # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop', 'SGD'])
+                # Select optimizer
+                optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
 
             lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
 
@@ -364,8 +439,15 @@ class fullNN():
             elif optimizer == 'SGD':
                 optimizer = tf.keras.optimizers.SGD(lr, clipnorm=0.0001)
 
+            elif optimizer == 'NAdam':
+                optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
+
+
+            # Loss function
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+            elif self.PARAMS['class_weights']:
+                loss = weighted_binary_cross_entropy(class_weight_dict)
             else:
                 loss = 'binary_crossentropy'
 
@@ -380,8 +462,6 @@ class fullNN():
             return model
 
 
-
-
         if self.PARAMS['Tuner'] == 'Hyperband':
             self.tuner = Hyperband(build_model,
                                    objective=kerastuner.Objective('val_auc', direction="max"),
@@ -389,7 +469,8 @@ class fullNN():
                                    seed=1234,
                                    factor=3,
                                    overwrite=True,
-                                   logger=npt_utils.NeptuneLogger())
+                                   logger=npt_utils.NeptuneLogger(),
+                                   directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
             self.tuner = BayesianOptimization(build_model,
@@ -397,8 +478,9 @@ class fullNN():
                                               overwrite=True,
                                               max_trials=self.PARAMS['MAX_TRIALS'],
                                               seed=1234,
-                                              executions_per_trial=2,
-                                              logger=npt_utils.NeptuneLogger())
+                                              executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                                              logger=npt_utils.NeptuneLogger(),
+                                              directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Random':
             self.tuner = RandomSearch(
@@ -407,8 +489,9 @@ class fullNN():
                 overwrite=True,
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
-                executions_per_trial=self.PARAMS['EXECUTION_PER_TRIAL'],
-                logger=npt_utils.NeptuneLogger()
+                executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                logger=npt_utils.NeptuneLogger(),
+                directory=os.path.normpath('C:/')
             )
 
         self.tuner.search(self.training_generator,
@@ -422,6 +505,7 @@ class fullNN():
         self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
 
         self.best_model = self.tuner.hypermodel.build(self.best_hps)
+
         self.history = self.best_model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
                                            validation_data=(self.validation_generator), verbose=2)
 
@@ -490,6 +574,8 @@ class fullNN():
         neptune.log_metric('False Positive', self.fp)
         neptune.log_metric('False Negative', self.fn)
 
+
+
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
         print(f'True Positives #: {self.tp} / True Negatives # {self.tn}')
@@ -500,38 +586,29 @@ class fullNN():
         print(f'Test Gmean: {self.gmean:.6f}')
 
         # Feature Selection
-        if self.method == 1:
-            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
+        if self.PARAMS['Feature_Selection'] == 'XGBoost':
+            image = Image.open('XGBoostTopFeatures.png')
             neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
-        elif self.method == 2:
-            log_table('Chi2features', self.Chi2features)
+        elif self.PARAMS['Feature_Selection'] == 'Chi2':
+            log_table('Chi2features', self.Chi2Features)
 
-        elif self.method == 3:
+        elif self.PARAMS['Feature_Selection'] == 'MI':
             log_table('MIFeatures', self.MIFeatures)
 
         mins = (time.time() - self.start_time) / 60  # Time in seconds
-
         neptune.log_metric('minutes', mins)
 
 class NoGen(fullNN):
-    def __init__(self, PARAMS):
+    def __init__(self, PARAMS, name=None):
 
         self.PARAMS = PARAMS
+        self.name = name
 
-    def hpTuning(self, topFeatures):
+    def hpTuning(self):
         self.start_time = time.time()
 
         tf.keras.backend.clear_session()
-
-        # Set all to numpy arrays
-        self.X_train = self.X_train[topFeatures]
-        self.Y_train = self.Y_train
-        self.X_val = self.X_val[topFeatures]
-        self.Y_val = self.Y_val
-        self.X_test = self.X_test[topFeatures]
-        self.Y_test = self.Y_test
-
         inputSize = self.X_train.shape[1]
 
         # Class weights
@@ -554,56 +631,31 @@ class NoGen(fullNN):
 
 
         def build_model(hp):
-
-            #inputs = tf.keras.Input(shape=(self.X_train.shape[1],))
-
             # define the keras model
-            inputs = []
-            outputs = []
-            categorical_columns = self.X_train.columns
-
-            for c in categorical_columns:
-                print(c)
-                num_unique_vals = 2
-                embed_dim = int(max(min(np.ceil(num_unique_vals / 2), 50), 2))
-                inp = tf.keras.layers.Input(shape=(1,))
-                out = tf.keras.layers.Embedding(num_unique_vals + 1, embed_dim)(inp)
-
-                if self.PARAMS['Dropout']:
-                    out = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(out)
-
-                out = tf.keras.layers.Reshape(target_shape=(embed_dim,))(out)
-                inputs.append(inp)
-                outputs.append(out)
-
-            # Concatenate into one single feature vector
-            x = tf.keras.layers.Concatenate()(outputs)
+            model = tf.keras.models.Sequential()
+            model.add(tf.keras.Input(shape=(inputSize,)))
 
             for i in range(hp.Int('num_layers', 2, 8)):
                 units = hp.Choice('units_' + str(i), values=[30, 36, 30, 41, 45, 60])
                 deep_activation = hp.Choice('dense_activation_' + str(i), values=['relu', 'tanh'])
-                """
-                if i == 0:
-                    x = Dense(units=units, activation=deep_activation)(inputs)
-                else:
-                    x = Dense(units=units, activation=deep_activation)(x)
-                """
-                x = Dense(units=units, activation=deep_activation)(x)
+                model.add(Dense(units=units, activation=deep_activation))  # , kernel_initializer=initializer,))
+
                 if self.PARAMS['Dropout']:
-                    x = tf.keras.layers.Dropout(self.PARAMS['Dropout_Rate'])(x)
+                    model.add(Dropout(self.PARAMS['Dropout_Rate']))
 
                 if self.PARAMS['BatchNorm']:
-                    x = tf.keras.layers.BatchNormalization(momentum=self.PARAMS['Momentum'])(x)
+                    model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
             if self.PARAMS['bias_init']:
-                y = Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias))(x)
-            else:
-                y = Dense(1, activation='sigmoid')(x)
+                model.add(
+                    Dense(1, activation='sigmoid', bias_initializer=tf.keras.initializers.Constant(value=bias)))
+            elif not self.PARAMS['bias_init']:
+                model.add(Dense(1, activation='sigmoid'))
 
             # Select optimizer
-            optimizer = hp.Choice('optimizer', values=['adam', 'RMSprop'])#, 'SGD'])
+            optimizer = hp.Choice('optimizer', values=['adam', 'NAdam', 'RMSprop', 'SGD'])
 
-            lr = hp.Choice('learning_rate', [1e-3, 1e-4, 1e-5])
+            lr = hp.Choice('learning_rate', [1e-3, 1e-4])
 
             # Conditional for each optimizer
             if optimizer == 'adam':
@@ -615,30 +667,32 @@ class NoGen(fullNN):
             elif optimizer == 'SGD':
                 optimizer = tf.keras.optimizers.SGD(lr, clipnorm=0.0001)
 
+            elif optimizer == 'NAdam':
+                optimizer = tf.keras.optimizers.Nadam(lr, clipnorm=0.0001)
+
+            # Loss Function
             if self.PARAMS['focal']:
                 loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+            elif self.PARAMS['class_weights']:
+                loss = weighted_binary_cross_entropy(class_weight_dict)
             else:
                 loss = 'binary_crossentropy'
 
-            """
-            weight_for_0 = hp.Float('Weight0', 1, 25, step=1)
-            weight_for_1 = hp.Float('Weight1', 1, 25, step=1)
-            class_weight_dict = {0: weight_for_0, 1: weight_for_1}
-            """
-            model = tf.keras.Model(inputs=inputs, outputs=y)
-            model.summary()
+
             # Compilation
             model.compile(optimizer=optimizer,
-                          loss=weighted_binary_cross_entropy(class_weight_dict),
+                          loss=loss,
                           metrics=['accuracy',
                                    tf.keras.metrics.Precision(),
                                    tf.keras.metrics.Recall(),
-                                   tf.keras.metrics.AUC()])
+                                   tf.keras.metrics.AUC(),
+                                   tf.keras.metrics.AUC(curve='PR')])
 
             return model
 
-        batches = [32, 64, 128, 256]
-        #batches = [2048, 4096, 8192]
+        #batches = [32, 64, 128, 256]
+        #batches = [32, 64, 128, 256, 2048, 4096, 8192]
+        #batches = [128, 256, 2048, 4096]
 
         # Tuners don't tune batch_size, need to subclass in order to change that.
         # Can also tune epoch size, but since Hyperband has inbuilt methods for that,
@@ -648,7 +702,8 @@ class NoGen(fullNN):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+
+                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
                 #kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyBayes, self).run_trial(trial, *args, **kwargs)
 
@@ -656,26 +711,27 @@ class NoGen(fullNN):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
                 super(MyHB, self).run_trial(trial, *args, **kwargs)
 
         class MyRand(kerastuner.tuners.RandomSearch):
             def run_trial(self, trial, *args, **kwargs):
                 # You can add additional HyperParameters for preprocessing and custom training loops
                 # via overriding `run_trial`
-                kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
+                #kwargs['batch_size'] = trial.hyperparameters.Choice('batch_size', values=batches)
                 # kwargs['epochs'] = trial.hyperparameters.Int('epochs', 10, 30)
                 super(MyRand, self).run_trial(trial, *args, **kwargs)
 
         if self.PARAMS['Tuner'] == 'Hyperband':
             self.tuner = MyHB(build_model,
-                                   objective=kerastuner.Objective('val_auc', direction="max"),
-                                   max_epochs=self.PARAMS['epochs'],
-                                   hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                   seed=1234,
-                                   factor=3,
-                                   overwrite=True,
-                                   logger=npt_utils.NeptuneLogger())
+                              objective=kerastuner.Objective('val_auc', direction="max"),
+                              max_epochs=self.PARAMS['epochs'],
+                              hyperband_iterations=self.PARAMS['EXECUTIONS_PER_TRIAL'],
+                              seed=1234,
+                              factor=3,
+                              overwrite=True,
+                              logger=npt_utils.NeptuneLogger(),
+                              directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Bayesian':
             self.tuner = MyBayes(build_model,
@@ -684,7 +740,8 @@ class NoGen(fullNN):
                                  max_trials=self.PARAMS['MAX_TRIALS'],
                                  seed=1234,
                                  executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                                 logger=npt_utils.NeptuneLogger())
+                                 logger=npt_utils.NeptuneLogger(),
+                                 directory=os.path.normpath('C:/'))
 
         elif self.PARAMS['Tuner'] == 'Random':
             self.tuner = MyRand(
@@ -694,7 +751,8 @@ class NoGen(fullNN):
                 seed=1234,
                 max_trials=self.PARAMS['MAX_TRIALS'],
                 executions_per_trial=self.PARAMS['EXECUTIONS_PER_TRIAL'],
-                logger=npt_utils.NeptuneLogger()
+                logger=npt_utils.NeptuneLogger(),
+                directory=os.path.normpath('C:/')
             )
 
         self.tuner.search(self.X_train, self.Y_train,
@@ -702,13 +760,13 @@ class NoGen(fullNN):
                           batch_size=self.PARAMS['batch_size'],
                           verbose=2,
                           validation_data=(self.X_val, self.Y_val),
-                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=4)])
+                          callbacks=[tf.keras.callbacks.EarlyStopping('val_auc', patience=10)])
         # Early stopping will stop epochs if val_loss doesn't improve for 4 iterations
 
-        # self.best_model = self.hb_tuner.get_best_models(num_models=1)[0]
         self.best_hps = self.tuner.get_best_hyperparameters(num_trials=1)[0]
 
         self.best_model = self.tuner.hypermodel.build(self.best_hps)
+
         self.history = self.best_model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
                                            epochs=self.PARAMS['epochs'],
                                            validation_data=(self.X_val, self.Y_val), verbose=2)
@@ -719,51 +777,63 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    PARAMS = {'batch_size': 32,
-              'bias_init': False,
-              'estimator': "ExtraTrees",
-              'epochs': 50,
-              'focal': False,
-              'alpha': 0.5,
-              'gamma': 1.25,
-              'class_weights': True,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.30,
-              'BatchNorm': True,
-              'Momentum': 0.60,
-              'Generator': False,
-              'Tuner': "Bayesian",
-              'EXECUTIONS_PER_TRIAL': 5,
-              'MAX_TRIALS': 10}
+    outliers = ['iso','lof','ocsvm','ee']
+    for o in outliers:
+        def reset_random_seeds():
+            os.environ['PYTHONHASHSEED'] = str(1)
+            tf.random.set_seed(1)
+            np.random.seed(1)
+            random.seed(1)
 
-    neptune.create_experiment(name='BreastCancer', params=PARAMS, send_hardware_metrics=True,
-                              tags=['scikit-learn weights'],
-                              description='Testing embedding')
 
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+        reset_random_seeds()
 
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS)
+        PARAMS = {'batch_size': 8192,
+                  'bias_init': False,
+                  'estimator': "BayesianRidge",
+                  'epochs': 30,
+                  'focal': False,
+                  'alpha': 0.89,
+                  'gamma': 0.25,
+                  'class_weights': True,
+                  'initializer': 'RandomUniform',
+                  'Dropout': True,
+                  'Dropout_Rate': 0.20,
+                  'BatchNorm': False,
+                  'Momentum': 0.60,
+                  'Normalize': 'MinMax',
+                  'OutlierRemove': o,
+                  'Feature_Selection': 'None',
+                  'Feature_Num': 30,
+                  'Generator': False,
+                  'Tuner': "Hyperband",
+                  'EXECUTIONS_PER_TRIAL': 1,
+                  'MAX_TRIALS': 200,
+                  'TestSplit': 0.10,
+                  'ValSplit': 0.10}
 
-    else:
-        model = fullNN(PARAMS)
+        neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
+        neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
+                                  tags=['Weighted', 'OHE', 'FS then encode', 'Predict Mild'],
+                                  description='Standardize and then Normalize')
 
-    """
-    # Get data
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
 
-    data = model.prepData(age='Categorical',
-                           data=dataPath)
-    """
+        if PARAMS['Generator'] == False:
+            model = NoGen(PARAMS, name="MOMI")
+        else:
+            model = fullNN(PARAMS, name="MOMI")
 
-    data = cleanBC()
-    #model.normalizeData(method='StandardScale')
-    data = model.imputeData(data)
 
-    model.splitData(testSize=0.10, valSize=0.10)
-    features = model.featureSelection(numFeatures=20, method=4)
-    model.hpTuning(features)
-    model.evaluateModel()
+        # Get data
+        parent = os.path.dirname(os.getcwd())
+        dataPath = os.path.join(parent, 'Preprocess/momiMildPE_061821.csv')
+        data = model.prepData(data=dataPath)
+        model.splitData()
+        data = model.imputeData()
+        model.detectOutliers()
+        model.scaleData()
+        #features = model.featureSelection()
+        model.encodeData()
+        model.hpTuning()
+        model.evaluateModel()
 

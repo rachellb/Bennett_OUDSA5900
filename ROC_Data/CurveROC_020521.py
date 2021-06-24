@@ -29,6 +29,9 @@ class Curve():
         self.nn = np.load('Predictions/'+self.data+ '/nn_pred.npy')
         self.nnWeight = np.load('Predictions/'+self.data+ '/nnWeight_pred.npy')
 
+        self.nn = np.load('Predictions/' + self.data + '/nn_pred.npy')
+        self.nnWeight = np.load('Predictions/' + self.data + '/nnWeight_pred.npy')
+
         self.predictions = {"LR": self.logpred,
                             "WLR": self.logWeight,
                             "SVM-Lin": self.svmLin,

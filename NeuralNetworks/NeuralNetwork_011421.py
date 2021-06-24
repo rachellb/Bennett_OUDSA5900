@@ -99,9 +99,11 @@ def weighted_loss_persample(weights, batchSize):
 
 
 class fullNN(NN):
-    def __init__(self, PARAMS):
+    def __init__(self, PARAMS, dataset):
 
         self.PARAMS = PARAMS
+        self.dataset = dataset
+
 
     def prepData(self, age, data):
 
@@ -435,10 +437,10 @@ if __name__ == "__main__":
 
 
     filename = 'Results/Oklahoma/Full/NoTune/ClassWeights/Test_a5g175'
-    modelWeighted = NoGen(filename)
+    modelWeighted = fullNN(PARAMS, filename)
     modelWeighted.prepData(age='Categorical',
                            data=path)
-    modelWeighted.splitData(testSize=0.20, valSize=0.20)
+    modelWeighted.splitData(testSize=0.10, valSize=0.10)
     # modelWeighted.detectOutliers('lof', con=0.1)
     features = modelWeighted.featureSelection(numFeatures=20, method=2)
 

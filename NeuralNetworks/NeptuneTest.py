@@ -10,6 +10,7 @@ import os
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.utils import class_weight
 from statistics import mean
+import math
 
 # For imputing data
 from sklearn.experimental import enable_iterative_imputer
@@ -20,7 +21,7 @@ from sklearn.feature_selection import SelectKBest, chi2
 from xgboost import XGBClassifier
 from matplotlib import pyplot
 from xgboost import plot_importance
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import mutual_info_classif
 from sklearn import preprocessing
@@ -41,25 +42,24 @@ import tensorflow.keras.backend as K
 
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, auc
+
 import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
-from openpyxl import Workbook  # For storing results
-from openpyxl.utils.dataframe import dataframe_to_rows
-import openpyxl
-from openpyxl import load_workbook
+import seaborn as sns
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 from NeuralNetworkBase import NN
+from PIL import Image
 
-import neptune
-from neptunecontrib.api.table import log_table
-from neptunecontrib.monitoring.keras import NeptuneMonitor
+import neptune.new as neptune
+from neptune.new.integrations.tensorflow_keras import NeptuneCallback
+from neptune.new.types import File
 
 from secret import api_
 # Initialize the project
-neptune.init(project_qualified_name='rachellb/NNOklahoma', api_token=api_)
+
 
 
 def weighted_loss_persample(weights, batchSize):
@@ -119,6 +119,36 @@ def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
     return weighted_cross_entropy_fn
 
+def costRatio(weights: dict, from_logits: bool = False):
+
+    assert 0 in weights
+    assert 1 in weights
+
+    def costRatio_fn(y_true, y_pred):
+        tf_y_true = tf.cast(y_true, dtype=tf.float64)
+        tf_y_pred = tf.cast(y_pred, dtype=tf.float64)
+        # Makes a weight vector? Puts weights at correct points
+        # If I want to do this, I just have to
+
+        TN = np.logical_and(K.eval(tf_y_true) == 0, K.eval(tf_y_pred) == 0)
+        TP = np.logical_and(K.eval(tf_y_true) == 1, K.eval(tf_y_pred) == 1)
+
+        FP = np.logical_and(K.eval(tf_y_true) == 0, K.eval(tf_y_pred) == 1)
+        FN = np.logical_and(K.eval(tf_y_true) == 1, K.eval(tf_y_pred) == 0)
+
+        # Converted as Keras Tensors
+        FN = K.sum(K.variable(FN))
+        FP = K.sum(K.variable(FP))
+
+
+        #Weights are
+
+        loss = K.sum(tf.math.multiply(FN,weights[0]),tf.math.multiply(FP,weights[1]))
+
+        return loss
+
+    return costRatio_fn
+
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
                '07': 2, '08': 2, '09': 3,
@@ -165,11 +195,31 @@ def age_encoderOK(data):
 
 class fullNN(NN):
 
+    def __init__(self, PARAMS, dataset):
+        self.PARAMS = PARAMS
+        self.dataset = dataset
+
     def cleanDataTX(self, age):
 
         self.age = age
 
-        quarter1 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        parent = os.path.dirname(os.getcwd())
+
+        system = 'linux'
+
+        if system == 'linux':
+            dataPathq1 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_1q2013_tab.txt")
+            dataPathq2 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_2q2013_tab.txt")
+            dataPathq3 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_3q2013_tab.txt")
+            dataPathq4 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_4q2013_tab.txt")
+
+        else:
+            dataPathq1 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_1q2013_tab.txt")
+            dataPathq2 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_2q2013_tab.txt")
+            dataPathq3 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_3q2013_tab.txt")
+            dataPathq4 = os.path.join(parent, r"Data\Texas_PUDF\PUDF_base1_4q2013_tab.txt")
+
+        quarter1 = pd.read_csv(dataPathq1, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -248,7 +298,7 @@ class fullNN(NN):
                                       'OTH_DIAG_CODE_23': str,
                                       'OTH_DIAG_CODE_24': str})
 
-        quarter2 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_2q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        quarter2 = pd.read_csv(dataPathq2, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -327,7 +377,7 @@ class fullNN(NN):
                                       'OTH_DIAG_CODE_23': str,
                                       'OTH_DIAG_CODE_24': str})
 
-        quarter3 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_3q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        quarter3 = pd.read_csv(dataPathq3, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -406,7 +456,7 @@ class fullNN(NN):
                                       'OTH_DIAG_CODE_23': str,
                                       'OTH_DIAG_CODE_24': str})
 
-        quarter4 = pd.read_csv("Data/Texas_PUDF/PUDF_base1_4q2013_tab.txt", delimiter="\t", usecols=['RECORD_ID',
+        quarter4 = pd.read_csv(dataPathq4, delimiter="\t", usecols=['RECORD_ID',
                                                                                                      'DISCHARGE',
                                                                                                      'SOURCE_OF_ADMISSION',
                                                                                                      'PAT_STATUS',
@@ -574,22 +624,23 @@ class fullNN(NN):
         # Changes payment sources from codes to corresponding categories
         year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicare, "Medicare")
         year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicaid, "Medicaid")
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc,
-                                                                              "Self-pay or Charity")
-        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other,
-                                                                              "Other Insurance")
+        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc, "Self-pay or Charity")
+        year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other, "Other Insurance")
 
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare,
-                                                                                      "Medicare")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid,
-                                                                                      "Medicaid")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc,
-                                                                                      "Self-pay or Charity")
-        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other,
-                                                                                      "Other Insurance")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare, "Medicare")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid, "Medicaid")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc, "Self-pay or Charity")
+        year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other, "Other Insurance")
 
-        year2013 = pd.get_dummies(year2013, dummy_na=False,
+        # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+        year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
                                   columns=['FIRST_PAYMENT_SRC', 'SECONDARY_PAYMENT_SRC'])
+
+        # Propogates the missing values via the indicator columns
+        year2013.loc[
+            year2013["FIRST_PAYMENT_SRC__nan"] == 1, year2013.columns.str.startswith("FIRST_PAYMENT_SRC__")] = np.nan
+        year2013.loc[year2013["SECONDARY_PAYMENT_SRC__nan"] == 1, year2013.columns.str.startswith(
+            "SECONDARY_PAYMENT_SRC__")] = np.nan
 
         # Create category columns
         year2013['Medicaid'] = 0
@@ -597,35 +648,49 @@ class fullNN(NN):
         year2013['Self-pay or Charity'] = 0
         year2013['Other Insurance'] = 0
 
-        year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicaid'] == 1, 1,
+        year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC__Medicaid'] == 1, 1,
                                         year2013[
                                             'Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicaid'] == 1, 1,
+        year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Medicaid'] == 1, 1,
                                         year2013['Medicaid'])
-        year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicare'] == 1, 1,
+        year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC__Medicare'] == 1, 1,
                                         year2013['Medicare'])
-        year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicare'] == 1, 1,
+        year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Medicare'] == 1, 1,
                                         year2013['Medicare'])
+        year2013['Self-pay or Charity'] = np.where(year2013['FIRST_PAYMENT_SRC__Self-pay or Charity'] == 1, 1,
+                                                   year2013['Self-pay or Charity'])
         year2013['Self-pay or Charity'] = np.where(
-            year2013['FIRST_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
+            year2013['SECONDARY_PAYMENT_SRC__Self-pay or Charity'] == 1, 1,
             year2013['Self-pay or Charity'])
-        year2013['Self-pay or Charity'] = np.where(
-            year2013['SECONDARY_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
-            year2013['Self-pay or Charity'])
-        year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC_Other Insurance'] == 1, 1,
+        year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC__Other Insurance'] == 1, 1,
                                                year2013['Other Insurance'])
-        year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Other Insurance'] == 1,
+        year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Other Insurance'] == 1,
                                                1, year2013['Other Insurance'])
 
+        year2013['Medicaid'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Medicaid'])
+        year2013['Medicare'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Medicare'])
+        year2013['Self-pay or Charity'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Self-pay or Charity'])
+        year2013['Other Insurance'] = np.where(
+            ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+            year2013['Other Insurance'])
+
         # Drop columns with dummies
-        year2013.drop(columns=['FIRST_PAYMENT_SRC_Medicaid',
-                               'SECONDARY_PAYMENT_SRC_Medicaid',
-                               'FIRST_PAYMENT_SRC_Medicare',
-                               'SECONDARY_PAYMENT_SRC_Medicare',
-                               'FIRST_PAYMENT_SRC_Self-pay or Charity',
-                               'SECONDARY_PAYMENT_SRC_Self-pay or Charity',
-                               'FIRST_PAYMENT_SRC_Other Insurance',
-                               'SECONDARY_PAYMENT_SRC_Other Insurance']
+        year2013.drop(columns=['FIRST_PAYMENT_SRC__Medicaid',
+                               'SECONDARY_PAYMENT_SRC__Medicaid',
+                               'FIRST_PAYMENT_SRC__Medicare',
+                               'SECONDARY_PAYMENT_SRC__Medicare',
+                               'FIRST_PAYMENT_SRC__Self-pay or Charity',
+                               'SECONDARY_PAYMENT_SRC__Self-pay or Charity',
+                               'FIRST_PAYMENT_SRC__Other Insurance',
+                               'SECONDARY_PAYMENT_SRC__Other Insurance',
+                               'FIRST_PAYMENT_SRC__nan',
+                               'SECONDARY_PAYMENT_SRC__nan']
                       , axis=1, inplace=True)
 
         # Rename Race columns
@@ -669,7 +734,7 @@ class fullNN(NN):
         diseaseDictionary = {}
 
         diseaseDictionary['Obesity'] = ['V853', 'V854', '27800', '27801', '27803', '6491']
-        # diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
+        diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['V2385']
         diseaseDictionary['Cocaine dependence'] = ['3042', '3056']
         diseaseDictionary['Amphetamine dependence'] = ['3044', '3057']
         diseaseDictionary['Gestational diabetes mellitus'] = ['6488']
@@ -707,7 +772,7 @@ class fullNN(NN):
         diseaseDictionary[
             'Congenital abnormalities of the uterus including those complicating pregnancy, childbirth, or the puerperium'] = [
             '6540', '7522', '7523']
-        # diseaseDictionary['Multiple Gestations'] = ['651']
+        diseaseDictionary['Multiple Gestations'] = ['651']
         diseaseDictionary['Fetal Growth Restriction'] = ['764']
         diseaseDictionary['Asthma'] = ['493']
         diseaseDictionary['Obstructive Sleep Apnea'] = ['32723']
@@ -753,7 +818,7 @@ class fullNN(NN):
                      'PAT_STATUS'], axis=1, inplace=True)
 
         # year2013 = (year2013.loc[(year2013['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
+       # year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -774,11 +839,11 @@ class fullNN(NN):
 
         African_Am = year2013.loc[year2013['RACE'] == '3']
         African_Am.drop(columns=['RACE'], inplace=True)
-        African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
+        #African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
 
         Native_Am = year2013.loc[year2013['RACE'] == '1']
         Native_Am.drop(columns=['RACE'], inplace=True)
-        Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
+        #Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
 
         # One hot encoding race
         year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -830,7 +895,7 @@ class fullNN(NN):
         year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
                                'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
 
-        year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
+        #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
 
         return year2013, African_Am, Native_Am
 
@@ -840,12 +905,12 @@ class fullNN(NN):
 
         self.dropMetro = dropMetro
 
-        ok2017 = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2017%20IP/pudf_cd.txt",
-            sep=",")
-        ok2018 = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2018%20IP/pudf_cdv2.txt",
-            sep=",")
+        parent = os.path.dirname(os.getcwd())
+        path2017 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2017_IP/pudf_cd.txt')
+        path2018 = os.path.join(parent, 'Data/Oklahom_PUDF_2020.08.27/2018_IP/pudf_cdv2.txt')
+
+        ok2017 = pd.read_csv(path2017, sep=",")
+        ok2018 = pd.read_csv(path2018, sep=",")
 
         # Dropping unneeded columns
         ok2017.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',
@@ -1010,11 +1075,13 @@ class fullNN(NN):
         ok2018['Race'].replace('O', 'Other/Unknown', inplace=True)
 
         # Read in list of Counties and their designation
-        urbanRural = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/County%20Metropolitan%20Classification.csv")
+
+        ruralPath = os.path.join(parent, r'Data/County_Metropolitan_Classification.csv')
+
+        urbanRural = pd.read_csv(ruralPath)
         urbanRural['county name'] = urbanRural['county name'].str.replace(' County', '')
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 'Urban')
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 'Rural')
+        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 1)
+        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 0)
         urbanRural.drop(columns='value', inplace=True)
 
         # Match capitalization
@@ -1034,10 +1101,11 @@ class fullNN(NN):
                     inplace=True)
 
         # Re-label marriage status
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 'Married')
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 'Married')
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 'Unmarried')
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 'Unmarried')
+        ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 1)
+        ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 1)
+        ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 0)
+        ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 0)
+
 
         # A list of relevant columns
         diagnosisColumns = ['pdx', 'dx1', 'dx2', 'dx3',
@@ -1147,61 +1215,53 @@ class fullNN(NN):
         # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
         # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
 
-        ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        #ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        #ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        """
+        data = ok2017.append(ok2018)
+        savePath = os.path.join(parent,'Data/Oklahoma_Clean/Full_' + date + '.csv')
+        data.to_csv(savePath)
+        """
 
-        # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+                                # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
-                                columns=['Race', 'Marital_status', 'Metro status'])
+                                columns=['Race'])
 
         # Propogates the missing values via the indicator columns
         ok2017.loc[ok2017["Race__nan"] == 1, ok2017.columns.str.startswith("Race__")] = np.nan
-        ok2017.loc[ok2017["Marital_status__nan"] == 1, ok2017.columns.str.startswith("Marital_status__")] = np.nan
-        ok2017.loc[ok2017["Metro status__nan"] == 1, ok2017.columns.str.startswith("Metro status__")] = np.nan
+
 
         # Drops the missingness indicator columns
         ok2017 = ok2017.drop(['Race__nan'], axis=1)
-        ok2017 = ok2017.drop(['Marital_status__nan'], axis=1)
-        ok2017 = ok2017.drop(['Metro status__nan'], axis=1)
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2018 = pd.get_dummies(ok2018, prefix_sep="__", dummy_na=True,
-                                columns=['Race', 'Marital_status', 'Metro status'])
+                                columns=['Race'])
 
         # Propogates the missing values via the indicator columns
         ok2018.loc[ok2018["Race__nan"] == 1, ok2018.columns.str.startswith("Race__")] = np.nan
-        ok2018.loc[ok2018["Marital_status__nan"] == 1, ok2018.columns.str.startswith("Marital_status__")] = np.nan
-        ok2018.loc[ok2018["Metro status__nan"] == 1, ok2018.columns.str.startswith("Metro status__")] = np.nan
 
         # Drops the missingness indicator columns
         ok2018 = ok2018.drop(['Race__nan'], axis=1)
-        ok2018 = ok2018.drop(['Marital_status__nan'], axis=1)
-        ok2018 = ok2018.drop(['Metro status__nan'], axis=1)
 
         ok2017.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race',
-                               'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried',
-                               'Metro status__Rural': 'Rural',
-                               'Metro status__Urban': 'Urban'}, inplace=True)
+                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
         ok2018.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race',
-                               'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried',
-                               'Metro status__Rural': 'Rural',
-                               'Metro status__Urban': 'Urban'}, inplace=True)
+                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
         if (dropMetro == True):
-            ok2017.drop(columns=['Rural', 'Urban'], inplace=True)
-            ok2018.drop(columns=['Rural', 'Urban'], inplace=True)
+            ok2017.drop(columns=['Metro status'], inplace=True)
+            ok2018.drop(columns=['Metro status'], inplace=True)
 
         # ok2017.to_csv('Data/Oklahoma_Clean/ok2017_Incomplete.csv', index=False)
         # ok2018.to_csv('Data/Oklahoma_Clean/ok2018_Incomplete.csv', index=False)
+
+
 
         return ok2017, ok2018
 
@@ -1211,34 +1271,15 @@ class fullNN(NN):
 
         self.data = pd.read_csv(data)
 
+        return self.data
+
 
 class NoTune(fullNN):
 
-    def __init__(self, PARAMS):
 
-        self.best_hps = PARAMS
+    def buildModel(self, topFeatures):
 
-
-
-    def buildModel(self, topFeatures, batchSize, initializer, epochs, alpha=None, gamma=None, biasInit=0):
-
-        self.biasInit = biasInit
         self.start_time = time.time()
-        self.best_hps = {'num_layers': 3,
-                         'dense_activation_0': 'tanh',
-                         'dense_activation_1': 'relu',
-                         'dense_activation_2': 'relu',
-                         'units_0': 30,
-                         'units_1': 36,
-                         'units_2': 45,
-                         'final_activation': 'sigmoid',
-                         'optimizer': 'Adam',
-                         'learning_rate': 0.001}
-
-        self.alpha = alpha
-        self.gamma = gamma
-        self.epochs = epochs
-        LOG_DIR = f"{int(time.time())}"
 
         # Set all to numpy arrays
         self.X_train = self.X_train[topFeatures].to_numpy()
@@ -1250,14 +1291,14 @@ class NoTune(fullNN):
 
         inputSize = self.X_train.shape[1]
 
-        self.batch_size = batchSize
 
         self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
-                                                         batch_size=self.batch_size,
+                                                         batch_size=self.PARAMS['batch_size'],
                                                          sampler=RandomOverSampler(),
                                                          random_state=42)
+
         self.validation_generator = BalancedBatchGenerator(self.X_val, self.Y_val,
-                                                           batch_size=self.batch_size,
+                                                           batch_size=self.PARAMS['batch_size'],
                                                            sampler=RandomOverSampler(),
                                                            random_state=42)
 
@@ -1267,42 +1308,56 @@ class NoTune(fullNN):
         self.model.add(tf.keras.Input(shape=(inputSize,)))
 
         # Hidden Layers
-        for i in range(self.best_hps['num_layers']):
+        for i in range(self.PARAMS['num_layers']):
             self.model.add(
-                Dense(units=self.best_hps['units_' + str(i)], activation=self.best_hps['dense_activation_' + str(i)]))
-            self.model.add(Dropout(0.20))
-            # self.model.add(BatchNormalization(momentum=0.60))
+                Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
+            if self.PARAMS['Dropout']:
+                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+            if self.PARAMS['BatchNorm']:
+                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
         class_weight_dict = dict(enumerate(class_weights))
         pos = class_weight_dict[1]
         neg = class_weight_dict[0]
-
         bias = np.log(pos / neg)
 
-        if biasInit == 0:
+        if self.PARAMS['bias_init'] == 0:
             # Final Layer
-            self.model.add(Dense(1, activation=self.best_hps['final_activation']))
-        elif biasInit == 1:
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation']))
+
+        elif self.PARAMS['bias_init'] == 1:
             # Final Layer
-            self.model.add(Dense(1, activation=self.best_hps['final_activation'],
+            self.model.add(Dense(1, activation=self.PARAMS['final_activation'],
                                  bias_initializer=tf.keras.initializers.Constant(
-                                     value=bias)))  # kernel_initializer=initializer,
+                                     value=bias)))
+
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
         # Loss Function
-        if self.PARAMS['focal'] == True:
-            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=alpha, gamma=gamma)
-            self.loss = "focal_loss"
+        if self.PARAMS['focal']:
+            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
         else:
             loss = 'binary_crossentropy'
-            self.loss = "binary-crossentropy"
 
-        neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
 
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=tfa.losses.SigmoidFocalCrossEntropy(alpha=(1 / pos), gamma=0),
+        self.model.compile(optimizer=optimizer,
+                           loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
@@ -1310,8 +1365,9 @@ class NoTune(fullNN):
 
         from neptunecontrib.monitoring.keras import NeptuneMonitor
 
-        self.history = self.model.fit(self.training_generator, epochs=epochs, validation_data=self.validation_generator,
-                                      verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
+        self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
+                                      validation_data=(self.validation_generator),
+                                      verbose=2,  callbacks=[NeptuneMonitor()])
 
     def evaluateModel(self):
 
@@ -1320,29 +1376,44 @@ class NoTune(fullNN):
         plt.cla()
         plt.close()
 
-        # plt.ylim(0.40, 0.66)
+        auc = plt.figure()
+        plt.ylim(0.52, 0.69)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        figname = self.dataset + '_trainTestAUC' + date + '.png'
-        plt.savefig(figname, bbox_inches="tight")
+        plt.title('Model AUC')
+        plt.ylabel('AUC')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/AUC'].upload(auc)
 
         plt.clf()
         plt.cla()
         plt.close()
 
-        # plt.ylim(0.0, 0.15)
+        loss = plt.figure()
+        # plt.ylim(0.032, 0.432)
         plt.plot(self.history.history['loss'])
         plt.plot(self.history.history['val_loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        figname = self.dataset + '_trainTestLoss' + date + '.png'
-        plt.savefig(figname, bbox_inches="tight")
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='upper right')
+        run['Graph/Loss'].upload(loss)
+        # plt.show()
+
+        plt.clf()
+        plt.cla()
+        plt.close()
+
+        loss = plt.figure()
+        plt.ylim(0.50, 1)
+        plt.plot(self.history.history['accuracy'])
+        plt.plot(self.history.history['val_accuracy'])
+        plt.title('Model Accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/Acc'].upload(loss)
         # plt.show()
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
@@ -1363,17 +1434,17 @@ class NoTune(fullNN):
         self.precision = score[2]
         self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
 
-        results = [['loss', self.loss],
-                   ['accuracy', self.accuracy],
-                   ['AUC', self.AUC],
-                   ['specificity', self.specificity],
-                   ['recall', self.recall],
-                   ['precision', self.precision],
-                   ['gmean', self.gmean],
-                   ['True Positive', self.tp],
-                   ['True Negative', self.tn],
-                   ['False Positive', self.fp],
-                   ['False Negative', self.fn]]
+        run['loss'] = self.loss
+        run['accuracy'] = self.accuracy
+        run['Test AUC'] = self.AUC
+        run['specificity'] = self.specificity
+        run['recall'] = self.recall
+        run['precision'] = self.precision
+        run['gmean'] = self.gmean
+        run['True Positive'] = self.tp
+        run['True Negative'] = self.tn
+        run['False Positive'] = self.fp
+        run['False Negative'] = self.fn
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -1384,27 +1455,25 @@ class NoTune(fullNN):
         print(f'Test Specificity: {self.specificity:.6f}')
         print(f'Test Gmean: {self.gmean:.6f}')
 
+        # Feature Selection
+        if self.method == 1:
+            # TODO: figure out how to load and save this image
+            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
+            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+
+        elif self.method == 2:
+            run['Chi2features'].upload(File.as_html(self.Chi2features))
+
+
+        elif self.method == 3:
+            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
+
         mins = (time.time() - self.start_time) / 60  # Time in seconds
 
-        self.best_hps['Batch Size'] = self.batch_size
-        self.best_hps['Age'] = self.age
-        self.best_hps['epochs'] = self.epochs
-        self.best_hps['loss'] = self.loss
-        self.best_hps['alpha'] = self.alpha
-        self.best_hps['gamma'] = self.gamma
-        self.best_hps['split1'] = self.split1
-        self.best_hps['split2'] = self.split2
-        self.best_hps['bias'] = self.biasInit
-        self.best_hps['time(mins)'] = mins
-
-
-        return self.AUC, self.gmean, self.precision, self.recall, self.specificity, self.tp, self.fp, self.tn, self.fn, self.loss
+        run['minutes'] = mins
 
 
 class NoGen(NoTune):
-    def __init__(self, PARAMS):
-
-        self.PARAMS = PARAMS
 
     def buildModel(self, topFeatures):
 
@@ -1464,66 +1533,103 @@ class NoGen(NoTune):
 
         class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
+        # Conditional for each optimizer
+        if self.PARAMS['optimizer'] == 'Adam':
+            optimizer = tf.keras.optimizers.Adam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'RMSprop':
+            optimizer = tf.keras.optimizers.RMSprop(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'SGD':
+            optimizer = tf.keras.optimizers.SGD(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+        elif self.PARAMS['optimizer'] == 'NAdam':
+            optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
+
+
+
         # Loss Function
         if self.PARAMS['focal']:
             loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
         else:
             loss = 'binary_crossentropy'
 
-        neptune.log_text('Loss Function', 'alpha=1/pos, gamma=0')
 
         # Compilation
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=self.PARAMS['learning_rate']),
-                           loss=weighted_binary_cross_entropy(class_weight_dict),
+        self.model.compile(optimizer=optimizer,
+                           loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
+                                    tf.keras.metrics.AUC(),
+                                    tf.keras.metrics.AUC(curve='PR')])
 
-        #Question - Can you put a list in here?
 
 
+
+        neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
 
         self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
                                       epochs=self.PARAMS['epochs'], validation_data=(self.X_val, self.Y_val),
-                                      verbose=2, class_weight=class_weight_dict, callbacks=[NeptuneMonitor()])
+                                      verbose=2, callbacks=[neptune_cbk])
+
+        return self.model.predict(self.X_test)
 
     def evaluateModel(self):
-
-
         # Graphing results
         plt.clf()
         plt.cla()
         plt.close()
 
         auc = plt.figure()
-        # plt.ylim(0.40, 0.66)
+        plt.ylim(0.5, 0.8)
         plt.plot(self.history.history['auc'])
         plt.plot(self.history.history['val_auc'])
-        plt.title('model auc')
-        plt.ylabel('auc')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        neptune.log_image('AUC/Epochs', auc, image_name='aucPlot')
+        plt.title('Model AUC')
+        plt.ylabel('AUC')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/AUC'].upload(auc)
 
         plt.clf()
         plt.cla()
         plt.close()
 
         loss = plt.figure()
-        # plt.ylim(0.0, 0.15)
+        #plt.ylim(0.032, 0.432)
         plt.plot(self.history.history['loss'])
         plt.plot(self.history.history['val_loss'])
-        plt.title('model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper right')
-        neptune.log_image('Loss/Epochs', loss, image_name='lossPlot')
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='upper right')
+        run['Graph/Loss'].upload(loss)
         # plt.show()
+
+        plt.clf()
+        plt.cla()
+        plt.close()
+
+        loss = plt.figure()
+        #plt.ylim(0.4, 1)
+        plt.plot(self.history.history['accuracy'])
+        plt.plot(self.history.history['val_accuracy'])
+        plt.title('Model Accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train', 'Validation'], loc='lower right')
+        run['Graph/Acc'].upload(loss)
+        # plt.show()
+
 
         # y_predict = self.best_model.predict_classes(self.test_X) # deprecated
 
         y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
+
+
 
         self.specificity = specificity_score(self.Y_test, y_predict)
 
@@ -1539,17 +1645,18 @@ class NoGen(NoTune):
         self.precision = score[2]
         self.tn, self.fp, self.fn, self.tp = confusion_matrix(self.Y_test, y_predict).ravel()
 
-        neptune.log_metric('loss', self.loss)
-        neptune.log_metric('accuracy', self.accuracy)
-        neptune.log_metric('AUC', self.AUC)
-        neptune.log_metric('specificity', self.specificity)
-        neptune.log_metric('recall', self.recall)
-        neptune.log_metric('precision', self.precision)
-        neptune.log_metric('gmean', self.gmean)
-        neptune.log_metric('True Positive', self.tp)
-        neptune.log_metric('True Negative', self.tn)
-        neptune.log_metric('False Positive', self.fp)
-        neptune.log_metric('False Negative', self.fn)
+        run['loss'] = self.loss
+        run['accuracy'] = self.accuracy
+        run['Test AUC'] = self.AUC
+        run['Test AUC(PR)'] = score[5]
+        run['specificity'] = self.specificity
+        run['recall'] = self.recall
+        run['precision'] = self.precision
+        run['gmean'] = self.gmean
+        run['True Positive'] = self.tp
+        run['True Negative'] = self.tn
+        run['False Positive'] = self.fp
+        run['False Negative'] = self.fn
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -1563,76 +1670,203 @@ class NoGen(NoTune):
         # Feature Selection
         if self.method == 1:
             #TODO: figure out how to load and save this image
-            img = openpyxl.drawing.image.Image(self.dataset + 'XGBoostTopFeatures.png')
-            img.anchor = 'A1'
+            image = Image.open(self.dataset + 'XGBoostTopFeatures.png')
+            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
 
         elif self.method == 2:
-            log_table('Chi2features', self.Chi2features)
+            run['Chi2features'].upload(File.as_html(self.Chi2features))
+
 
         elif self.method == 3:
-            log_table('MIFeatures', self.MIFeatures)
+            run['MIFeatures'].upload(File.as_html(self.MIFeatures))
 
 
         mins = (time.time() - self.start_time) / 60  # Time in seconds
 
-        neptune.log_metric('minutes', mins)
+        run['minutes'] = mins
+
 
 if __name__ == "__main__":
 
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 30,
-              'units_1': 36,
-              'units_2': 45,
-              'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
-              'learning_rate': 0.001,
-              'batch_size': 4096,
-              'bias_init': 1,
-              'epochs': 30,
-              'focal': False,
-              'alpha': 0.5,
-              'gamma': 1.25,
-              'class_weights': True,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.20,
-              'BatchNorm': False,
-              'Momentum': 0.60,
-              'Generator': False,
-              'Tune': False,
-              'Tuner': 'Hyperband',
-              'MAX_TRIALS': 5}
+    alpha = [0.25, 0.5, 0.75, 1]
+    gamma = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
-    neptune.create_experiment(name='CustomWeight2', params=PARAMS, send_hardware_metrics=True,
-                              tags=['(1 / class)*(total)/2.0'],
-                              description='Testing custom loss with keras built-in')
+    for a in alpha:
+        for g in gamma:
 
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+            PARAMS = {'num_layers': 3,
+                      'dense_activation_0': 'relu',
+                      'dense_activation_1': 'tanh',
+                      'dense_activation_2': 'tanh',
+                      'units_0': 30,
+                      'units_1': 60,
+                      'units_2': 45,
+                      'final_activation': 'sigmoid',
+                      'optimizer': 'RMSprop',
+                      'learning_rate': 0.001,
+                      'batch_size': 128,
+                      'bias_init': 0,
+                      'epochs': 30,
+                      'features': 2,
+                      'focal': True,
+                      'alpha': a,
+                      'gamma': g,
+                      'class_weights': False,
+                      'initializer': 'RandomUniform',
+                      'Dropout': True,
+                      'Dropout_Rate': 0.20,
+                      'BatchNorm': False,
+                      'Momentum': 0.60,
+                      'Generator': True,
+                      'Tune': False,
+                      'Tuner': 'Hyperband',
+                      'MAX_TRIALS': 5}
 
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS)
+            run = neptune.init(project='rachellb/FocalPre',
+                               api_token=api_,
+                               name='Texas Native',
+                               tags=['Focal Loss', 'Hyperband', 'Balanced-Batches'],
+                               source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
-    else:
-        model = fullNN(PARAMS)
+            run['hyper-parameters'] = PARAMS
 
-        # Get data
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
+            parent = os.path.dirname(os.getcwd())
+            dataset = os.path.join(parent, 'Figures/Oklahoma/')
 
-    model.prepData(age='Categorical',
-                           data=dataPath)
-    model.splitData(testSize=0.10, valSize=0.10)
-    features = model.featureSelection(numFeatures=20, method=2)
+            if PARAMS['Generator'] == False:
+                model = NoGen(PARAMS, dataset)
+            else:
+                model = NoTune(PARAMS, dataset)
 
-    if PARAMS['Tune'] == True:
-        model.hpTuning(features)
-        model.buildModel(features)
+                # Get data
 
-    else:
-        model.buildModel(features)
+            parent = os.path.dirname(os.getcwd())
+            #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+            #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+            dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
-    model.evaluateModel()
+            data = model.prepData(age='Categorical',
+                                   data=dataPath)
+
+            #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
+            model.imputeData(data)
+            x_test, y_test, x_train, y_train = model.splitData(testSize=0.10, valSize=0.10)
+            features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
+
+            if PARAMS['Tune'] == True:
+                model.hpTuning(features)
+                model.buildModel(features)
+
+            else:
+                preds = model.buildModel(features)
+                #np.save('OKFullUnweighted', preds)
+
+
+            """
+            def calcCDF(pred, Y_test, g, label):
+        
+                # Step 1: get the loss of the already fit model for positive and negative samples separately
+        
+                true = np.asarray(Y_test)
+                idsPos = np.where(true == 1)
+                idsNeg = np.where(true == 0)
+        
+                pPos = pred[idsPos]
+                yPos = true[idsPos]
+        
+                pNeg = pred[idsNeg]
+                yNeg = true[idsNeg]
+        
+                if label == 1:
+                    p = pPos
+                    y = yPos
+                    title = "Positive Loss Distribution"
+                else:
+                    p = pNeg
+                    y = yNeg
+                    title = "Negative Loss Distribution"
+        
+        
+                #loss2 = focalLoss(y, p, label)
+        
+                p = tf.convert_to_tensor(p)
+                y = tf.cast(y, tf.float32)
+                y = tf.convert_to_tensor(y)
+                y = tf.expand_dims(y, 1)
+        
+                fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=g)
+        
+        
+                @tf.function
+                def loss_graph(y,p):
+                    return fl(y,p)
+        
+        
+                loss = loss_graph(y,p)
+        
+        
+        
+                #x = np.sort(loss)
+                x = np.sort(loss)
+                # Normalized Data
+                x = x/sum(x)
+        
+                cdf = np.cumsum(x)
+                n = len(x)
+                share_of_population = np.arange(1, n + 1) / n
+        
+        
+                cdf_materials = {"shares": share_of_population,
+                                 "cusum": cdf}
+        
+                return cdf_materials
+        
+                # So maybe run through the list twice - once for positive, once for negative
+        
+            cdfListPos = []
+            cdfListNeg = []
+        
+            gammas = [0, 2, 4, 6, 8]
+        
+            for g in gammas:
+                # will need to store all this
+                cdf_matPos = calcCDF(preds, y_test, g, 1)
+                cdf_matNeg = calcCDF(preds, y_test, g, 0)
+                cdfListPos.append(cdf_matPos)
+                cdfListNeg.append(cdf_matNeg)
+        
+            # Plotting for a test:
+        
+            plt.clf()
+            plt.cla()
+            plt.close()
+        
+            posplot = plt.figure()
+            for i in range(len(gammas)):
+                plt.plot(cdfListPos[i]['shares'], cdfListPos[i]['cusum'], label= r'$\gamma$ = ' + str(gammas[i]))
+                plt.title('Positive Points CSP')
+                plt.ylabel('Cumulative Normalized Loss')
+                plt.legend()
+                plt.savefig('posplotCSP_TX_Higher_' +str(date), bbox_inches="tight")
+            run['posplot'].upload(posplot)
+        
+            plt.clf()
+            plt.cla()
+            plt.close()
+        
+        
+            negplot = plt.figure()
+            for i in range(len(gammas)):
+                plt.plot(cdfListNeg[i]['shares'], cdfListNeg[i]['cusum'], label=r'$\gamma$ = ' + str(gammas[i]))
+                plt.title('Negative Points CSP')
+                plt.ylabel('Cumulative Normalized Loss')
+                plt.legend()
+                plt.savefig('negplotCSP_TX_Higher_' + str(date), bbox_inches="tight")
+            run['negplot'].upload(negplot)
+            """
+
+
+            model.evaluateModel()
+
+            run.stop()
 
