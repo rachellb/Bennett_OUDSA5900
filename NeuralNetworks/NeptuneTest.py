@@ -1688,23 +1688,25 @@ class NoGen(NoTune):
 
 if __name__ == "__main__":
 
+    """"""
     alpha = [0.25, 0.5, 0.75, 1]
     gamma = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
     for a in alpha:
         for g in gamma:
 
+
             PARAMS = {'num_layers': 3,
-                      'dense_activation_0': 'relu',
-                      'dense_activation_1': 'tanh',
-                      'dense_activation_2': 'tanh',
-                      'units_0': 30,
-                      'units_1': 60,
+                      'dense_activation_0': 'tanh',
+                      'dense_activation_1': 'relu',
+                      'dense_activation_2': 'relu',
+                      'units_0': 60,
+                      'units_1': 30,
                       'units_2': 45,
                       'final_activation': 'sigmoid',
                       'optimizer': 'RMSprop',
                       'learning_rate': 0.001,
-                      'batch_size': 128,
+                      'batch_size': 256,
                       'bias_init': 0,
                       'epochs': 30,
                       'features': 2,
@@ -1724,7 +1726,7 @@ if __name__ == "__main__":
 
             run = neptune.init(project='rachellb/FocalPre',
                                api_token=api_,
-                               name='Texas Native',
+                               name='Oklahoma African',
                                tags=['Focal Loss', 'Hyperband', 'Balanced-Batches'],
                                source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
@@ -1743,7 +1745,7 @@ if __name__ == "__main__":
             parent = os.path.dirname(os.getcwd())
             #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
             #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-            dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+            dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/African/Chi2_Categorical_051321.csv')
 
             data = model.prepData(age='Categorical',
                                    data=dataPath)
