@@ -1687,186 +1687,184 @@ class NoGen(NoTune):
 
 
 if __name__ == "__main__":
-
+    """
     alpha = [0.25, 0.5, 0.75, 1]
     gamma = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
     for a in alpha:
         for g in gamma:
+    """
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
+              'units_1': 30,
+              'units_2': 45,
+              'final_activation': 'sigmoid',
+              'optimizer': 'RMSprop',
+              'learning_rate': 0.001,
+              'batch_size': 8192,
+              'bias_init': 0,
+              'epochs': 1000,
+              'features': 2,
+              'focal': True,
+              'alpha': 0.96,
+              'gamma': 1.76,
+              'class_weights': False,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Generator': False,
+              'Tune': False,
+              'Tuner': 'Hyperband',
+              'MAX_TRIALS': 5}
 
-            PARAMS = {'num_layers': 3,
-                      'dense_activation_0': 'relu',
-                      'dense_activation_1': 'tanh',
-                      'dense_activation_2': 'tanh',
-                      'units_0': 30,
-                      'units_1': 60,
-                      'units_2': 45,
-                      'final_activation': 'sigmoid',
-                      'optimizer': 'RMSprop',
-                      'learning_rate': 0.001,
-                      'batch_size': 128,
-                      'bias_init': 0,
-                      'epochs': 30,
-                      'features': 2,
-                      'focal': True,
-                      'alpha': a,
-                      'gamma': g,
-                      'class_weights': False,
-                      'initializer': 'RandomUniform',
-                      'Dropout': True,
-                      'Dropout_Rate': 0.20,
-                      'BatchNorm': False,
-                      'Momentum': 0.60,
-                      'Generator': True,
-                      'Tune': False,
-                      'Tuner': 'Hyperband',
-                      'MAX_TRIALS': 5}
+    run = neptune.init(project='rachellb/PreeclampsiaCompare',
+                       api_token=api_,
+                       name='Texas African',
+                       tags=['Focal Loss', 'Hyperband', 'Getting Graphs'],
+                       source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
 
-            run = neptune.init(project='rachellb/FocalPre',
-                               api_token=api_,
-                               name='Texas Native',
-                               tags=['Focal Loss', 'Hyperband', 'Balanced-Batches'],
-                               source_files=['NeptuneTest.py', 'NeuralNetworkBase.py'])
+    run['hyper-parameters'] = PARAMS
 
-            run['hyper-parameters'] = PARAMS
+    parent = os.path.dirname(os.getcwd())
+    dataset = os.path.join(parent, 'Figures/Oklahoma/')
 
-            parent = os.path.dirname(os.getcwd())
-            dataset = os.path.join(parent, 'Figures/Oklahoma/')
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS, dataset)
+    else:
+        model = NoTune(PARAMS, dataset)
 
-            if PARAMS['Generator'] == False:
-                model = NoGen(PARAMS, dataset)
-            else:
-                model = NoTune(PARAMS, dataset)
+    parent = os.path.dirname(os.getcwd())
+    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Texas/African/Chi2_Categorical_041521.csv')
 
-                # Get data
+    data = model.prepData(age='Categorical',
+                           data=dataPath)
 
-            parent = os.path.dirname(os.getcwd())
-            #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-            #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-            dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
+    model.imputeData(data)
+    x_test, y_test, x_train, y_train = model.splitData(testSize=0.10, valSize=0.10)
+    features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
 
-            data = model.prepData(age='Categorical',
-                                   data=dataPath)
+    if PARAMS['Tune'] == True:
+        model.hpTuning(features)
+        model.buildModel(features)
 
-            #ok2017, ok2018 = model.cleanDataOK(age='Categorical', dropMetro=False)
-            model.imputeData(data)
-            x_test, y_test, x_train, y_train = model.splitData(testSize=0.10, valSize=0.10)
-            features = model.featureSelection(numFeatures=20, method=PARAMS['features'])
-
-            if PARAMS['Tune'] == True:
-                model.hpTuning(features)
-                model.buildModel(features)
-
-            else:
-                preds = model.buildModel(features)
-                #np.save('OKFullUnweighted', preds)
+    else:
+        preds = model.buildModel(features)
+        #np.save('OKFullUnweighted', preds)
 
 
-            """
-            def calcCDF(pred, Y_test, g, label):
-        
-                # Step 1: get the loss of the already fit model for positive and negative samples separately
-        
-                true = np.asarray(Y_test)
-                idsPos = np.where(true == 1)
-                idsNeg = np.where(true == 0)
-        
-                pPos = pred[idsPos]
-                yPos = true[idsPos]
-        
-                pNeg = pred[idsNeg]
-                yNeg = true[idsNeg]
-        
-                if label == 1:
-                    p = pPos
-                    y = yPos
-                    title = "Positive Loss Distribution"
-                else:
-                    p = pNeg
-                    y = yNeg
-                    title = "Negative Loss Distribution"
-        
-        
-                #loss2 = focalLoss(y, p, label)
-        
-                p = tf.convert_to_tensor(p)
-                y = tf.cast(y, tf.float32)
-                y = tf.convert_to_tensor(y)
-                y = tf.expand_dims(y, 1)
-        
-                fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=g)
-        
-        
-                @tf.function
-                def loss_graph(y,p):
-                    return fl(y,p)
-        
-        
-                loss = loss_graph(y,p)
-        
-        
-        
-                #x = np.sort(loss)
-                x = np.sort(loss)
-                # Normalized Data
-                x = x/sum(x)
-        
-                cdf = np.cumsum(x)
-                n = len(x)
-                share_of_population = np.arange(1, n + 1) / n
-        
-        
-                cdf_materials = {"shares": share_of_population,
-                                 "cusum": cdf}
-        
-                return cdf_materials
-        
-                # So maybe run through the list twice - once for positive, once for negative
-        
-            cdfListPos = []
-            cdfListNeg = []
-        
-            gammas = [0, 2, 4, 6, 8]
-        
-            for g in gammas:
-                # will need to store all this
-                cdf_matPos = calcCDF(preds, y_test, g, 1)
-                cdf_matNeg = calcCDF(preds, y_test, g, 0)
-                cdfListPos.append(cdf_matPos)
-                cdfListNeg.append(cdf_matNeg)
-        
-            # Plotting for a test:
-        
-            plt.clf()
-            plt.cla()
-            plt.close()
-        
-            posplot = plt.figure()
-            for i in range(len(gammas)):
-                plt.plot(cdfListPos[i]['shares'], cdfListPos[i]['cusum'], label= r'$\gamma$ = ' + str(gammas[i]))
-                plt.title('Positive Points CSP')
-                plt.ylabel('Cumulative Normalized Loss')
-                plt.legend()
-                plt.savefig('posplotCSP_TX_Higher_' +str(date), bbox_inches="tight")
-            run['posplot'].upload(posplot)
-        
-            plt.clf()
-            plt.cla()
-            plt.close()
-        
-        
-            negplot = plt.figure()
-            for i in range(len(gammas)):
-                plt.plot(cdfListNeg[i]['shares'], cdfListNeg[i]['cusum'], label=r'$\gamma$ = ' + str(gammas[i]))
-                plt.title('Negative Points CSP')
-                plt.ylabel('Cumulative Normalized Loss')
-                plt.legend()
-                plt.savefig('negplotCSP_TX_Higher_' + str(date), bbox_inches="tight")
-            run['negplot'].upload(negplot)
-            """
+    """
+    def calcCDF(pred, Y_test, g, label):
+
+        # Step 1: get the loss of the already fit model for positive and negative samples separately
+
+        true = np.asarray(Y_test)
+        idsPos = np.where(true == 1)
+        idsNeg = np.where(true == 0)
+
+        pPos = pred[idsPos]
+        yPos = true[idsPos]
+
+        pNeg = pred[idsNeg]
+        yNeg = true[idsNeg]
+
+        if label == 1:
+            p = pPos
+            y = yPos
+            title = "Positive Loss Distribution"
+        else:
+            p = pNeg
+            y = yNeg
+            title = "Negative Loss Distribution"
 
 
-            model.evaluateModel()
+        #loss2 = focalLoss(y, p, label)
 
-            run.stop()
+        p = tf.convert_to_tensor(p)
+        y = tf.cast(y, tf.float32)
+        y = tf.convert_to_tensor(y)
+        y = tf.expand_dims(y, 1)
+
+        fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=PARAMS['alpha'], gamma=g)
+
+
+        @tf.function
+        def loss_graph(y,p):
+            return fl(y,p)
+
+
+        loss = loss_graph(y,p)
+
+
+
+        #x = np.sort(loss)
+        x = np.sort(loss)
+        # Normalized Data
+        x = x/sum(x)
+
+        cdf = np.cumsum(x)
+        n = len(x)
+        share_of_population = np.arange(1, n + 1) / n
+
+
+        cdf_materials = {"shares": share_of_population,
+                         "cusum": cdf}
+
+        return cdf_materials
+
+        # So maybe run through the list twice - once for positive, once for negative
+
+    cdfListPos = []
+    cdfListNeg = []
+
+    gammas = [0, 2, 4, 6, 8]
+
+    for g in gammas:
+        # will need to store all this
+        cdf_matPos = calcCDF(preds, y_test, g, 1)
+        cdf_matNeg = calcCDF(preds, y_test, g, 0)
+        cdfListPos.append(cdf_matPos)
+        cdfListNeg.append(cdf_matNeg)
+
+    # Plotting for a test:
+
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+    posplot = plt.figure()
+    for i in range(len(gammas)):
+        plt.plot(cdfListPos[i]['shares'], cdfListPos[i]['cusum'], label= r'$\gamma$ = ' + str(gammas[i]))
+        plt.title('Positive Points CSP')
+        plt.ylabel('Cumulative Normalized Loss')
+        plt.legend()
+        plt.savefig('posplotCSP_TX_Higher_' +str(date), bbox_inches="tight")
+    run['posplot'].upload(posplot)
+
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+
+    negplot = plt.figure()
+    for i in range(len(gammas)):
+        plt.plot(cdfListNeg[i]['shares'], cdfListNeg[i]['cusum'], label=r'$\gamma$ = ' + str(gammas[i]))
+        plt.title('Negative Points CSP')
+        plt.ylabel('Cumulative Normalized Loss')
+        plt.legend()
+        plt.savefig('negplotCSP_TX_Higher_' + str(date), bbox_inches="tight")
+    run['negplot'].upload(negplot)
+    """
+
+
+    model.evaluateModel()
+
+    run.stop()
 

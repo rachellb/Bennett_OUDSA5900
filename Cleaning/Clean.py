@@ -911,22 +911,23 @@ def cleanDataTX(age):
     # Changes payment sources from codes to corresponding categories
     year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicare, "Medicare")
     year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(medicaid, "Medicaid")
-    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc,
-                                                                          "Self-pay or Charity")
-    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other,
-                                                                          "Other Insurance")
+    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(sc, "Self-pay or Charity")
+    year2013['FIRST_PAYMENT_SRC'] = year2013['FIRST_PAYMENT_SRC'].replace(other, "Other Insurance")
 
-    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare,
-                                                                                  "Medicare")
-    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid,
-                                                                                  "Medicaid")
-    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc,
-                                                                                  "Self-pay or Charity")
-    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other,
-                                                                                  "Other Insurance")
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicare, "Medicare")
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(medicaid, "Medicaid")
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(sc, "Self-pay or Charity")
+    year2013['SECONDARY_PAYMENT_SRC'] = year2013['SECONDARY_PAYMENT_SRC'].replace(other, "Other Insurance")
 
-    year2013 = pd.get_dummies(year2013, dummy_na=False,
+    # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+    year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
                               columns=['FIRST_PAYMENT_SRC', 'SECONDARY_PAYMENT_SRC'])
+
+    # Propogates the missing values via the indicator columns
+    year2013.loc[
+        year2013["FIRST_PAYMENT_SRC__nan"] == 1, year2013.columns.str.startswith("FIRST_PAYMENT_SRC__")] = np.nan
+    year2013.loc[year2013["SECONDARY_PAYMENT_SRC__nan"] == 1, year2013.columns.str.startswith(
+        "SECONDARY_PAYMENT_SRC__")] = np.nan
 
     # Create category columns
     year2013['Medicaid'] = 0
@@ -934,37 +935,59 @@ def cleanDataTX(age):
     year2013['Self-pay or Charity'] = 0
     year2013['Other Insurance'] = 0
 
-    year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicaid'] == 1, 1,
+    year2013['Medicaid'] = np.where(year2013['FIRST_PAYMENT_SRC__Medicaid'] == 1, 1,
                                     year2013[
                                         'Medicaid'])  # Change to 1 if 1, otherwise leave as is
-    year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicaid'] == 1, 1,
+    year2013['Medicaid'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Medicaid'] == 1, 1,
                                     year2013['Medicaid'])
-    year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC_Medicare'] == 1, 1,
+    year2013['Medicare'] = np.where(year2013['FIRST_PAYMENT_SRC__Medicare'] == 1, 1,
                                     year2013['Medicare'])
-    year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Medicare'] == 1, 1,
+    year2013['Medicare'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Medicare'] == 1, 1,
                                     year2013['Medicare'])
+    year2013['Self-pay or Charity'] = np.where(year2013['FIRST_PAYMENT_SRC__Self-pay or Charity'] == 1, 1,
+                                               year2013['Self-pay or Charity'])
     year2013['Self-pay or Charity'] = np.where(
-        year2013['FIRST_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
+        year2013['SECONDARY_PAYMENT_SRC__Self-pay or Charity'] == 1, 1,
         year2013['Self-pay or Charity'])
-    year2013['Self-pay or Charity'] = np.where(
-        year2013['SECONDARY_PAYMENT_SRC_Self-pay or Charity'] == 1, 1,
-        year2013['Self-pay or Charity'])
-    year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC_Other Insurance'] == 1, 1,
+    year2013['Other Insurance'] = np.where(year2013['FIRST_PAYMENT_SRC__Other Insurance'] == 1, 1,
                                            year2013['Other Insurance'])
-    year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC_Other Insurance'] == 1,
+    year2013['Other Insurance'] = np.where(year2013['SECONDARY_PAYMENT_SRC__Other Insurance'] == 1,
                                            1, year2013['Other Insurance'])
 
+    year2013['Medicaid'] = np.where(
+        ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+        year2013['Medicaid'])
+    year2013['Medicare'] = np.where(
+        ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+        year2013['Medicare'])
+    year2013['Self-pay or Charity'] = np.where(
+        ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+        year2013['Self-pay or Charity'])
+    year2013['Other Insurance'] = np.where(
+        ((year2013['FIRST_PAYMENT_SRC__nan'].isnull()) & (year2013['SECONDARY_PAYMENT_SRC__nan'].isnull())), np.NaN,
+        year2013['Other Insurance'])
+
     # Drop columns with dummies
-    year2013.drop(columns=['FIRST_PAYMENT_SRC_Medicaid',
-                           'SECONDARY_PAYMENT_SRC_Medicaid',
-                           'FIRST_PAYMENT_SRC_Medicare',
-                           'SECONDARY_PAYMENT_SRC_Medicare',
-                           'FIRST_PAYMENT_SRC_Self-pay or Charity',
-                           'SECONDARY_PAYMENT_SRC_Self-pay or Charity',
-                           'FIRST_PAYMENT_SRC_Other Insurance',
-                           'SECONDARY_PAYMENT_SRC_Other Insurance']
+    year2013.drop(columns=['FIRST_PAYMENT_SRC__Medicaid',
+                           'SECONDARY_PAYMENT_SRC__Medicaid',
+                           'FIRST_PAYMENT_SRC__Medicare',
+                           'SECONDARY_PAYMENT_SRC__Medicare',
+                           'FIRST_PAYMENT_SRC__Self-pay or Charity',
+                           'SECONDARY_PAYMENT_SRC__Self-pay or Charity',
+                           'FIRST_PAYMENT_SRC__Other Insurance',
+                           'SECONDARY_PAYMENT_SRC__Other Insurance',
+                           'FIRST_PAYMENT_SRC__nan',
+                           'SECONDARY_PAYMENT_SRC__nan']
                   , axis=1, inplace=True)
 
+    # Rename Race columns
+    """
+    year2013['RACE'] = year2013['RACE'].replace('1', 'Native American')
+    year2013['RACE'] = year2013['RACE'].replace('2', 'Asian or Pacific Islander')
+    year2013['RACE'] = year2013['RACE'].replace('3', 'Black')
+    year2013['RACE'] = year2013['RACE'].replace('4', 'White')
+    year2013['RACE'] = year2013['RACE'].replace('5', 'Other Race')
+    """
 
     # Columns for scanning ICD9 codes
     diagnosisColumns = ['ADMITTING_DIAGNOSIS',
@@ -1078,8 +1101,13 @@ def cleanDataTX(age):
 
     # Drop the columns that will not be used
     year2013.drop(
-        columns=['LENGTH_OF_STAY', 'SOURCE_OF_ADMISSION', 'RECORD_ID', 'SEX_CODE', 'COUNTY', 'PAT_STATE',
+        columns=['LENGTH_OF_STAY', 'SOURCE_OF_ADMISSION', 'RECORD_ID', 'PAT_STATE', 'SEX_CODE', 'COUNTY',
                  'PAT_STATUS'], axis=1, inplace=True)
+
+    # year2013.to_csv('year2013_' + date + '.csv', index=False)
+
+    # year2013 = (year2013.loc[(year2013['Pregnancy resulting from assisted reproductive technology'] == 0)])
+    # year2013 = (year2013.loc[(year2013['Multiple Gestations'] == 0)])
 
     # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
     year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -1093,19 +1121,23 @@ def cleanDataTX(age):
     year2013 = year2013.drop(['DISCHARGE__nan'], axis=1)
     year2013 = year2013.drop(['ETHNICITY__nan'], axis=1)
 
+    year2013.rename(columns={'DISCHARGE__1': 'Discharge in Quarter 1',
+                             'DISCHARGE__2': 'Discharge in Quarter 2',
+                             'DISCHARGE__3': 'Discharge in Quarter 3',
+                             'DISCHARGE__4': 'Discharge in Quarter 4'})
+
+    """
+    year2013.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
+                    inplace=True)
+    """
+
     African_Am = year2013.loc[year2013['RACE'] == '3']
     African_Am.drop(columns=['RACE'], inplace=True)
-    African_Am.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
-                    inplace=True)
-    #savepath = os.path.join(parent, r"Data/Processed/AfricanAmerican_" + date + ".csv")
-    #African_Am.to_csv(savepath, index=False)
+    # African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
 
     Native_Am = year2013.loc[year2013['RACE'] == '1']
     Native_Am.drop(columns=['RACE'], inplace=True)
-    Native_Am.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
-                      inplace=True)
-    #savepath = os.path.join(parent, 'Data/NativeAmerican_' + date + '.csv')
-    #Native_Am.to_csv(savepath, index=False)
+    # Native_Am.to_csv('Data/NativeAmerican_' + date + '.csv', index=False)
 
     # One hot encoding race
     year2013 = pd.get_dummies(year2013, prefix_sep="__", dummy_na=True,
@@ -1117,9 +1149,9 @@ def cleanDataTX(age):
 
     # Create new combined race and ethnicity columns
     year2013['White Hispanic'] = 0
-    year2013['African American Hispanic'] = 0
+    year2013['Black Hispanic'] = 0
     year2013['White Non-Hispanic'] = 0
-    year2013['African American Non-Hispanic'] = 0
+    year2013['Black Non-Hispanic'] = 0
     year2013['Asian/Pacific Islander Hispanic'] = 0
     year2013['American Indian/Eskimo/Aleut Hispanic'] = 0
     year2013['Asian/Pacific Islander Non-Hispanic'] = 0
@@ -1130,8 +1162,8 @@ def cleanDataTX(age):
     # Fill out columns with appropriate numbers
     year2013['White Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
                                           year2013['White Hispanic'])
-    year2013['African American Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
-                                          year2013['African American Hispanic'])
+    year2013['Black Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
+                                          year2013['Black Hispanic'])
     year2013['Asian/Pacific Islander Hispanic'] = np.where(
         ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__1'] == 1)), 1,
         year2013['Asian/Pacific Islander Hispanic'])
@@ -1142,8 +1174,8 @@ def cleanDataTX(age):
                                                1, year2013['Other Race Hispanic'])
     year2013['White Non-Hispanic'] = np.where(((year2013['RACE__4'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
                                               year2013['White Non-Hispanic'])
-    year2013['African American Non-Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
-                                              year2013['African American Non-Hispanic'])
+    year2013['Black Non-Hispanic'] = np.where(((year2013['RACE__3'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
+                                              year2013['Black Non-Hispanic'])
     year2013['Asian/Pacific Islander Non-Hispanic'] = np.where(
         ((year2013['RACE__2'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1,
         year2013['Asian/Pacific Islander Non-Hispanic'])
@@ -1157,9 +1189,7 @@ def cleanDataTX(age):
     year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
                            'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
 
-    #savepath = os.path.join(parent, 'Data/year2013_' + date + '.csv')
-
-    #year2013.to_csv(savepath, index=False)
+    # year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
 
     return year2013, African_Am, Native_Am
 
@@ -1341,13 +1371,14 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         ok2018['Race'].replace('I', 'Native American', inplace=True)
         ok2018['Race'].replace('O', 'Other/Unknown', inplace=True)
 
-
         # Read in list of Counties and their designation
-        urbanRural = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research(old)/Data/County%20Metropolitan%20Classification.csv")
+
+        ruralPath = '/home/rachel/PycharmProjects/Bennett_OUDSA5900/Data/County_Metropolitan_Classification.csv'
+
+        urbanRural = pd.read_csv(ruralPath)
         urbanRural['county name'] = urbanRural['county name'].str.replace(' County', '')
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 'Urban')
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 'Rural')
+        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 1)
+        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 0)
         urbanRural.drop(columns='value', inplace=True)
 
         # Match capitalization
@@ -1367,10 +1398,10 @@ def cleanDataOK(dropMetro, age='Ordinal'):
                     inplace=True)
 
         # Re-label marriage status
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 'Married')
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 'Married')
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 'Unmarried')
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 'Unmarried')
+        ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 1)
+        ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 1)
+        ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 0)
+        ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 0)
 
         # A list of relevant columns
         diagnosisColumns = ['pdx', 'dx1', 'dx2', 'dx3',
@@ -1426,12 +1457,7 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         diseaseDictionary['Inadequate Prenatal Care'] = ['O093']
         diseaseDictionary['Periodontal disease'] = ['E08630', 'E09630', 'E10630', 'E11630', '13630', 'K05', 'K06',
                                                     'K08129']
-        diseaseDictionary['Other cardiovascular diseases complicating pregnancy and childbirth or the puerperium'] = [
-            'O9943']
         diseaseDictionary['Intrauterine Death'] = ['O364']
-        diseaseDictionary['Obstructive Sleep Apnea'] = ['G4733']
-        diseaseDictionary['Sickle cell disease'] = ['D57']
-        diseaseDictionary['Thyroid Disease'] = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07']
         diseaseDictionary['Preeclampsia/Eclampsia'] = ['O14', 'O15']
 
         # New Additions
@@ -1482,17 +1508,19 @@ def cleanDataOK(dropMetro, age='Ordinal'):
                              'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14',
                              'px15', 'county name'], inplace=True)
 
-       # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
-       # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
+        # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
+        # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
 
-        #ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        #ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        # ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
+        # ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
 
-        # Fixes marital status
-        ok2017.rename(columns={"Marital_status": "Married"}, inplace=True)
-        ok2018.rename(columns={"Marital_status": "Married"}, inplace=True)
-        ok2017['Married'] = np.where(ok2017['Married'] == 'Married', 1, 0)
-        ok2018['Married'] = np.where(ok2018['Married'] == 'Married', 1, 0)
+        data = ok2017.append(ok2018)
+
+        African_Am = data.loc[data['Race'] == 'Black']
+        African_Am.drop(columns=['Race'], inplace=True)
+
+        Native_Am = data.loc[data['Race'] == 'Native American']
+        Native_Am.drop(columns=['Race'], inplace=True)
 
         # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
         ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
@@ -1500,7 +1528,6 @@ def cleanDataOK(dropMetro, age='Ordinal'):
 
         # Propogates the missing values via the indicator columns
         ok2017.loc[ok2017["Race__nan"] == 1, ok2017.columns.str.startswith("Race__")] = np.nan
-
 
         # Drops the missingness indicator columns
         ok2017 = ok2017.drop(['Race__nan'], axis=1)
@@ -1518,22 +1545,23 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         ok2017.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race',
-                               'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried'}, inplace=True)
+                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
         ok2018.rename(columns={'Race__White': 'White',
                                'Race__Native American': 'Native American',
                                'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race',
-                               'Marital_status__Married': 'Married',
-                               'Marital_status__Unmarried': 'Unmarried'}, inplace=True)
+                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
+        if (dropMetro == True):
+            African_Am.drop(columns=['Metro status'], inplace=True)
+            Native_Am.drop(columns=['Metro status'], inplace=True)
+            ok2017.drop(columns=['Metro status'], inplace=True)
+            ok2018.drop(columns=['Metro status'], inplace=True)
 
         # ok2017.to_csv('Data/Oklahoma_Clean/ok2017_Incomplete.csv', index=False)
         # ok2018.to_csv('Data/Oklahoma_Clean/ok2018_Incomplete.csv', index=False)
 
-        return ok2017, ok2018
+        return ok2017, ok2018, African_Am, Native_Am
 
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
