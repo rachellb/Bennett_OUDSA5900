@@ -118,6 +118,7 @@ class fullNN():
 
         if (self.name=="MOMI"):
             # Fit and transform training data, then transform val and test using info gained from fitting
+
             scaleColumns = ['MotherAge', 'WeightAtAdmission',
                             'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
                             'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
@@ -243,13 +244,10 @@ class fullNN():
             self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] > 4)), 4,
                                                     self.X_test['RaceCollapsed'])
 
-            # Fix incorrectly imputed value
-            self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] < 0)), 0,
-                                                     self.X_train['RaceCollapsed'])
-            self.X_val['RaceCollapsed'] = np.where(((self.X_val['RaceCollapsed'] < 0)), 0,
-                                                   self.X_val['RaceCollapsed'])
-            self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] < 0)), 0,
-                                                    self.X_test['RaceCollapsed'])
+
+            self.X_train[self.X_train < 0] = 0
+            self.X_val[self.X_val < 0] = 0
+            self.X_test[self.X_test < 0] = 0
 
         else:
             if (data2 is not None):  # If running both datasets
@@ -268,11 +266,12 @@ class fullNN():
 
         self.split1=5
         self.split2=107
-        X = self.data.drop(columns='Severe_PE')
-        Y = self.data['Severe_PE']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
                                                                                 test_size=self.PARAMS['TestSplit'],
                                                                                 random_state=self.split1)
+
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
                                                                               stratify=self.Y_train,
                                                                               test_size=self.PARAMS['ValSplit'],
@@ -776,64 +775,65 @@ class NoGen(fullNN):
 
 
 if __name__ == "__main__":
-
+    """
     outliers = ['iso','lof','ocsvm','ee']
     for o in outliers:
-        def reset_random_seeds():
-            os.environ['PYTHONHASHSEED'] = str(1)
-            tf.random.set_seed(1)
-            np.random.seed(1)
-            random.seed(1)
+    """
+    def reset_random_seeds():
+        os.environ['PYTHONHASHSEED'] = str(1)
+        tf.random.set_seed(1)
+        np.random.seed(1)
+        random.seed(1)
 
 
-        reset_random_seeds()
+    reset_random_seeds()
 
-        PARAMS = {'batch_size': 8192,
-                  'bias_init': False,
-                  'estimator': "BayesianRidge",
-                  'epochs': 30,
-                  'focal': False,
-                  'alpha': 0.89,
-                  'gamma': 0.25,
-                  'class_weights': True,
-                  'initializer': 'RandomUniform',
-                  'Dropout': True,
-                  'Dropout_Rate': 0.20,
-                  'BatchNorm': False,
-                  'Momentum': 0.60,
-                  'Normalize': 'MinMax',
-                  'OutlierRemove': o,
-                  'Feature_Selection': 'Chi2',
-                  'Feature_Num': 150,
-                  'Generator': False,
-                  'Tuner': "Hyperband",
-                  'EXECUTIONS_PER_TRIAL': 1,
-                  'MAX_TRIALS': 200,
-                  'TestSplit': 0.10,
-                  'ValSplit': 0.10}
+    PARAMS = {'batch_size': 8192,
+              'bias_init': False,
+              'estimator': "BayesianRidge",
+              'epochs': 30,
+              'focal': False,
+              'alpha': 0.89,
+              'gamma': 0.25,
+              'class_weights': True,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Normalize': 'MinMax',
+              'OutlierRemove': 'None',
+              'Feature_Selection': 'None',
+              'Feature_Num': 30,
+              'Generator': False,
+              'Tuner': "Hyperband",
+              'EXECUTIONS_PER_TRIAL': 1,
+              'MAX_TRIALS': 200,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
 
-        neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
-        neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                                  tags=['Weighted', 'OHE', 'FS then encode', 'Predict Severe'],
-                                  description='Standardize and then Normalize')
-
-
-        if PARAMS['Generator'] == False:
-            model = NoGen(PARAMS, name="MOMI")
-        else:
-            model = fullNN(PARAMS, name="MOMI")
+    neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
+    neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
+                              tags=['Weighted', 'OHE', 'US and Pre'],
+                              description='Standardize and then Normalize')
 
 
-        # Get data
-        parent = os.path.dirname(os.getcwd())
-        dataPath = os.path.join(parent, 'Preprocess/momiSeverePE_062221.csv')
-        data = model.prepData(data=dataPath)
-        model.splitData()
-        data = model.imputeData()
-        model.detectOutliers()
-        model.scaleData()
-        features = model.featureSelection()
-        model.encodeData()
-        model.hpTuning()
-        model.evaluateModel()
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS, name="MOMI")
+    else:
+        model = fullNN(PARAMS, name="MOMI")
+
+
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/momiUSPre_062621.csv')
+    data = model.prepData(data=dataPath)
+    model.splitData()
+    data = model.imputeData()
+    #model.detectOutliers()
+    model.scaleData()
+    #features = model.featureSelection()
+    model.encodeData()
+    model.hpTuning()
+    model.evaluateModel()
 

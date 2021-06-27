@@ -164,7 +164,6 @@ def cleanDataMomi(weeks):
 
     print("Finished Reading all data")
 
-    # Fix MOMI missing values to np.NaN
     momi['MIDBV'] = np.where(momi['MIDBV'] == 99, np.NaN, momi['MIDBV'])
     momi['MIDCHLAM'] = np.where(momi['MIDCHLAM'] == 99, np.NaN, momi['MIDCHLAM'])
     momi['MIDCONDY'] = np.where(momi['MIDCONDY'] == 99, np.NaN, momi['MIDCONDY'])
@@ -172,6 +171,9 @@ def cleanDataMomi(weeks):
     momi['MIDHEPB'] = np.where(momi['MIDHEPB'] == 99, np.NaN, momi['MIDHEPB'])
     momi['MIDTRICH'] = np.where(momi['MIDTRICH'] == 99, np.NaN, momi['MIDTRICH'])
     momi['MIDGBS'] = np.where(momi['MIDGBS'] == 99, np.NaN, momi['MIDGBS'])
+    momi['MHXPARA'] = np.where(momi['MHXPARA'] == 99, np.NaN, momi['MHXPARA'])
+    momi['MHXABORT'] = np.where(momi['MHXABORT'] == 99, np.NaN, momi['MHXABORT'])
+    momi['MHXGRAV'] = np.where(momi['MHXGRAV'] == 99, np.NaN, momi['MHXGRAV'])
     momi['MomEducation_State'] = np.where(momi['MomEducation_State'] == 'Unknown', np.NaN, momi['MomEducation_State'])
     momi['DadEducation_State'] = np.where(momi['DadEducation_State'] == 'Unknown', np.NaN, momi['DadEducation_State'])
     momi['Smoke_b'] = np.where(momi['Smoke_b'] == 'Unknown (unable to assess)', np.NaN, momi['Smoke_b'])
@@ -179,7 +181,6 @@ def cleanDataMomi(weeks):
     momi['Ethnicity'] = np.where(momi['Ethnicity'].isin(['UNSPECIFIED']), np.NaN, momi['Ethnicity'])
     momi['InfSex'] = np.where(momi['InfSex'] == 'U', np.NaN, momi['InfSex'])
     momi['InfSex'] = np.where(momi['InfSex'] == 'f', 'F', momi['InfSex'])
-
 
     # Dropping erroneous prenatal data. This data does not actually exist, is thousands of missing values
     prenatal.drop(prenatal[prenatal['DELWKSGT'].isnull()].index, inplace=True)
@@ -473,10 +474,10 @@ def cleanDataMomi(weeks):
     # Dropping variables we won't be using
     join.drop(columns=['MOMI_ID', 'Delivery_Number_Per_Mother', 'InfantWeightGrams', 'Eclampsia',
                        'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath', 'OutcomeOfDelivery', 'DeliveryMethod',
-                       'PregRelatedHypertension', 'Mild_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
+                       'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
                        'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams','GestWeightCompare',
                        'DELWKSGT', 'MMULGSTD', 'Systolic', 'Diastolic', 'Race', 'DeliveryYear',
-                       'PNV_Total_Number', 'MPostPartumComplications', 'Preeclampsia/Eclampsia'], inplace=True)
+                       'PNV_Total_Number', 'MPostPartumComplications'], inplace=True)
 
 
 
@@ -1194,20 +1195,23 @@ def cleanDataTX(age):
     return year2013, African_Am, Native_Am
 
 def cleanDataOK(dropMetro, age='Ordinal'):
-        """
-        ok2017 = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2017%20IP/pudf_cd.txt",
-            sep=",")
-        ok2018 = pd.read_csv(
-            r"file:///home/rachel/Documents/Preeclampsia_Research/Data/Oklahom_PUDF_2020.08.27/2018%20IP/pudf_cdv2.txt",
-            sep=",")
-        """
-        parent = os.path.dirname(os.getcwd())
-        dataPath2017 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2017%20IP/pudf_cd.txt")
-        dataPath2018 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2018%20IP/pudf_cdv2.txt")
+        system = 'linux'
 
-        ok2017 = pd.read_csv('file://' + dataPath2017)
-        ok2018 = pd.read_csv('file://' + dataPath2018)
+        if system == 'windows':
+            parent = os.path.dirname(os.getcwd())
+            dataPath2017 = os.path.join(parent, r'Data\Oklahom_PUDF_2020.08.27\2017_IP\pudf_cd.txt')
+            dataPath2018 = os.path.join(parent, r'Data\Oklahom_PUDF_2020.08.27\2018_IP\pudf_cdv2.txt')
+
+            ok2017 = pd.read_csv(dataPath2017)
+            ok2018 = pd.read_csv(dataPath2018)
+
+        else:
+            parent = os.path.dirname(os.getcwd())
+            dataPath2017 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2017_IP/pudf_cd.txt")
+            dataPath2018 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2018_IP/pudf_cdv2.txt")
+
+            ok2017 = pd.read_csv(dataPath2017)
+            ok2018 = pd.read_csv(dataPath2018)
 
         # Dropping unneeded columns
         ok2017.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',

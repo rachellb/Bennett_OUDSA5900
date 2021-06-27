@@ -42,7 +42,6 @@ import kerastuner
 from kerastuner.tuners import Hyperband, BayesianOptimization, RandomSearch
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
 
-
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
@@ -51,8 +50,7 @@ import time
 import matplotlib.pyplot as plt
 from PIL import Image
 
-
-#For Outlier Detection
+# For Outlier Detection
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
@@ -68,8 +66,8 @@ from secret import api_
 from Cleaning.Clean import *
 import random
 
-def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
+def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
     assert 0 in weights
     assert 1 in weights
 
@@ -87,8 +85,6 @@ def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
     return weighted_cross_entropy_fn
 
 
-
-
 class fullNN():
 
     def __init__(self, PARAMS, name=None):
@@ -98,7 +94,7 @@ class fullNN():
 
     def prepData(self, data, age=None):
 
-        if (self.name=="MOMI"):
+        if (self.name == "MOMI"):
             data = pd.read_csv(data)
             self.data = data
         else:
@@ -114,12 +110,11 @@ class fullNN():
         elif self.PARAMS['Normalize'] == 'StandardScale':
             scaler = StandardScaler()
 
-
-        if (self.name=="MOMI"):
+        if (self.name == "MOMI"):
             # Fit and transform training data, then transform val and test using info gained from fitting
             scaleColumns = ['MotherAge', 'WeightAtAdmission',
                             'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
-                            'PNV_GestAge', 'PNV_Weight_Oz', 'Systolic', 'Prev_highBP']
+                            'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
 
             self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
             self.X_val[scaleColumns] = scaler.fit_transform(self.X_val[scaleColumns])
@@ -150,15 +145,17 @@ class fullNN():
         X_testCodes = ohe.transform(self.X_test[selectCat]).toarray()
         feature_names = ohe.get_feature_names(selectCat)
 
-
         self.X_train = pd.concat([self.X_train.drop(columns=selectCat).reset_index(drop=True),
-                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int).reset_index(drop=True)], axis=1)
+                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                 axis=1)
 
         self.X_val = pd.concat([self.X_val.drop(columns=selectCat).reset_index(drop=True),
-                                  pd.DataFrame(X_valCodes, columns=feature_names).astype(int).reset_index(drop=True)], axis=1)
+                                pd.DataFrame(X_valCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                               axis=1)
 
         self.X_test = pd.concat([self.X_test.drop(columns=selectCat).reset_index(drop=True),
-                                  pd.DataFrame(X_testCodes, columns=feature_names).astype(int).reset_index(drop=True)], axis=1)
+                                 pd.DataFrame(X_testCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                axis=1)
 
         # OHE adds unnecessary nan column, which needs to be dropped
         self.X_train = self.X_train.loc[:, ~self.X_train.columns.str.endswith('_nan')]
@@ -168,7 +165,6 @@ class fullNN():
     def imputeData(self, data1=None, data2=None):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
-
 
         if self.PARAMS['estimator'] == "BayesianRidge":
             estimator = BayesianRidge()
@@ -181,8 +177,7 @@ class fullNN():
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
-
-        if (self.name=='MOMI'):
+        if (self.name == 'MOMI'):
             if self.data.isnull().values.any():
                 self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
                 self.X_val_imputed = pd.DataFrame(MI_Imp.transform(self.X_val), columns=self.X_val.columns)
@@ -217,13 +212,9 @@ class fullNN():
             self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] > 4)), 4,
                                                     self.X_test['RaceCollapsed'])
 
-            # Fix incorrectly imputed value
-            self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] < 0)), 0,
-                                                     self.X_train['RaceCollapsed'])
-            self.X_val['RaceCollapsed'] = np.where(((self.X_val['RaceCollapsed'] < 0)), 0,
-                                                   self.X_val['RaceCollapsed'])
-            self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] < 0)), 0,
-                                                    self.X_test['RaceCollapsed'])
+            self.X_train[self.X_train < 0] = 0
+            self.X_val[self.X_val < 0] = 0
+            self.X_test[self.X_test < 0] = 0
 
         else:
             if (data2 is not None):  # If running both datasets
@@ -240,8 +231,8 @@ class fullNN():
 
     def splitData(self):
 
-        self.split1=5
-        self.split2=107
+        self.split1 = 5
+        self.split2 = 107
         X = self.data.drop(columns='Preeclampsia/Eclampsia')
         Y = self.data['Preeclampsia/Eclampsia']
         self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
@@ -252,23 +243,20 @@ class fullNN():
                                                                               test_size=self.PARAMS['ValSplit'],
                                                                               random_state=self.split2)
 
-    def detectOutliers(self, method, con='auto'):
+    def detectOutliers(self, con='auto'):
 
         print(self.X_train.shape, self.Y_train.shape)
 
-        if method == 'iso':
+        if self.PARAMS['OutlierRemove'] == 'iso':
             out = IsolationForest(contamination=con)
-        elif method == 'lof':
+        elif self.PARAMS['OutlierRemove'] == 'lof':
             out = LocalOutlierFactor(contamination=con)
-        elif method == 'ocsvm':
+        elif self.PARAMS['OutlierRemove'] == 'ocsvm':
             out = OneClassSVM(nu=0.01)
-        elif method == 'ee':
-            out = EllipticEnvelope(contamination=con)
+        elif self.PARAMS['OutlierRemove'] == 'ee':
+            out = EllipticEnvelope()
 
         yhat = out.fit_predict(self.X_train)
-
-        #self.X_train = self.X_train.loc[np.where(yhat == 1, True, False)]
-        #self.Y_train = self.X_train.loc[np.where(yhat == 1, True, False)]
 
         # select all rows that are not outliers
         mask = (yhat != -1)
@@ -278,11 +266,10 @@ class fullNN():
 
         print(self.X_train.shape, self.Y_train.shape)
 
-    def featureSelection(self, numFeatures):
+    def featureSelection(self):
 
         # If there are less features than the number selected
-        numFeatures = min(numFeatures, (self.X_train.shape[1]))
-
+        numFeatures = min(self.PARAMS['Feature_Num'], (self.X_train.shape[1]))
 
         if self.PARAMS['Feature_Selection'] == "XGBoost":
             model = XGBClassifier()
@@ -291,7 +278,7 @@ class fullNN():
             # Save graph
             ax = plot_importance(model, max_num_features=numFeatures)
             fig1 = pyplot.gcf()
-            #pyplot.show()
+            # pyplot.show()
 
             fig1.savefig('XGBoostTopFeatures.png', bbox_inches='tight')
 
@@ -333,17 +320,14 @@ class fullNN():
             topFeatures = list(mutualInfoFeatures)
             self.MIFeatures = mutualInfoFeatures
 
-
         if self.PARAMS['Feature_Selection'] == None:
             topFeatures = self.X_train.columns
-
 
         self.X_train = self.X_train[topFeatures]
         self.X_val = self.X_val[topFeatures]
         self.X_test = self.X_test[topFeatures]
 
     def buildModel(self):
-
 
         # Set all to numpy arrays
         self.X_train = self.X_train.to_numpy()
@@ -354,7 +338,6 @@ class fullNN():
         self.Y_test = self.Y_test.to_numpy()
 
         inputSize = self.X_train.shape[1]
-
 
         self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
                                                          batch_size=self.PARAMS['batch_size'],
@@ -418,7 +401,6 @@ class fullNN():
         else:
             loss = 'binary_crossentropy'
 
-
         # Compilation
         self.model.compile(optimizer=optimizer,
                            loss=loss,
@@ -431,7 +413,7 @@ class fullNN():
 
         self.history = self.model.fit(self.training_generator, epochs=self.PARAMS['epochs'],
                                       validation_data=(self.validation_generator),
-                                      verbose=2,  callbacks=[NeptuneMonitor()])
+                                      verbose=2, callbacks=[NeptuneMonitor()])
 
     def evaluateModel(self):
 
@@ -495,8 +477,6 @@ class fullNN():
         run['True Negative'] = self.tn
         run['False Positive'] = self.fp
         run['False Negative'] = self.fn
-
-
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -613,82 +593,85 @@ class NoGen(fullNN):
                                       verbose=2, callbacks=[neptune_cbk])
 
 
-
 if __name__ == "__main__":
 
-
-    """
-    alpha = [0.90, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]
+    alpha = [0.80, 0.81, 0.82, 0.83, 0.84]
     gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
 
-    for i in alpha:
-        for j in gamma:
-    """
-    # Set seeds
-    def reset_random_seeds():
-        os.environ['PYTHONHASHSEED'] = str(1)
-        tf.random.set_seed(1)
-        np.random.seed(1)
-        random.seed(1)
+    for a in alpha:
+        for g in gamma:
 
+            # Set seeds
+            def reset_random_seeds():
+                os.environ['PYTHONHASHSEED'] = str(1)
+                tf.random.set_seed(1)
+                np.random.seed(1)
+                random.seed(1)
 
-    reset_random_seeds()
+            reset_random_seeds()
 
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
-              'units_0': 60,
-              'units_1': 30,
-              'units_2': 45,
-              'final_activation': 'sigmoid',
-              'optimizer': 'RMSprop',
-              'learning_rate': 0.001,
-              'batch_size': 8192,
-              'bias_init': False,
-              'estimator': "BayesianRidge",
-              'epochs': 50,
-              'focal': True,
-              'alpha': 0.92,
-              'gamma': 2,
-              'class_weights': False,
-              'initializer': 'RandomUniform',
-              'Dropout': True,
-              'Dropout_Rate': 0.20,
-              'BatchNorm': False,
-              'Momentum': 0.60,
-              'Normalize': 'MinMax',
-              'Feature_Selection': 'MI',
-              'Generator': False,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10}
+            PARAMS = {'num_layers': 7,
+                      'units_0': 41,
+                      'dense_activation_0': 'relu',
+                      'units_1': 45,
+                      'dense_activation_1': 'relu',
+                      'optimizer': 'RMSprop',
+                      'learning_rate': 0.001,
+                      'units_2': 45,
+                      'dense_activation_2': 'tanh',
+                      'units_3': 30,
+                      'dense_activation_3': 'relu',
+                      'units_4': 41,
+                      'dense_activation_4': 'relu',
+                      'units_5': 30,
+                      'dense_activation_5': 'relu',
+                      'units_6': 50,
+                      'dense_activation_6': 'relu',
+                      'final_activation': 'sigmoid',
+                      'batch_size': 8192,
+                      'bias_init': False,
+                      'estimator': "BayesianRidge",
+                      'epochs': 50,
+                      'focal': True,
+                      'alpha': a,
+                      'gamma': g,
+                      'class_weights': False,
+                      'initializer': 'RandomUniform',
+                      'Dropout': True,
+                      'Dropout_Rate': 0.20,
+                      'BatchNorm': False,
+                      'Momentum': 0.60,
+                      'Normalize': 'MinMax',
+                      'OutlierRemove': 'lof',
+                      'Feature_Selection': 'Chi2',
+                      'Feature_Num': 30,
+                      'Generator': False,
+                      'TestSplit': 0.10,
+                      'ValSplit': 0.10}
 
-    run = neptune.init(project='rachellb/PreeclampsiaCompare',
-                       api_token=api_,
-                       name='MOMI Full',
-                       tags=['Focal Loss', 'Hand Tuned', 'Test', 'FS then encode'],
-                       source_files=['NeuralNetwork_Simple.py'])
+            run = neptune.init(project='rachellb/FocalPre',
+                               api_token=api_,
+                               name='MOMI Full',
+                               tags=['Focal Loss', 'Hand Tuned', 'Test', 'FS then encode'],
+                               source_files=['NeuralNetwork_Simple.py'])
 
-    run['hyper-parameters'] = PARAMS
+            run['hyper-parameters'] = PARAMS
 
+            if PARAMS['Generator'] == False:
+                model = NoGen(PARAMS, name="MOMI")
+            else:
+                model = fullNN(PARAMS, name="MOMI")
 
-    if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS, name="MOMI")
-    else:
-        model = fullNN(PARAMS, name="MOMI")
-
-
-    # Get data
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061021.csv')
-    data = model.prepData(data=dataPath)
-    model.splitData()
-    data = model.imputeData()
-    #model.detectOutliers(method='iso')
-    model.normalizeData()
-    model.encodeData()
-    features = model.featureSelection(numFeatures=20)
-    model.buildModel()
-    model.evaluateModel()
-    run.stop()
-
+            # Get data
+            parent = os.path.dirname(os.getcwd())
+            dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/momiUSPre_062621.csv')
+            data = model.prepData(data=dataPath)
+            model.splitData()
+            data = model.imputeData()
+            model.detectOutliers()
+            model.normalizeData()
+            features = model.featureSelection()
+            model.encodeData()
+            model.buildModel()
+            model.evaluateModel()
+            run.stop()

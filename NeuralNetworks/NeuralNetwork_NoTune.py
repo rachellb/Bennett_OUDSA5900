@@ -85,9 +85,10 @@ def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
 class fullNN():
 
-    def __init__(self, PARAMS):
+    def __init__(self, PARAMS, name=None):
 
         self.PARAMS = PARAMS
+        self.name = name
 
     def normalizeData(self, data):
 
@@ -143,8 +144,8 @@ class fullNN():
                                                     self.X_test['RaceCollapsed'])
 
         else:
-            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns))
-            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test), columns=self.X_test.columns))
+            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train.columns)
+            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
 
     def detectOutliers(self, method, con):
 
@@ -192,6 +193,11 @@ class fullNN():
             topFeatures = list(data.index[0:numFeatures])
 
         if self.PARAMS['Feature_Selection'] == "Chi2":
+
+            self.X_train[self.X_train < 0] = 0
+            self.X_test[self.X_test < 0] = 0
+
+
             # instantiate SelectKBest to determine 20 best features
             fs = SelectKBest(score_func=chi2, k=numFeatures)
             fs.fit(self.X_train, self.Y_train)
@@ -236,12 +242,23 @@ class fullNN():
 
         return X, Y
 
-    def setData(self, X_train, X_test, Y_train, Y_test):
+    def setData(self, X_train, X_test, Y_train, Y_test, subgroup=None):
 
         self.X_train = X_train
         self.X_test = X_test
         self.Y_train = Y_train
         self.Y_test = Y_test
+
+        # Double check
+        if subgroup == 'Native':
+            idx = self.X_test.index[self.X_test['Native American'] == 1]
+            self.X_test = self.X_test.loc[idx]
+            self.Y_test = self.Y_test.loc[idx]
+
+        elif subgroup == 'African':
+            idx = self.X_test.index[self.X_test['Black'] == 1]
+            self.X_test = self.X_test.loc[idx]
+            self.Y_test = self.Y_test.loc[idx]
 
     def buildModel(self):
 
@@ -403,9 +420,10 @@ class fullNN():
 
 
 class NoGen(fullNN):
-    def __init__(self, PARAMS):
+    def __init__(self, PARAMS, name=None):
 
         self.PARAMS = PARAMS
+        self.name = name
 
     def buildModel(self):
 
@@ -525,13 +543,14 @@ if __name__ == "__main__":
               'Momentum': 0.60,
               'Feature_Selection': 'Chi2',
               'Feature_Num': 20,
+              'estimator': "BayesianRidge",
               'Generator': False,
               'MAX_TRIALS': 5}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='Oklahoma Full',
-                       tags=['Focal Loss', 'Hyperband', 'Updated'],
+                       tags=['Focal Loss', 'Hyperband', 'Updated', 'Testing subgroups', '350CV'],
                        source_files=['NeuralNetwork_NoTune.py', 'Cleaning/Clean.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -550,9 +569,9 @@ if __name__ == "__main__":
     #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
 
 
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=50, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=35, random_state=36851234)
 
-    ok2017, ok2018, african, native = cleanDataOK()
+    ok2017, ok2018, african, native = cleanDataOK(dropMetro=True)
     full = ok2017.append(ok2018)
     X, y = model.prepData(full)
 
@@ -572,8 +591,7 @@ if __name__ == "__main__":
     for train_index, test_index in rskf.split(X, y):
         X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-
-        model.setData(X_train, X_test, y_train, y_test)
+        model.setData(X_train, X_test, y_train, y_test, subgroup='African')
 
         model.imputeData()
         model.featureSelection()
