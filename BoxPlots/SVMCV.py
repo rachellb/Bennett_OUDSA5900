@@ -14,24 +14,25 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.metrics import roc_curve
 from sklearn import metrics
 from imblearn.metrics import geometric_mean_score
+from Preprocess import preProcess
 
-class SVMRBF():
+class SVMRBF(preProcess):
 
     def prepData(self, data):
 
-        data = pd.read_csv(data)
+        self.data = pd.read_csv(data)
 
-        X = data.drop(columns='Preeclampsia/Eclampsia')
-        Y = data['Preeclampsia/Eclampsia']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
 
         return X, Y
 
     def setData(self, X_train, X_test, Y_train, Y_test):
 
-        self.X_train = X_train.to_numpy()
-        self.X_test = X_test.to_numpy()
-        self.Y_train = Y_train.to_numpy()
-        self.Y_test = Y_test.to_numpy().ravel()
+        self.X_train = X_train
+        self.X_test = X_test
+        self.Y_train = Y_train
+        self.Y_test = Y_test.ravel()
 
     def buildModel(self, weight = False):
 
@@ -55,22 +56,25 @@ class SVMRBF():
 if __name__ == "__main__":
 
     start_time = time.time()
+
+    PARAMS = {'estimator': "BayesianRidge",
+              'Normalize': 'MinMax',
+              'OutlierRemove': 'lof',
+              'Feature_Selection': 'Chi2',
+              'Feature_Num': 30,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10,
+              'dataset': 'MOMI'}
+
+    # Get path to cleaned data
     parent = os.path.dirname(os.getcwd())
+    path = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/momiUSPre_062621.csv')
 
-    name = 'Texas'
-
-    if name == 'Oklahoma':
-        path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
-    else:
-        path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
-
-
+    name = 'MOMI'
     weight = True
-    model = SVMRBF()
+    model = SVMRBF(PARAMS, name='MOMI')
     X, y = model.prepData(data=path)
-
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
-
     aucList = []
     gmeanList = []
 
@@ -79,9 +83,12 @@ if __name__ == "__main__":
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
         model.setData(X_train, X_test, y_train, y_test)
-
+        model.imputeData()
+        model.detectOutliers()
+        model.normalizeData()
+        model.featureSelection()
+        model.encodeData()
         model.buildModel(weight=weight)
-
         auc, gmean = model.evaluateModel()
 
         aucList.append(auc)

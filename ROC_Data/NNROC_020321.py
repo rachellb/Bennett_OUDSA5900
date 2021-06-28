@@ -231,8 +231,8 @@ class NoGen(NeuralNetwork):
 
 if __name__ == "__main__":
 
-    dataset = 'Oklahoma'
-    method = 'FL-BB'
+    dataset = 'MOMI'
+    method = 'FL'
 
     PARAMS = {'num_layers': 2,
               'dense_activation_0': 'tanh',
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     else:
         neuralnet = NeuralNetwork(PARAMS)
 
-    neuralnet.prepData(data='Data/' + dataset + '/061721_')
+    neuralnet.prepData(data='Data/' + dataset + '/062721__')
     y_pred_keras = neuralnet.buildModel()
 
     np.save('Predictions/' + dataset + '/nn_pred_' + method, y_pred_keras)

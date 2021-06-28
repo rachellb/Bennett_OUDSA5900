@@ -1,3 +1,4 @@
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import os
@@ -38,27 +39,18 @@ from sklearn.svm import OneClassSVM
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
-class dataSplitter():
+class preProcess():
 
-    def __init__(self, PARAMS, path, name=None):
+    def __init__(self, PARAMS, name=None):
         self.PARAMS = PARAMS
-        self.data = pd.read_csv(path)
         self.name = name
 
-    def splitData(self):
+    def setData(self, X_train, X_test, Y_train, Y_test):
 
-        self.split1 = 5
-        self.split2 = 107
-        X = self.data.drop(columns='Preeclampsia/Eclampsia')
-        Y = self.data['Preeclampsia/Eclampsia']
-        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, stratify=Y,
-                                                                                test_size=self.PARAMS['TestSplit'],
-                                                                                random_state=self.split1)
-
-        self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(self.X_train, self.Y_train,
-                                                                              stratify=self.Y_train,
-                                                                              test_size=self.PARAMS['ValSplit'],
-                                                                              random_state=self.split2)
+        self.X_train = X_train
+        self.X_test = X_test
+        self.Y_train = Y_train
+        self.Y_test = Y_test.ravel()
 
     def scaleData(self):
 
@@ -93,7 +85,6 @@ class dataSplitter():
                         'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
 
         self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
-        self.X_val[scaleColumns] = scaler.transform(self.X_val[scaleColumns])
         self.X_test[scaleColumns] = scaler.transform(self.X_test[scaleColumns])
 
     def encodeData(self):
@@ -112,7 +103,6 @@ class dataSplitter():
         ohe.fit(self.data[selectCat])
 
         X_trainCodes = ohe.transform(self.X_train[selectCat]).toarray()
-        X_valCodes = ohe.transform(self.X_val[selectCat]).toarray()
         X_testCodes = ohe.transform(self.X_test[selectCat]).toarray()
         feature_names = ohe.get_feature_names(selectCat)
 
@@ -120,9 +110,7 @@ class dataSplitter():
                                   pd.DataFrame(X_trainCodes, columns=feature_names).astype(int).reset_index(drop=True)],
                                  axis=1)
 
-        self.X_val = pd.concat([self.X_val.drop(columns=selectCat).reset_index(drop=True),
-                                pd.DataFrame(X_valCodes, columns=feature_names).astype(int).reset_index(drop=True)],
-                               axis=1)
+
 
         self.X_test = pd.concat([self.X_test.drop(columns=selectCat).reset_index(drop=True),
                                  pd.DataFrame(X_testCodes, columns=feature_names).astype(int).reset_index(drop=True)],
@@ -130,10 +118,9 @@ class dataSplitter():
 
         # OHE adds unnecessary nan column, which needs to be dropped
         self.X_train = self.X_train.loc[:, ~self.X_train.columns.str.endswith('_nan')]
-        self.X_val = self.X_val.loc[:, ~self.X_val.columns.str.endswith('_nan')]
         self.X_test = self.X_test.loc[:, ~self.X_test.columns.str.endswith('_nan')]
 
-    def imputeData(self, data1=None, data2=None):
+    def imputeData(self):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
 
@@ -151,7 +138,6 @@ class dataSplitter():
         if (self.name == 'MOMI'):
             if self.data.isnull().values.any():
                 self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
-                self.X_val_imputed = pd.DataFrame(MI_Imp.transform(self.X_val), columns=self.X_val.columns)
                 self.X_test_imputed = pd.DataFrame(MI_Imp.transform(self.X_test), columns=self.X_test.columns)
 
                 # Rounding only the categorical variables that were imputed
@@ -161,12 +147,6 @@ class dataSplitter():
                                                            'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
                                                            'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
                                                            'RaceCollapsed': 0, 'Systolic': 0})
-                self.X_val = self.X_val_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
-                                                       'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
-                                                       'Primagrivada': 0, 'MaternalNeuromuscularDisease': 0,
-                                                       'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
-                                                       'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
-                                                       'RaceCollapsed': 0, 'Systolic': 0})
 
                 self.X_test = self.X_test_imputed.round({'Insurance': 0, 'TotalNumPregnancies': 0,
                                                          'DeliveriesPriorAdmission': 0, 'TotalAbortions': 0,
@@ -178,27 +158,18 @@ class dataSplitter():
             # Fix incorrectly imputed value
             self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] > 4)), 4,
                                                      self.X_train['RaceCollapsed'])
-            self.X_val['RaceCollapsed'] = np.where(((self.X_val['RaceCollapsed'] > 4)), 4,
-                                                   self.X_val['RaceCollapsed'])
             self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] > 4)), 4,
                                                     self.X_test['RaceCollapsed'])
 
-            self.X_train[self.X_train < 0] = 0
-            self.X_val[self.X_val < 0] = 0
-            self.X_test[self.X_test < 0] = 0
+            # Fix incorrectly imputed value
+            self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] < 0)), 0,
+                                                     self.X_train['RaceCollapsed'])
+            self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] < 0)), 0,
+                                                    self.X_test['RaceCollapsed'])
 
         else:
-            if (data2 is not None):  # If running both datasets
-                if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
-                    data = data1.append(data2)
-                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data)), columns=data.columns)
-                else:
-                    self.data = data1.append(data2)
-            else:
-                if (data1.isnull().values.any() == True):
-                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
-                else:
-                    self.data = data1
+            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train.columns)
+            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
 
     def detectOutliers(self, con='auto'):
 
@@ -281,39 +252,4 @@ class dataSplitter():
             topFeatures = self.X_train.columns
 
         self.X_train = self.X_train[topFeatures]
-        self.X_val = self.X_val[topFeatures]
         self.X_test = self.X_test[topFeatures]
-
-    def saveData(self):
-
-        self.X_train.to_csv('Data/' + self.PARAMS['dataset'] +'/' + date +'_X_Train.csv', index=False)
-        self.Y_train.to_csv('Data/' + self.PARAMS['dataset'] +'/' + date +'_Y_Train.csv', index=False)
-        self.X_test.to_csv('Data/' + self.PARAMS['dataset'] +'/' + date +'_X_Test.csv', index=False)
-        self.Y_test.to_csv('Data/' + self.PARAMS['dataset'] +'/' + date +'_Y_Test.csv', index=False)
-        self.X_val.to_csv('Data/' + self.PARAMS['dataset'] +'/' + date +'_X_Val.csv', index=False)
-        self.Y_val.to_csv('Data/' + self.PARAMS['dataset'] +'/' + date +'_Y_Val.csv', index=False)
-        
-if __name__ == "__main__":
-
-    PARAMS = {'estimator': "BayesianRidge",
-              'Normalize': 'MinMax',
-              'OutlierRemove': 'lof',
-              'Feature_Selection': 'Chi2',
-              'Feature_Num': 30,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10,
-              'dataset': 'MOMI'}
-
-    # Get path to cleaned data
-    parent = os.path.dirname(os.getcwd())
-    path = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/momiUSPre_062621.csv')
-
-    splitter = dataSplitter(PARAMS, path, name='MOMI')
-    splitter.splitData()
-    splitter.imputeData()
-    splitter.detectOutliers()
-    splitter.normalizeData()
-    splitter.featureSelection()
-    splitter.encodeData()
-    splitter.saveData()
-

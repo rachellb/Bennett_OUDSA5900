@@ -15,23 +15,19 @@ from sklearn.metrics import roc_curve
 from sklearn import metrics
 from imblearn.metrics import geometric_mean_score
 
-class LogReg():
+from Preprocess import preProcess
+
+
+class LogReg(preProcess):
 
     def prepData(self, data):
 
-        data = pd.read_csv(data)
+        self.data = pd.read_csv(data)
 
-        X = data.drop(columns='Preeclampsia/Eclampsia')
-        Y = data['Preeclampsia/Eclampsia']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
 
         return X, Y
-
-    def setData(self, X_train, X_test, Y_train, Y_test):
-
-        self.X_train = X_train.to_numpy()
-        self.X_test = X_test.to_numpy()
-        self.Y_train = Y_train.to_numpy()
-        self.Y_test = Y_test.to_numpy().ravel()
 
 
     def buildModel(self, weight = False):
@@ -53,25 +49,28 @@ class LogReg():
         auc_ = metrics.auc(fpr, tpr)
         gmean = geometric_mean_score(self.Y_test, self.predictions)
 
-
         return auc_, gmean
 
 
 if __name__ == "__main__":
 
-    name = 'Oklahoma'
-    weight = True
+    PARAMS = {'estimator': "BayesianRidge",
+              'Normalize': 'MinMax',
+              'OutlierRemove': 'lof',
+              'Feature_Selection': 'Chi2',
+              'Feature_Num': 30,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10,
+              'dataset': 'MOMI'}
 
+    # Get path to cleaned data
     parent = os.path.dirname(os.getcwd())
+    path = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/momiUSPre_062621.csv')
 
-    if name == 'Oklahoma':
-        path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical.csv')
-    else:
-        path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical.csv')
-
-    model = LogReg()
+    name = 'MOMI'
+    weight = True
+    model = LogReg(PARAMS, name='MOMI')
     X, y = model.prepData(data=path)
-
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
     aucList = []
@@ -82,11 +81,14 @@ if __name__ == "__main__":
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
         model.setData(X_train, X_test, y_train, y_test)
-
+        model.imputeData()
+        model.detectOutliers()
+        model.normalizeData()
+        model.featureSelection()
+        model.encodeData()
         model.buildModel(weight=weight)
 
         auc, gmean = model.evaluateModel()
-
         aucList.append(auc)
         gmeanList.append(gmean)
 

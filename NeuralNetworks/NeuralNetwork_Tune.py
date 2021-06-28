@@ -795,26 +795,26 @@ if __name__ == "__main__":
               'focal': False,
               'alpha': 0.89,
               'gamma': 0.25,
-              'class_weights': True,
+              'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
               'Normalize': 'MinMax',
-              'OutlierRemove': 'None',
-              'Feature_Selection': 'None',
+              'OutlierRemove': 'lof',
+              'Feature_Selection': 'Chi2',
               'Feature_Num': 30,
               'Generator': False,
-              'Tuner': "Hyperband",
+              'Tuner': "Random",
               'EXECUTIONS_PER_TRIAL': 1,
-              'MAX_TRIALS': 200,
+              'MAX_TRIALS': 100,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
     neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                              tags=['Weighted', 'OHE', 'US and Pre'],
+                              tags=['Unweighted', 'OHE', 'US and Pre'],
                               description='Standardize and then Normalize')
 
 
@@ -830,9 +830,9 @@ if __name__ == "__main__":
     data = model.prepData(data=dataPath)
     model.splitData()
     data = model.imputeData()
-    #model.detectOutliers()
+    model.detectOutliers()
     model.scaleData()
-    #features = model.featureSelection()
+    features = model.featureSelection()
     model.encodeData()
     model.hpTuning()
     model.evaluateModel()

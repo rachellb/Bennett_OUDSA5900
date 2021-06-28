@@ -74,9 +74,9 @@ class SVM():
             np.save('Predictions/' + self.data + '/svmRBF_pred', y_predSG)
 
 if __name__ == "__main__":
-    data = 'Oklahoma'
+    data = 'MOMI'
 
     model = SVM(weight=True, data=data)
-    model.prepData(data='Data/' + data + '/')
+    model.prepData(data='Data/' + data + '/062721_')
     model.classify()
 

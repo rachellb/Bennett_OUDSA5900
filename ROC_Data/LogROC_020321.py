@@ -47,10 +47,10 @@ class LogReg():
             np.save('Predictions/' + data + '/log_pred', y_predLog)
 
 if __name__ == "__main__":
-    data = 'Oklahoma'
+    data = 'MOMI'
 
     logmodel = LogReg()
-    logmodel.prepData(data='Data/' + data + '/')
+    logmodel.prepData(data='Data/' + data + '/062721_')
     logmodel.buildModel(weight=True, data=data)
 
 
