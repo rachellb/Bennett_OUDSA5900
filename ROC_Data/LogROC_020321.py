@@ -50,7 +50,7 @@ if __name__ == "__main__":
     data = 'MOMI'
 
     logmodel = LogReg()
-    logmodel.prepData(data='Data/' + data + '/062721_')
-    logmodel.buildModel(weight=True, data=data)
+    logmodel.prepData(data='Data/' + data + '/070821_')
+    logmodel.buildModel(weight=False, data=data)
 
 

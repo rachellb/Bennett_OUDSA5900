@@ -86,16 +86,16 @@ if __name__ == "__main__":
 
     PARAMS = {'estimator': "BayesianRidge",
               'Normalize': 'MinMax',
-              'OutlierRemove': 'lof',
+              'OutlierRemove': 'None',
               'Feature_Selection': 'Chi2',
-              'Feature_Num': 30,
+              'Feature_Num': 1000,
               'TestSplit': 0.10,
               'ValSplit': 0.10,
               'dataset': 'MOMI'}
 
     # Get path to cleaned data
     parent = os.path.dirname(os.getcwd())
-    path = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/momiUSPre_062621.csv')
+    path = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
 
     name = 'MOMI'
     weight = True
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
         model.setData(X_train, X_test, y_train, y_test)
         model.imputeData()
-        model.detectOutliers()
+        #model.detectOutliers()
         model.normalizeData()
         model.featureSelection()
         model.encodeData()

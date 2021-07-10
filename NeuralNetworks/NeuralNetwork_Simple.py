@@ -120,11 +120,6 @@ class fullNN():
             self.X_val[scaleColumns] = scaler.fit_transform(self.X_val[scaleColumns])
             self.X_test[scaleColumns] = scaler.fit_transform(self.X_test[scaleColumns])
 
-        else:
-            data_imputed = scaler.fit_transform(data)
-            X_imputed_df = pd.DataFrame(data_imputed, columns=data.columns)
-            self.data = X_imputed_df
-
     def encodeData(self):
 
         encodeCols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
@@ -203,7 +198,7 @@ class fullNN():
                                                          'KidneyDisease': 0, 'Thrombocytopenia': 0, 'InfSex': 0,
                                                          'CNSAbnormality': 0, 'CongenitalSyphilis': 0, 'UTI': 0,
                                                          'RaceCollapsed': 0, 'Systolic': 0})
-
+            """
             # Fix incorrectly imputed value
             self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] > 4)), 4,
                                                      self.X_train['RaceCollapsed'])
@@ -211,7 +206,7 @@ class fullNN():
                                                    self.X_val['RaceCollapsed'])
             self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] > 4)), 4,
                                                     self.X_test['RaceCollapsed'])
-
+            """
             self.X_train[self.X_train < 0] = 0
             self.X_val[self.X_val < 0] = 0
             self.X_test[self.X_test < 0] = 0
@@ -407,7 +402,8 @@ class fullNN():
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
+                                    tf.keras.metrics.AUC(),
+                                    tf.keras.metrics.AUC(curve='PR')])
 
         from neptunecontrib.monitoring.keras import NeptuneMonitor
 
@@ -595,9 +591,9 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    alpha = [0.80, 0.81, 0.82, 0.83, 0.84]
-    gamma = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2]
-
+    alpha = [0.90, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]
+    #alpha = [1.00]
+    gamma = [0.0, 0.25, 0.5, 0.75, 1.00, 1.25, 1.5, 1.75, 2.00]
     for a in alpha:
         for g in gamma:
 
@@ -608,30 +604,27 @@ if __name__ == "__main__":
                 np.random.seed(1)
                 random.seed(1)
 
-            reset_random_seeds()
+                #reset_random_seeds()
 
-            PARAMS = {'num_layers': 7,
-                      'units_0': 41,
-                      'dense_activation_0': 'relu',
-                      'units_1': 45,
+            PARAMS = {'num_layers': 4,
+                      'dense_activation_0': 'tanh',
                       'dense_activation_1': 'relu',
+                      'dense_activation_2': 'tanh',
+                      'dense_activation_3': 'tanh',
+                      'dense_activation_4': 'tanh',
+                      'units_0': 36,
+                      'units_1': 30,
+                      'units_2': 60,
+                      'units_3': 41,
+                      'units_4': 36,
+                      'final_activation': 'sigmoid',
                       'optimizer': 'RMSprop',
                       'learning_rate': 0.001,
-                      'units_2': 45,
-                      'dense_activation_2': 'tanh',
-                      'units_3': 30,
-                      'dense_activation_3': 'relu',
-                      'units_4': 41,
-                      'dense_activation_4': 'relu',
-                      'units_5': 30,
-                      'dense_activation_5': 'relu',
-                      'units_6': 50,
-                      'dense_activation_6': 'relu',
                       'final_activation': 'sigmoid',
                       'batch_size': 8192,
                       'bias_init': False,
                       'estimator': "BayesianRidge",
-                      'epochs': 50,
+                      'epochs': 30,
                       'focal': True,
                       'alpha': a,
                       'gamma': g,
@@ -642,9 +635,9 @@ if __name__ == "__main__":
                       'BatchNorm': False,
                       'Momentum': 0.60,
                       'Normalize': 'MinMax',
-                      'OutlierRemove': 'lof',
+                      'OutlierRemove': 'None',
                       'Feature_Selection': 'Chi2',
-                      'Feature_Num': 30,
+                      'Feature_Num': 1000,
                       'Generator': False,
                       'TestSplit': 0.10,
                       'ValSplit': 0.10}
@@ -652,7 +645,7 @@ if __name__ == "__main__":
             run = neptune.init(project='rachellb/FocalPre',
                                api_token=api_,
                                name='MOMI Full',
-                               tags=['Focal Loss', 'Hand Tuned', 'Test', 'FS then encode'],
+                               tags=['Focal Loss', 'Bayesian', 'Pre Only', 'No Outlier Remove', 'Update'],
                                source_files=['NeuralNetwork_Simple.py'])
 
             run['hyper-parameters'] = PARAMS
@@ -664,13 +657,13 @@ if __name__ == "__main__":
 
             # Get data
             parent = os.path.dirname(os.getcwd())
-            dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/momiUSPre_062621.csv')
-            data = model.prepData(data=dataPath)
+            dataPath = os.path.join(parent,  'Preprocess/momiEncoded_061521.csv')
+            model.prepData(data=dataPath)
             model.splitData()
-            data = model.imputeData()
-            model.detectOutliers()
+            model.imputeData()
+            #model.detectOutliers()
             model.normalizeData()
-            features = model.featureSelection()
+            model.featureSelection()
             model.encodeData()
             model.buildModel()
             model.evaluateModel()

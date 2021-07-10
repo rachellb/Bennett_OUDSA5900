@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime
 import os
 from Cleaning.Clean import *
-from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler
+from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler, StandardScaler, OneHotEncoder
 from sklearn.utils import class_weight
 from statistics import mean
 
@@ -19,7 +19,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.neighbors import KNeighborsRegressor
 
-#For Outlier Detection
+# For Outlier Detection
 from sklearn.ensemble import IsolationForest
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
@@ -49,7 +49,6 @@ import matplotlib.pyplot as plt
 import statistics
 from PIL import Image
 
-
 # For Stratified Cross Validation
 from sklearn.model_selection import RepeatedStratifiedKFold
 
@@ -64,8 +63,8 @@ from neptune.new.types import File
 # For Reproducibility
 import random
 
-def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
 
+def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
     assert 0 in weights
     assert 1 in weights
 
@@ -90,13 +89,54 @@ class fullNN():
         self.PARAMS = PARAMS
         self.name = name
 
-    def normalizeData(self, data):
+    def normalizeData(self):
 
-        scaler = MinMaxScaler()
-        data = scaler.fit_transform(data)
-        return data
+        if self.PARAMS['Normalize'] == 'MinMax':
+            scaler = MinMaxScaler()
+        elif self.PARAMS['Normalize'] == 'StandardScale':
+            scaler = StandardScaler()
 
-    def imputeData(self):
+        if (self.name == "MOMI"):
+            # Fit and transform training data, then transform val and test using info gained from fitting
+            scaleColumns = ['MotherAge', 'WeightAtAdmission',
+                            'TotalNumPregnancies', 'DeliveriesPriorAdmission', 'TotalAbortions', 'WeightAtAdmission',
+                            'PNV_GestAge', 'PNV_Weight_Oz', 'MAP', 'Prev_highBP']
+
+            self.X_train[scaleColumns] = scaler.fit_transform(self.X_train[scaleColumns])
+            self.X_test[scaleColumns] = scaler.fit_transform(self.X_test[scaleColumns])
+
+    def encodeData(self):
+
+        encodeCols = ['Insurance', 'MaternalNeuromuscularDisease', 'MCollagenVascularDisease',
+                      'MStructuralHeartDiseas', 'MPostPartumComplications', 'DiabetesMellitus', 'ThyroidDisease',
+                      'MLiverGallPanc', 'KidneyDisease', 'MAnemiaWOHemoglobinopathy', 'MHemoglobinopathy',
+                      'Thrombocytopenia', 'ViralOrProtoInf', 'OtherSubstanceAbuse', 'InfSex', 'CNSAbnormality',
+                      'RaceCollapsed']
+
+        selectCat = [c for c in self.X_train.columns if (c in encodeCols)]
+
+        ohe = OneHotEncoder(handle_unknown='ignore')
+
+        # Train on the categorical variables
+        ohe.fit(self.data[selectCat])
+
+        X_trainCodes = ohe.transform(self.X_train[selectCat]).toarray()
+        X_testCodes = ohe.transform(self.X_test[selectCat]).toarray()
+        feature_names = ohe.get_feature_names(selectCat)
+
+        self.X_train = pd.concat([self.X_train.drop(columns=selectCat).reset_index(drop=True),
+                                  pd.DataFrame(X_trainCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                 axis=1)
+
+        self.X_test = pd.concat([self.X_test.drop(columns=selectCat).reset_index(drop=True),
+                                 pd.DataFrame(X_testCodes, columns=feature_names).astype(int).reset_index(drop=True)],
+                                axis=1)
+
+        # OHE adds unnecessary nan column, which needs to be dropped
+        self.X_train = self.X_train.loc[:, ~self.X_train.columns.str.endswith('_nan')]
+        self.X_test = self.X_test.loc[:, ~self.X_test.columns.str.endswith('_nan')]
+
+    def imputeData(self, data1=None, data2=None):
         # Scikitlearn's Iterative imputer
         # Default imputing method is Bayesian Ridge Regression
 
@@ -137,28 +177,21 @@ class fullNN():
             self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] > 4)), 4,
                                                     self.X_test['RaceCollapsed'])
 
-            # Fix incorrectly imputed value
-            self.X_train['RaceCollapsed'] = np.where(((self.X_train['RaceCollapsed'] < 0)), 0,
-                                                     self.X_train['RaceCollapsed'])
-            self.X_test['RaceCollapsed'] = np.where(((self.X_test['RaceCollapsed'] < 0)), 0,
-                                                    self.X_test['RaceCollapsed'])
+            self.X_train[self.X_train < 0] = 0
+            self.X_test[self.X_test < 0] = 0
 
-        else:
-            self.X_train = pd.DataFrame(np.round(MI_Imp.fit_transform(self.X_train)), columns=self.X_train.columns)
-            self.X_test = pd.DataFrame(np.round(MI_Imp.transform(self.X_test)), columns=self.X_test.columns)
-
-    def detectOutliers(self, method, con):
+    def detectOutliers(self, con='auto'):
 
         print(self.X_train.shape, self.Y_train.shape)
 
-        if method == 'iso':
+        if self.PARAMS['OutlierRemove'] == 'iso':
             out = IsolationForest(contamination=con)
-        elif method == 'lof':
+        elif self.PARAMS['OutlierRemove'] == 'lof':
             out = LocalOutlierFactor(contamination=con)
-        elif method == 'ocsvm':
+        elif self.PARAMS['OutlierRemove'] == 'ocsvm':
             out = OneClassSVM(nu=0.01)
-        elif method == 'ee':
-            out = EllipticEnvelope(contamination=con)
+        elif self.PARAMS['OutlierRemove'] == 'ee':
+            out = EllipticEnvelope()
 
         yhat = out.fit_predict(self.X_train)
 
@@ -181,8 +214,10 @@ class fullNN():
 
             # Save graph
             ax = plot_importance(model, max_num_features=numFeatures)
-            image = pyplot.gcf()
-            neptune.log_image('XGBFeatures', image, image_name='XGBFeatures')
+            fig1 = pyplot.gcf()
+            # pyplot.show()
+
+            fig1.savefig('XGBoostTopFeatures.png', bbox_inches='tight')
 
             # Get and save best features
             feature_important = model.get_booster().get_fscore()
@@ -193,11 +228,6 @@ class fullNN():
             topFeatures = list(data.index[0:numFeatures])
 
         if self.PARAMS['Feature_Selection'] == "Chi2":
-
-            self.X_train[self.X_train < 0] = 0
-            self.X_test[self.X_test < 0] = 0
-
-
             # instantiate SelectKBest to determine 20 best features
             fs = SelectKBest(score_func=chi2, k=numFeatures)
             fs.fit(self.X_train, self.Y_train)
@@ -227,18 +257,23 @@ class fullNN():
             topFeatures = list(mutualInfoFeatures)
             self.MIFeatures = mutualInfoFeatures
 
+        if self.PARAMS['Feature_Selection'] == None:
+            topFeatures = self.X_train.columns
+
         self.X_train = self.X_train[topFeatures]
         self.X_test = self.X_test[topFeatures]
 
     def prepData(self, data):
 
+        self.data = pd.read_csv(data)
+        self.data = self.data.sample(frac=1).reset_index(drop=True)
         # Trying to save memory by changing binary variables to int8
-        for col in list(data.columns):
-            if list(data[col].unique()) == [0, 1]:
-                data[col] = data[col].astype('int8')
+        for col in list(self.data.columns):
+            if list(self.data[col].unique()) == [0, 1]:
+                self.data[col] = self.data[col].astype('int8')
 
-        X = data.drop(columns='Preeclampsia/Eclampsia')
-        Y = data['Preeclampsia/Eclampsia']
+        X = self.data.drop(columns='Preeclampsia/Eclampsia')
+        Y = self.data['Preeclampsia/Eclampsia']
 
         return X, Y
 
@@ -271,7 +306,6 @@ class fullNN():
         self.Y_test = self.Y_test.to_numpy()
 
         inputSize = self.X_train.shape[1]
-
 
         self.training_generator = BalancedBatchGenerator(self.X_train, self.Y_train,
                                                          batch_size=self.PARAMS['batch_size'],
@@ -391,7 +425,7 @@ class fullNN():
                    "True Negatives": tn,
                    "False Positives": fp,
                    "False Negatives": fn}
-                   #"History": self.history}
+        # "History": self.history}
 
         print(f'Total Cases: {len(y_predict)}')
         print(f'Predict #: {y_predict.sum()} / True # {self.Y_test.sum()}')
@@ -418,7 +452,6 @@ class fullNN():
         return Results
 
 
-
 class NoGen(fullNN):
     def __init__(self, PARAMS, name=None):
 
@@ -427,16 +460,9 @@ class NoGen(fullNN):
 
     def buildModel(self):
 
-        LOG_DIR = f"{int(time.time())}"
-
-        # Set all to numpy arrays
-        self.X_train = self.X_train
-        self.Y_train = self.Y_train
-        self.X_test = self.X_test
-        self.Y_test = self.Y_test
+        self.start_time = time.time()
 
         inputSize = self.X_train.shape[1]
-
 
         # define the keras model
         tf.keras.backend.clear_session()
@@ -448,17 +474,15 @@ class NoGen(fullNN):
             self.model.add(
                 Dense(units=self.PARAMS['units_' + str(i)], activation=self.PARAMS['dense_activation_' + str(i)]))
             if self.PARAMS['Dropout']:
-                     self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
+                self.model.add(Dropout(self.PARAMS['Dropout_Rate']))
             if self.PARAMS['BatchNorm']:
-                     self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
+                self.model.add(BatchNormalization(momentum=self.PARAMS['Momentum']))
 
         # Class weights
         class_weights = class_weight.compute_class_weight('balanced', np.unique(self.Y_train), self.Y_train)
         class_weight_dict = dict(enumerate(class_weights))
-
-
-        pos = self.Y_train.value_counts()[0]
-        neg = self.Y_train.value_counts()[1]
+        pos = class_weight_dict[1]
+        neg = class_weight_dict[0]
         bias = np.log(pos / neg)
 
         if self.PARAMS['bias_init'] == 0:
@@ -471,13 +495,15 @@ class NoGen(fullNN):
                                  bias_initializer=tf.keras.initializers.Constant(
                                      value=bias)))
 
-        # Loss Function
-        if self.PARAMS['focal']:
-            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
-        elif self.PARAMS['class_weights']:
-            loss = weighted_binary_cross_entropy(class_weight_dict)
-        else:
-            loss = 'binary_crossentropy'
+        # Reset class weights for use in loss function
+        scalar = len(self.Y_train)
+        # class_weight_dict[0] = scalar / self.Y_train.value_counts()[0]
+        # class_weight_dict[1] = scalar / self.Y_train.value_counts()[1]
+
+        weight_for_0 = (1 / self.Y_train.value_counts()[0]) * (scalar) / 2.0
+        weight_for_1 = (1 / self.Y_train.value_counts()[1]) * (scalar) / 2.0
+
+        class_weight_dict = {0: weight_for_0, 1: weight_for_1}
 
         # Conditional for each optimizer
         if self.PARAMS['optimizer'] == 'Adam':
@@ -492,19 +518,30 @@ class NoGen(fullNN):
         elif self.PARAMS['optimizer'] == 'NAdam':
             optimizer = tf.keras.optimizers.Nadam(self.PARAMS['learning_rate'], clipnorm=0.0001)
 
+        # Loss Function
+        if self.PARAMS['focal']:
+            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=self.PARAMS['alpha'], gamma=self.PARAMS['gamma'])
+
+        elif self.PARAMS['class_weights']:
+            loss = weighted_binary_cross_entropy(class_weight_dict)
+        else:
+            loss = 'binary_crossentropy'
+
         # Compilation
         self.model.compile(optimizer=optimizer,
                            loss=loss,
                            metrics=['accuracy',
                                     tf.keras.metrics.Precision(),
                                     tf.keras.metrics.Recall(),
-                                    tf.keras.metrics.AUC()])
+                                    tf.keras.metrics.AUC(),
+                                    tf.keras.metrics.AUC(curve='PR')])
 
         neptune_cbk = NeptuneCallback(run=run, base_namespace='metrics')
 
         self.history = self.model.fit(self.X_train, self.Y_train, batch_size=self.PARAMS['batch_size'],
                                       epochs=self.PARAMS['epochs'],
                                       verbose=2, callbacks=[neptune_cbk])
+
 
 if __name__ == "__main__":
 
@@ -515,65 +552,60 @@ if __name__ == "__main__":
         np.random.seed(1)
         random.seed(1)
 
-    #reset_random_seeds()
+
+    # reset_random_seeds()
 
     start_time = time.time()
 
-    PARAMS = {'num_layers': 3,
-              'dense_activation_0': 'tanh',
-              'dense_activation_1': 'relu',
-              'dense_activation_2': 'relu',
+    PARAMS = {'num_layers': 2,
               'units_0': 60,
+              'dense_activation_0': 'tanh',
               'units_1': 30,
-              'units_2': 45,
-              'final_activation': 'sigmoid',
-              'optimizer': 'RMSprop',
+              'dense_activation_1': 'tanh',
+              'optimizer': 'Adam',
               'learning_rate': 0.001,
-              'batch_size': 8192,
-              'bias_init': 0,
+              'final_activation': 'sigmoid',
+              'batch_size': 4096,
+              'bias_init': False,
+              'estimator': "BayesianRidge",
               'epochs': 30,
               'focal': True,
-              'alpha': 0.95,
-              'gamma': 1,
+              'alpha': 0,
+              'gamma': 1.75,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
               'Dropout_Rate': 0.20,
               'BatchNorm': False,
               'Momentum': 0.60,
+              'Normalize': 'MinMax',
+              'OutlierRemove': 'None',
               'Feature_Selection': 'Chi2',
-              'Feature_Num': 20,
-              'estimator': "BayesianRidge",
-              'Generator': False,
-              'MAX_TRIALS': 5}
+              'Feature_Num': 1000,
+              'Generator': True,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='Oklahoma Full',
-                       tags=['Focal Loss', 'Hyperband', 'Updated', 'Testing subgroups', '350CV'],
+                       name='MOMI Full',
+                       tags=['Focal Loss', 'Bayesian', 'Pre Only', 'No Outlier Remove', 'Balanced-Batches'],
                        source_files=['NeuralNetwork_NoTune.py', 'Cleaning/Clean.py'])
 
     run['hyper-parameters'] = PARAMS
-    #neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
+    # neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
     if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS)
+        model = NoGen(PARAMS, name='MOMI')
 
     else:
-        model = fullNN(PARAMS)
+        model = fullNN(PARAMS, name='MOMI')
 
-    # Get data
-    #parent = os.path.dirname(os.getcwd())
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-    #dataPath = os.path.join(parent, 'Data/Processed/Texas/Native/Chi2_Categorical_041521.csv')
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
-
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=35, random_state=36851234)
-
-    ok2017, ok2018, african, native = cleanDataOK(dropMetro=True)
-    full = ok2017.append(ok2018)
-    X, y = model.prepData(full)
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+    X, y = model.prepData(data=dataPath)
 
     aucList = []
     gmeanList = []
@@ -591,12 +623,13 @@ if __name__ == "__main__":
     for train_index, test_index in rskf.split(X, y):
         X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-        model.setData(X_train, X_test, y_train, y_test, subgroup='African')
-
+        model.setData(X_train, X_test, y_train, y_test)
 
         model.imputeData()
+        #model.detectOutliers()
+        model.normalizeData()
         model.featureSelection()
-        # For hand-tuning
+        model.encodeData()
         model.buildModel()
         Results = model.evaluateModel()
 
@@ -607,13 +640,11 @@ if __name__ == "__main__":
         recallList.append(Results["Recall"])
         specList.append(Results["Specificity"])
         lossList.append(Results["Loss"])
-        #historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
+        # historyList.append(Results["History"])  # List of lists, will each entry history of a particular run
         tpList.append(Results['True Positives'])
         tnList.append(Results['True Negatives'])
         fpList.append(Results['False Positives'])
         fnList.append(Results['False Negatives'])
-
-
 
     run['List loss'] = lossList
     run['List accuracy'] = accList
@@ -627,7 +658,6 @@ if __name__ == "__main__":
     run['List FP'] = fpList
     run['List FN'] = fnList
 
-
     # Get Average Results
     lossMean = statistics.mean(lossList)
     aucMean = statistics.mean(aucList)
@@ -640,7 +670,6 @@ if __name__ == "__main__":
     tnMean = statistics.mean(tnList)
     fpMean = statistics.mean(fpList)
     fnMean = statistics.mean(fnList)
-
 
     run['Mean loss'] = lossMean
     run['Mean accuracy'] = accMean
@@ -667,7 +696,6 @@ if __name__ == "__main__":
     tnSD = statistics.pstdev(tnList)
     fnSD = statistics.pstdev(fnList)
 
-
     run['SD loss'] = lossSD
     run['SD accuracy'] = accSD
     run['SD AUC'] = aucSD
@@ -685,12 +713,12 @@ if __name__ == "__main__":
         aucAvg = []
         lossAvg = []
 
-        for i in range(len(historyList[0].history['auc'])): # Iterate through each epoch
+        for i in range(len(historyList[0].history['auc'])):  # Iterate through each epoch
             # Clear list
             auc = []
             loss = []
 
-            for j in range(len(historyList)): # Iterate through each history object
+            for j in range(len(historyList)):  # Iterate through each history object
 
                 # Append each model's measurement for epoch i
                 auc.append(historyList[j].history['auc'][i])
@@ -727,7 +755,8 @@ if __name__ == "__main__":
         plt.legend(['training'], loc='upper right')
         run['Average Loss'].upload(avgloss)
 
-    #plotAvg(historyList)
+
+    # plotAvg(historyList)
 
     mins = (time.time() - start_time) / 60  # Time in seconds
 

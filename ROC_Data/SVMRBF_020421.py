@@ -74,9 +74,10 @@ class SVM():
             np.save('Predictions/' + self.data + '/svmRBF_pred', y_predSG)
 
 if __name__ == "__main__":
+
     data = 'MOMI'
 
-    model = SVM(weight=True, data=data)
-    model.prepData(data='Data/' + data + '/062721_')
+    model = SVM(weight=False, data=data)
+    model.prepData(data='Data/' + data + '/070821_')
     model.classify()
 

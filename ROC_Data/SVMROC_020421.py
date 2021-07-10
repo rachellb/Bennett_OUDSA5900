@@ -77,7 +77,7 @@ if __name__ == "__main__":
     data = 'MOMI'
 
     model = SVM(weight=True, data=data)
-    model.prepData(data='Data/' + data + '/062721_')
+    model.prepData(data='Data/' + data + '/070821_')
     model.tuneSVM()
     model.classify()
 

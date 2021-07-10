@@ -232,21 +232,27 @@ class NoGen(NeuralNetwork):
 if __name__ == "__main__":
 
     dataset = 'MOMI'
-    method = 'FL'
+    method = 'CE'
 
-    PARAMS = {'num_layers': 2,
+    PARAMS = {'num_layers': 5,
               'dense_activation_0': 'tanh',
               'dense_activation_1': 'tanh',
-              'units_0': 60,
-              'units_1': 60,
+              'dense_activation_2': 'tanh',
+              'dense_activation_3': 'tanh',
+              'dense_activation_4': 'tanh',
+              'units_0': 36,
+              'units_1': 30,
+              'units_2': 60,
+              'units_3': 41,
+              'units_4': 36,
               'final_activation': 'sigmoid',
-              'optimizer': 'Adam',
+              'optimizer': 'RMSprop',
               'learning_rate': 0.001,
               'batch_size': 8192,
               'bias_init': 0,
               'epochs': 30,
-              'focal': True,
-              'alpha': 0.5,
+              'focal': False,
+              'alpha': 0.91,
               'gamma': 1.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
@@ -255,7 +261,7 @@ if __name__ == "__main__":
               'BatchNorm': False,
               'Momentum': 0.60,
               'Feature_Selection': 'Chi2',
-              'Generator': True,
+              'Generator': False,
               'MAX_TRIALS': 5}
 
     if PARAMS['Generator'] == False:
@@ -263,7 +269,7 @@ if __name__ == "__main__":
     else:
         neuralnet = NeuralNetwork(PARAMS)
 
-    neuralnet.prepData(data='Data/' + dataset + '/062721__')
+    neuralnet.prepData(data='Data/' + dataset + '/070821_')
     y_pred_keras = neuralnet.buildModel()
 
     np.save('Predictions/' + dataset + '/nn_pred_' + method, y_pred_keras)
