@@ -180,6 +180,11 @@ class fullNN():
             self.X_train[self.X_train < 0] = 0
             self.X_test[self.X_test < 0] = 0
 
+        else:
+            if self.data.isnull().values.any():
+                self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
+                self.X_test_imputed = pd.DataFrame(MI_Imp.transform(self.X_test), columns=self.X_test.columns)
+
     def detectOutliers(self, con='auto'):
 
         print(self.X_train.shape, self.Y_train.shape)
@@ -266,11 +271,13 @@ class fullNN():
     def prepData(self, data):
 
         self.data = pd.read_csv(data)
-        self.data = self.data.sample(frac=1).reset_index(drop=True)
+        #self.data = self.data.sample(frac=1).reset_index(drop=True)
         # Trying to save memory by changing binary variables to int8
         for col in list(self.data.columns):
             if list(self.data[col].unique()) == [0, 1]:
                 self.data[col] = self.data[col].astype('int8')
+
+
 
         X = self.data.drop(columns='Preeclampsia/Eclampsia')
         Y = self.data['Preeclampsia/Eclampsia']
@@ -286,14 +293,19 @@ class fullNN():
 
         # Double check
         if subgroup == 'Native':
-            idx = self.X_test.index[self.X_test['Native American'] == 1]
+            idx = self.X_test.index[self.X_test['RaceCollapsed'] == 4]
             self.X_test = self.X_test.loc[idx]
             self.Y_test = self.Y_test.loc[idx]
+            #self.X_test.drop(columns=['Race'], axis=1, inplace=True)
+            #self.X_train.drop(columns=['Race'], axis=1, inplace=True)
 
         elif subgroup == 'African':
-            idx = self.X_test.index[self.X_test['Black'] == 1]
+            idx = self.X_test.index[self.X_test['RaceCollapsed'] == 1]
             self.X_test = self.X_test.loc[idx]
             self.Y_test = self.Y_test.loc[idx]
+            # Drop original race and ethnicity columns
+            #self.X_test.drop(columns=['Race'], axis=1, inplace=True)
+            #self.X_train.drop(columns=['Race'], axis=1, inplace=True)
 
     def buildModel(self):
 
@@ -560,18 +572,18 @@ if __name__ == "__main__":
     PARAMS = {'num_layers': 2,
               'units_0': 60,
               'dense_activation_0': 'tanh',
-              'units_1': 30,
+              'units_1': 60,
               'dense_activation_1': 'tanh',
               'optimizer': 'Adam',
               'learning_rate': 0.001,
               'final_activation': 'sigmoid',
-              'batch_size': 4096,
+              'batch_size': 8096,
               'bias_init': False,
               'estimator': "BayesianRidge",
               'epochs': 30,
               'focal': True,
-              'alpha': 0,
-              'gamma': 1.75,
+              'alpha': 0.91,
+              'gamma': 0.25,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -582,14 +594,14 @@ if __name__ == "__main__":
               'OutlierRemove': 'None',
               'Feature_Selection': 'Chi2',
               'Feature_Num': 1000,
-              'Generator': True,
+              'Generator': False,
               'TestSplit': 0.10,
               'ValSplit': 0.10}
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
                        name='MOMI Full',
-                       tags=['Focal Loss', 'Bayesian', 'Pre Only', 'No Outlier Remove', 'Balanced-Batches'],
+                       tags=['Focal Loss', 'Hyperband', 'Compare Methods', 'African', '350 CV'],
                        source_files=['NeuralNetwork_NoTune.py', 'Cleaning/Clean.py'])
 
     run['hyper-parameters'] = PARAMS
@@ -601,10 +613,12 @@ if __name__ == "__main__":
     else:
         model = fullNN(PARAMS, name='MOMI')
 
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=35, random_state=36851234)
+
 
     parent = os.path.dirname(os.getcwd())
     dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+
     X, y = model.prepData(data=dataPath)
 
     aucList = []
@@ -623,13 +637,13 @@ if __name__ == "__main__":
     for train_index, test_index in rskf.split(X, y):
         X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-        model.setData(X_train, X_test, y_train, y_test)
+        model.setData(X_train, X_test, y_train, y_test, subgroup='African')
 
         model.imputeData()
         #model.detectOutliers()
-        model.normalizeData()
+        #model.normalizeData()
         model.featureSelection()
-        model.encodeData()
+        #model.encodeData()
         model.buildModel()
         Results = model.evaluateModel()
 

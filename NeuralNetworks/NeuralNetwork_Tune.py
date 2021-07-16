@@ -831,14 +831,14 @@ if __name__ == "__main__":
 
         # Get data
         parent = os.path.dirname(os.getcwd())
-        dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+        dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
         data = model.prepData(data=dataPath)
         model.splitData()
         data = model.imputeData()
         #model.detectOutliers()
-        model.scaleData()
+        #model.scaleData()
         features = model.featureSelection()
-        model.encodeData()
+        #model.encodeData()
         model.hpTuning()
         model.evaluateModel()
 

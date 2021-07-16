@@ -1126,12 +1126,10 @@ def cleanDataTX(age):
                              'DISCHARGE__2': 'Discharge in Quarter 2',
                              'DISCHARGE__3': 'Discharge in Quarter 3',
                              'DISCHARGE__4': 'Discharge in Quarter 4'})
-
     """
     year2013.rename(columns={'ETHNICITY__1': 'Hispanic', 'ETHNICITY__2': 'Non-Hispanic'},
                     inplace=True)
     """
-
     African_Am = year2013.loc[year2013['RACE'] == '3']
     African_Am.drop(columns=['RACE'], inplace=True)
     # African_Am.to_csv('Data/AfricanAmerican_' + date + '.csv', index=False)
@@ -1186,13 +1184,16 @@ def cleanDataTX(age):
     year2013['Other Race Non-Hispanic'] = np.where(
         ((year2013['RACE__5'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1, year2013['Other Race Non-Hispanic'])
 
+    """
     # Drop original race and ethnicity columns
     year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
                            'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
+    """
 
-    # year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
 
-    return year2013, African_Am, Native_Am
+    #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
+
+    return year2013
 
 def cleanDataOK(dropMetro, age='Ordinal'):
         system = 'linux'
