@@ -594,8 +594,8 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    alpha = [0.90, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]
-    gamma = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    alpha = [0.97]
+    gamma = [0.0, 2.0, 4.0, 6.0, 8.0]
     for a in alpha:
         for g in gamma:
 
@@ -635,34 +635,34 @@ if __name__ == "__main__":
                       'Normalize': 'MinMax',
                       'OutlierRemove': 'None',
                       'Feature_Selection': 'Chi2',
-                      'Feature_Num': 1000,
+                      'Feature_Num': 20,
                       'Generator': False,
                       'TestSplit': 0.10,
                       'ValSplit': 0.10}
 
             run = neptune.init(project='rachellb/FocalPre',
                                api_token=api_,
-                               name='MOMI Full',
+                               name='Texas Full',
                                tags=['Focal Loss', 'Hyperband', 'Last time I swear'],
                                source_files=['NeuralNetwork_Simple.py'])
 
             run['hyper-parameters'] = PARAMS
 
             if PARAMS['Generator'] == False:
-                model = NoGen(PARAMS, name='MOMI')
+                model = NoGen(PARAMS)
             else:
-                model = fullNN(PARAMS, name='MOMI')
+                model = fullNN(PARAMS)
 
             # Get data
             parent = os.path.dirname(os.getcwd())
-            dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+            dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
             model.prepData(data=dataPath)
             x_test, y_test, x_train, y_train = model.splitData()
-            model.imputeData()
+            #model.imputeData()
             #model.detectOutliers()
-            model.normalizeData()
+            #model.normalizeData()
             model.featureSelection()
-            model.encodeData()
+            #model.encodeData()
             preds = model.buildModel()
 
             """

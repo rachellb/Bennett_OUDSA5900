@@ -231,20 +231,16 @@ class NoGen(NeuralNetwork):
 
 if __name__ == "__main__":
 
-    dataset = 'MOMI'
+    dataset = 'Oklahoma'
     method = 'CE'
 
-    PARAMS = {'num_layers': 5,
+    PARAMS = {'num_layers': 3,
               'dense_activation_0': 'tanh',
-              'dense_activation_1': 'tanh',
+              'dense_activation_1': 'relu',
               'dense_activation_2': 'tanh',
-              'dense_activation_3': 'tanh',
-              'dense_activation_4': 'tanh',
-              'units_0': 36,
-              'units_1': 30,
-              'units_2': 60,
-              'units_3': 41,
-              'units_4': 36,
+              'units_0': 60,
+              'units_1': 60,
+              'units_2': 41,
               'final_activation': 'sigmoid',
               'optimizer': 'RMSprop',
               'learning_rate': 0.001,
@@ -252,8 +248,8 @@ if __name__ == "__main__":
               'bias_init': 0,
               'epochs': 30,
               'focal': False,
-              'alpha': 0.91,
-              'gamma': 1.25,
+              'alpha': 0.95,
+              'gamma': 1.00,
               'class_weights': False,
               'initializer': 'RandomUniform',
               'Dropout': True,
@@ -269,7 +265,7 @@ if __name__ == "__main__":
     else:
         neuralnet = NeuralNetwork(PARAMS)
 
-    neuralnet.prepData(data='Data/' + dataset + '/070821_')
+    neuralnet.prepData(data='Data/' + dataset + '/061721_')
     y_pred_keras = neuralnet.buildModel()
 
     np.save('Predictions/' + dataset + '/nn_pred_' + method, y_pred_keras)
