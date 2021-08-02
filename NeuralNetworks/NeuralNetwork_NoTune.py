@@ -43,7 +43,7 @@ import tensorflow.keras.backend as K
 # For additional metrics
 from imblearn.metrics import geometric_mean_score, specificity_score
 from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
+#import tensorflow_addons as tfa  # For focal loss function
 import time
 import matplotlib.pyplot as plt
 import statistics
@@ -600,24 +600,24 @@ if __name__ == "__main__":
 
     run = neptune.init(project='rachellb/CVPreeclampsia',
                        api_token=api_,
-                       name='MOMI Full',
-                       tags=['Focal Loss', 'Hyperband', 'Compare Methods', 'African', '350 CV'],
+                       name='Oklahoma Full',
+                       tags=['Focal Loss', 'Hyperband', 'Compare Methods', '350 CV', 'Test'],
                        source_files=['NeuralNetwork_NoTune.py', 'Cleaning/Clean.py'])
 
     run['hyper-parameters'] = PARAMS
     # neptune.log_text('my_text_data', 'text I keep track of, like query or tokenized word')
 
     if PARAMS['Generator'] == False:
-        model = NoGen(PARAMS, name='MOMI')
+        model = NoGen(PARAMS)
 
     else:
-        model = fullNN(PARAMS, name='MOMI')
+        model = fullNN(PARAMS)
 
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=35, random_state=36851234)
+    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
 
     parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
     X, y = model.prepData(data=dataPath)
 
@@ -637,7 +637,7 @@ if __name__ == "__main__":
     for train_index, test_index in rskf.split(X, y):
         X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-        model.setData(X_train, X_test, y_train, y_test, subgroup='African')
+        model.setData(X_train, X_test, y_train, y_test)
 
         model.imputeData()
         #model.detectOutliers()
