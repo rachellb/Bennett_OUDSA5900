@@ -779,66 +779,66 @@ if __name__ == "__main__":
 
     tuners = ['Random', 'Bayesian', 'Hyperband']
     for t in tuners:
-        """
+
         outliers = ['iso', 'lof','ocsvm', 'ee']
         for o in outliers:
-        """
-        def reset_random_seeds():
-            os.environ['PYTHONHASHSEED'] = str(1)
-            tf.random.set_seed(1)
-            np.random.seed(1)
-            random.seed(1)
+
+            def reset_random_seeds():
+                os.environ['PYTHONHASHSEED'] = str(1)
+                tf.random.set_seed(1)
+                np.random.seed(1)
+                random.seed(1)
 
 
-        reset_random_seeds()
+            reset_random_seeds()
 
-        PARAMS = {'batch_size': 8096,
-                  'bias_init': False,
-                  'estimator': "BayesianRidge",
-                  'epochs': 30,
-                  'focal': True,
-                  'alpha': 0.94,
-                  'gamma': 1.5,
-                  'class_weights': False,
-                  'initializer': 'RandomUniform',
-                  'Dropout': True,
-                  'Dropout_Rate': 0.20,
-                  'BatchNorm': False,
-                  'Momentum': 0.60,
-                  'Normalize': 'MinMax',
-                  'OutlierRemove': "None",
-                  'Feature_Selection': 'Chi2',
-                  'Feature_Num': 1000,
-                  'Generator': False,
-                  'Tuner': t,
-                  'EXECUTIONS_PER_TRIAL': 1,
-                  'MAX_TRIALS': 100,
-                  'TestSplit': 0.10,
-                  'ValSplit': 0.10}
+            PARAMS = {'batch_size': 8096,
+                      'bias_init': False,
+                      'estimator': "BayesianRidge",
+                      'epochs': 30,
+                      'focal': True,
+                      'alpha': 0.91,
+                      'gamma': 0.25,
+                      'class_weights': False,
+                      'initializer': 'RandomUniform',
+                      'Dropout': True,
+                      'Dropout_Rate': 0.20,
+                      'BatchNorm': False,
+                      'Momentum': 0.60,
+                      'Normalize': 'MinMax',
+                      'OutlierRemove': o,
+                      'Feature_Selection': 'Chi2',
+                      'Feature_Num': 1000,
+                      'Generator': False,
+                      'Tuner': t,
+                      'EXECUTIONS_PER_TRIAL': 1,
+                      'MAX_TRIALS': 100,
+                      'TestSplit': 0.10,
+                      'ValSplit': 0.10}
 
-        neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
-        neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                                  tags=['Focal Loss', 'OHE', 'Pre only', 'No Outlier Remove', 'Update'],
-                                  description='Standardize and then Normalize')
-
-
-
-        if PARAMS['Generator'] == False:
-            model = NoGen(PARAMS, name="MOMI")
-        else:
-            model = fullNN(PARAMS, name="MOMI")
+            neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
+            neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
+                                      tags=['Focal Loss', 'Pre only', 'Outlier Remove'],
+                                      description='Standardize and then Normalize')
 
 
-        # Get data
-        parent = os.path.dirname(os.getcwd())
-        dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
-        data = model.prepData(data=dataPath)
-        model.splitData()
-        data = model.imputeData()
-        #model.detectOutliers()
-        #model.scaleData()
-        features = model.featureSelection()
-        #model.encodeData()
-        model.hpTuning()
-        model.evaluateModel()
+
+            if PARAMS['Generator'] == False:
+                model = NoGen(PARAMS, name="MOMI")
+            else:
+                model = fullNN(PARAMS, name="MOMI")
+
+
+            # Get data
+            parent = os.path.dirname(os.getcwd())
+            dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+            data = model.prepData(data=dataPath)
+            model.splitData()
+            data = model.imputeData()
+            model.detectOutliers()
+            model.scaleData()
+            features = model.featureSelection()
+            model.encodeData()
+            model.hpTuning()
+            model.evaluateModel()
 

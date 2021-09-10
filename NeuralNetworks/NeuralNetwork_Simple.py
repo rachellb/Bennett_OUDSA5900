@@ -4,57 +4,46 @@
 # this particular network does no tuning or cross validation.
 
 
+import time
 # For handling data
 from datetime import datetime
-import os
 
-from sklearn.utils import class_weight
-
+import matplotlib.pyplot as plt
+# For NN and tuning
+import tensorflow as tf
+import tensorflow.keras.backend as K
+import tensorflow_addons as tfa  # For focal loss function
+from PIL import Image
+# For balancing batches
+from imblearn.keras import BalancedBatchGenerator
+# For additional metrics
+from imblearn.metrics import geometric_mean_score, specificity_score
+from imblearn.over_sampling import RandomOverSampler
+from matplotlib import pyplot
+from sklearn.covariance import EllipticEnvelope
+from sklearn.ensemble import ExtraTreesRegressor
+# For Outlier Detection
+from sklearn.ensemble import IsolationForest
+# For feature selection
+from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import mutual_info_classif
 # For imputing data
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklearn.linear_model import BayesianRidge
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder
+from sklearn.svm import OneClassSVM
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.utils import class_weight
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from xgboost import XGBClassifier
+from xgboost import plot_importance
 
 # For Encoding and Preprocessing
-from sklearn import preprocessing
-
-# For feature selection
-from sklearn.feature_selection import SelectKBest, chi2
-from xgboost import XGBClassifier
-from matplotlib import pyplot
-from xgboost import plot_importance
-from sklearn.model_selection import train_test_split
-from sklearn.feature_selection import mutual_info_classif
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder
-from sklearn.feature_selection import f_classif
-
-# For balancing batches
-from imblearn.keras import BalancedBatchGenerator
-from imblearn.over_sampling import RandomOverSampler
-
-# For NN and tuning
-import tensorflow as tf
-import tensorflow.keras.backend as K
-import kerastuner
-from kerastuner.tuners import Hyperband, BayesianOptimization, RandomSearch
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-
-# For additional metrics
-from imblearn.metrics import geometric_mean_score, specificity_score
-from sklearn.metrics import confusion_matrix
-import tensorflow_addons as tfa  # For focal loss function
-import time
-import matplotlib.pyplot as plt
-from PIL import Image
-
-# For Outlier Detection
-from sklearn.ensemble import IsolationForest
-from sklearn.covariance import EllipticEnvelope
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.svm import OneClassSVM
 
 date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
@@ -66,6 +55,9 @@ from secret import api_
 from Cleaning.Clean import *
 import random
 
+# For model interpretation
+import lime
+from lime import lime_tabular
 
 def weighted_binary_cross_entropy(weights: dict, from_logits: bool = False):
     assert 0 in weights
@@ -219,8 +211,8 @@ class fullNN():
                 else:
                     self.data = data1.append(data2)
             else:
-                if (self.data == True):
-                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(self.data)), columns=data1.columns)
+                if (self.data.values.any() == True):
+                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(self.data)), columns=self.data.columns)
                 else:
                     self.data = data1
 
@@ -258,8 +250,19 @@ class fullNN():
         # select all rows that are not outliers
         mask = (yhat != -1)
 
+        beforeOutlierRemove = self.Y_train.sum()
+        totalSamplesBefore = self.Y_train.shape[0]
+
         self.X_train = self.X_train.loc[mask]
         self.Y_train = self.Y_train.loc[mask]
+
+        afterOutlierRemove = self.Y_train.sum()
+
+        minorityOutliers = beforeOutlierRemove - afterOutlierRemove
+
+        totalSamplesAfter = self.Y_train.shape[0]
+
+        minorityOutliersPercent = (minorityOutliers/(totalSamplesBefore-totalSamplesAfter)) * 100
 
         print(self.X_train.shape, self.Y_train.shape)
 
@@ -500,6 +503,45 @@ class fullNN():
             run['MIFeatures'].upload(File.as_html(self.MIFeatures))
 
 
+
+        explainer = lime_tabular.LimeTabularExplainer(
+            training_data=np.array(self.X_train),
+            feature_names=self.X_train.columns,
+            class_names=['Non-Preeclamptic', 'Preeclamptic'],
+            mode='classification'
+        )
+
+        def prob(data):
+            return np.array(list(zip(1 - self.model.predict(data), self.model.predict(data))))
+        test = prob(self.X_test)
+
+        def predictKeras(testData_for_model):
+            prediction_Class_1 = self.model.predict_proba(testData_for_model)
+            x = np.zeros((prediction_Class_1.shape[0], 1))
+            probability = (x + 1) - prediction_Class_1
+            final = np.append(probability, prediction_Class_1, axis=1)
+            return final
+
+        test2 = predictKeras(self.X_test)
+
+        exp = explainer.explain_instance(
+            data_row=self.X_test.iloc[1],
+            num_features=20,
+            predict_fn=predictKeras# Needs just a function?
+        )
+
+
+
+        exp.show_in_notebook(show_table=True)
+        exp.as_pyplot_figure() # Should show results
+
+        exp.save_to_file('lime.html') #saves file
+
+
+        print("done")
+
+
+
 class NoGen(fullNN):
     def __init__(self, PARAMS, name=None):
 
@@ -594,179 +636,180 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    alpha = [0.97]
-    gamma = [0.0, 2.0, 4.0, 6.0, 8.0]
-    for a in alpha:
-        for g in gamma:
 
-            # Set seeds
-            def reset_random_seeds():
-                os.environ['PYTHONHASHSEED'] = str(1)
-                tf.random.set_seed(1)
-                np.random.seed(1)
-                random.seed(1)
 
-                #reset_random_seeds()
+    # Set seeds
+    def reset_random_seeds():
+        os.environ['PYTHONHASHSEED'] = str(1)
+        tf.random.set_seed(1)
+        np.random.seed(1)
+        random.seed(1)
 
-            PARAMS = {'num_layers': 3,
-                      'dense_activation_0': 'tanh',
-                      'dense_activation_1': 'relu',
-                      'dense_activation_2': 'relu',
-                      'units_0': 60,
-                      'units_1': 30,
-                      'units_2': 45,
-                      'final_activation': 'sigmoid',
-                      'optimizer': 'RMSprop',
-                      'learning_rate': 0.001,
-                      'final_activation': 'sigmoid',
-                      'batch_size': 8192,
-                      'bias_init': False,
-                      'estimator': "BayesianRidge",
-                      'epochs': 30,
-                      'focal': True,
-                      'alpha': a,
-                      'gamma': g,
-                      'class_weights': False,
-                      'initializer': 'RandomUniform',
-                      'Dropout': True,
-                      'Dropout_Rate': 0.20,
-                      'BatchNorm': False,
-                      'Momentum': 0.60,
-                      'Normalize': 'MinMax',
-                      'OutlierRemove': 'None',
-                      'Feature_Selection': 'Chi2',
-                      'Feature_Num': 20,
-                      'Generator': False,
-                      'TestSplit': 0.10,
-                      'ValSplit': 0.10}
+        #reset_random_seeds()
 
-            run = neptune.init(project='rachellb/FocalPre',
-                               api_token=api_,
-                               name='Texas Full',
-                               tags=['Focal Loss', 'Hyperband', 'Last time I swear'],
-                               source_files=['NeuralNetwork_Simple.py'])
+    PARAMS = {'num_layers': 3,
+              'dense_activation_0': 'tanh',
+              'dense_activation_1': 'relu',
+              'dense_activation_2': 'relu',
+              'units_0': 60,
+              'units_1': 30,
+              'units_2': 45,
+              'final_activation': 'sigmoid',
+              'optimizer': 'RMSprop',
+              'learning_rate': 0.001,
+              'final_activation': 'sigmoid',
+              'batch_size': 8192,
+              'bias_init': False,
+              'estimator': "BayesianRidge",
+              'epochs': 30,
+              'focal': True,
+              'alpha': 0.95,
+              'gamma': 1.0,
+              'class_weights': False,
+              'initializer': 'RandomUniform',
+              'Dropout': True,
+              'Dropout_Rate': 0.20,
+              'BatchNorm': False,
+              'Momentum': 0.60,
+              'Normalize': 'None',
+              'OutlierRemove': 'None',
+              'Feature_Selection': 'Chi2',
+              'Feature_Num': 1000,
+              'Generator': False,
+              'TestSplit': 0.10,
+              'ValSplit': 0.10}
 
-            run['hyper-parameters'] = PARAMS
+    run = neptune.init(project='rachellb/PreeclampsiaCompare',
+                       api_token=api_,
+                       name='Oklahoma Full',
+                       tags=['Focal Loss', 'Hyperband', 'LIME'],
+                       source_files=['NeuralNetwork_Simple.py'])
 
-            if PARAMS['Generator'] == False:
-                model = NoGen(PARAMS)
-            else:
-                model = fullNN(PARAMS)
+    run['hyper-parameters'] = PARAMS
 
-            # Get data
-            parent = os.path.dirname(os.getcwd())
-            dataPath = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
-            model.prepData(data=dataPath)
-            x_test, y_test, x_train, y_train = model.splitData()
-            #model.imputeData()
-            #model.detectOutliers()
-            #model.normalizeData()
-            model.featureSelection()
-            #model.encodeData()
-            preds = model.buildModel()
+    if PARAMS['Generator'] == False:
+        model = NoGen(PARAMS)
+    else:
+        model = fullNN(PARAMS)
 
-            """
-            def calcCDF(pred, Y_test, g, label):
-        
-                # Step 1: get the loss of the already fit model for positive and negative samples separately
-        
-                true = np.asarray(Y_test)
-                idsPos = np.where(true == 1)
-                idsNeg = np.where(true == 0)
-        
-                pPos = pred[idsPos]
-                yPos = true[idsPos]
-        
-                pNeg = pred[idsNeg]
-                yNeg = true[idsNeg]
-        
-                if label == 1:
-                    p = pPos
-                    y = yPos
-                    title = "Positive Loss Distribution"
-                else:
-                    p = pNeg
-                    y = yNeg
-                    title = "Negative Loss Distribution"
-        
-        
-                #loss2 = focalLoss(y, p, label)
-        
-                p = tf.convert_to_tensor(p)
-                y = tf.cast(y, tf.float32)
-                y = tf.convert_to_tensor(y)
-                y = tf.expand_dims(y, 1)
-        
-                fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=0.5, gamma=g)
-        
-        
-                @tf.function
-                def loss_graph(y,p):
-                    return fl(y,p)
-        
-        
-                loss = loss_graph(y,p)
-        
-        
-        
-                #x = np.sort(loss)
-                x = np.sort(loss)
-                # Normalized Data
-                x = x/sum(x)
-        
-                cdf = np.cumsum(x)
-                n = len(x)
-                share_of_population = np.arange(1, n + 1) / n
-        
-        
-                cdf_materials = {"shares": share_of_population,
-                                 "cusum": cdf}
-        
-                return cdf_materials
-        
-                # So maybe run through the list twice - once for positive, once for negative
-        
-            cdfListPos = []
-            cdfListNeg = []
-        
-            gammas = [0, 2, 4, 6, 8]
-        
-            for g in gammas:
-                # will need to store all this
-                cdf_matPos = calcCDF(preds, y_test, g, 1)
-                cdf_matNeg = calcCDF(preds, y_test, g, 0)
-                cdfListPos.append(cdf_matPos)
-                cdfListNeg.append(cdf_matNeg)
-        
-            # Plotting for a test:
-        
-            plt.clf()
-            plt.cla()
-            plt.close()
-        
-            posplot = plt.figure()
-            for i in range(len(gammas)):
-                plt.plot(cdfListPos[i]['shares'], cdfListPos[i]['cusum'], label= r'$\gamma$ = ' + str(gammas[i]))
-                plt.title('Positive Points CSP')
-                plt.ylabel('Cumulative Normalized Loss')
-                plt.legend()
-                plt.savefig('posplotCSP_TX_Higher_' +str(date), bbox_inches="tight")
-            run['posplot'].upload(posplot)
-        
-            plt.clf()
-            plt.cla()
-            plt.close()
-        
-        
-            negplot = plt.figure()
-            for i in range(len(gammas)):
-                plt.plot(cdfListNeg[i]['shares'], cdfListNeg[i]['cusum'], label=r'$\gamma$ = ' + str(gammas[i]))
-                plt.title('Negative Points CSP')
-                plt.ylabel('Cumulative Normalized Loss')
-                plt.legend()
-                plt.savefig('negplotCSP_TX_Higher_' + str(date), bbox_inches="tight")
-            run['negplot'].upload(negplot)
-            """
+    # Get data
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    model.prepData(data=dataPath)
+    x_test, y_test, x_train, y_train = model.splitData()
+    model.imputeData()
+    #model.detectOutliers()
+    #model.normalizeData()
+    model.featureSelection()
+    #model.encodeData()
+    preds = model.buildModel()
+    model.evaluateModel()
 
-            model.evaluateModel()
-            run.stop()
+    """
+    def calcCDF(pred, Y_test, g, label):
+
+        # Step 1: get the loss of the already fit model for positive and negative samples separately
+
+        true = np.asarray(Y_test)
+        idsPos = np.where(true == 1)
+        idsNeg = np.where(true == 0)
+
+        pPos = pred[idsPos]
+        yPos = true[idsPos]
+
+        pNeg = pred[idsNeg]
+        yNeg = true[idsNeg]
+
+        if label == 1:
+            p = pPos
+            y = yPos
+            title = "Positive Loss Distribution"
+        else:
+            p = pNeg
+            y = yNeg
+            title = "Negative Loss Distribution"
+
+
+        #loss2 = focalLoss(y, p, label)
+
+        p = tf.convert_to_tensor(p)
+        y = tf.cast(y, tf.float32)
+        y = tf.convert_to_tensor(y)
+        y = tf.expand_dims(y, 1)
+
+        fl = tfa.losses.SigmoidFocalCrossEntropy(alpha=0.5, gamma=g)
+
+
+        @tf.function
+        def loss_graph(y,p):
+            return fl(y,p)
+
+
+        loss = loss_graph(y,p)
+
+
+
+        #x = np.sort(loss)
+        x = np.sort(loss)
+        # Normalized Data
+        x = x/sum(x)
+
+        cdf = np.cumsum(x)
+        n = len(x)
+        share_of_population = np.arange(1, n + 1) / n
+
+
+        cdf_materials = {"shares": share_of_population,
+                         "cusum": cdf}
+
+        return cdf_materials
+
+        # So maybe run through the list twice - once for positive, once for negative
+
+    cdfListPos = []
+    cdfListNeg = []
+
+    gammas = [0, 2, 4, 6, 8]
+
+    for g in gammas:
+        # will need to store all this
+        cdf_matPos = calcCDF(preds, y_test, g, 1)
+        cdf_matNeg = calcCDF(preds, y_test, g, 0)
+        cdfListPos.append(cdf_matPos)
+        cdfListNeg.append(cdf_matNeg)
+
+    # Plotting for a test:
+
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+    posplot = plt.figure()
+    for i in range(len(gammas)):
+        plt.plot(cdfListPos[i]['shares'], cdfListPos[i]['cusum'], label= r'$\gamma$ = ' + str(gammas[i]))
+        #plt.title('Positive Points CSP')
+        plt.ylabel('Cumulative Normalized Loss', fontsize=12)
+        plt.xlabel('Fraction of PE samples', fontsize=12)
+        plt.legend()
+        plt.savefig('posplotCSP_MOMI_' +str(date)+'.pdf', dpi=400, bbox_inches="tight")
+    run['posplot'].upload(posplot)
+
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+
+    negplot = plt.figure()
+    for i in range(len(gammas)):
+        plt.plot(cdfListNeg[i]['shares'], cdfListNeg[i]['cusum'], label=r'$\gamma$ = ' + str(gammas[i]))
+        #plt.title('Negative Points CSP')
+        plt.ylabel('Cumulative Normalized Loss', fontsize=12)
+        plt.xlabel('Fraction of Non-PE Samples', fontsize=12)
+        plt.legend()
+        plt.savefig('negplotCSP_MOMI_' + str(date)+'.pdf', dpi=400, bbox_inches="tight")
+    run['negplot'].upload(negplot)
+
+    model.evaluateModel()
+    """
+
+    run.stop()
