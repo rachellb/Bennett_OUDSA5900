@@ -493,7 +493,7 @@ def cleanDataMomi(weeks):
     join['InfSex'] = join['InfSex'].map(hypMap)
 
 
-    join.to_csv('momiSeverePE_062221.csv', index=False)
+    join.to_csv('momiEncoded_091621.csv', index=False)
 
     return join
 
@@ -1462,7 +1462,13 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         diseaseDictionary['Inadequate Prenatal Care'] = ['O093']
         diseaseDictionary['Periodontal disease'] = ['E08630', 'E09630', 'E10630', 'E11630', '13630', 'K05', 'K06',
                                                     'K08129']
-        diseaseDictionary['Intrauterine Death'] = ['O364']
+        diseaseDictionary['Other cardiovascular diseases complicating pregnancy and childbirth or the puerperium'] = [
+            'O9943']
+        diseaseDictionary['Obstructive Sleep Apnea'] = ['G4733']
+        diseaseDictionary['Sickle cell disease'] = ['D57']
+        diseaseDictionary['Thyroid Disease'] = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07']
+
+        #diseaseDictionary['Intrauterine Death'] = ['O364']
         diseaseDictionary['Preeclampsia/Eclampsia'] = ['O14', 'O15']
 
         # New Additions

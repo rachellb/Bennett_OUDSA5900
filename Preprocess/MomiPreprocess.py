@@ -268,11 +268,11 @@ if __name__ == "__main__":
 
     data = cleanDataMomi(weeks=14)
     #data = pd.read_csv('momiEncoded_Full_060821.csv')
-    preProcess = momi(data)
-    preProcess.splitData(testSize=0.1, valSize=0.1)
-    preProcess.imputeData(method="BayesianRidge")
-    preProcess.normalizeData(method="MinMax")
+    #preProcess = momi(data)
+    #preProcess.splitData(testSize=0.1, valSize=0.1)
+    #preProcess.imputeData(method="BayesianRidge")
+    #preProcess.normalizeData(method="MinMax")
 
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/oneHot/')
-    preProcess.featureSelection(numFeatures=20, method=3, dataset=dataPath)
+    #parent = os.path.dirname(os.getcwd())
+    #dataPath = os.path.join(parent, 'Data/Processed/MOMI/WithOutliers/oneHot/')
+    #preProcess.featureSelection(numFeatures=20, method=2, dataset=dataPath)
