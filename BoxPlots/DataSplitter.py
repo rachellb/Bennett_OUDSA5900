@@ -265,10 +265,11 @@ class dataSplitter():
 
     def saveData(self, counter):
 
-        self.X_train.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_X_Train_' + str(counter) + '.csv', index=False)
-        self.Y_train.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_Y_Train_' + str(counter) + '.csv', index=False)
-        self.X_test.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_X_Test_' + str(counter) + '.csv', index=False)
-        self.Y_test.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_Y_Test_' + str(counter) + '.csv', index=False)
+        self.X_train.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_X_Train_' + str(counter) + '.csv', index=False, header=False)
+        self.Y_train.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_Y_Train_' + str(counter) + '.csv', index=False, header=False)
+        self.X_test.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_X_Test_' + str(counter) + '.csv', index=False, header=False)
+        self.Y_test.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_Y_Test_' + str(counter) + '.csv', index=False,header=False
+)
 
 
 if __name__ == "__main__":

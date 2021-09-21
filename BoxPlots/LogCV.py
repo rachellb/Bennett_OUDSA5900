@@ -42,8 +42,8 @@ class LogReg():
 
         #self.predictions = logReg.predict(self.X_test).ravel() #For numpy saving
         self.predictions = (logReg.predict(self.X_test) > 0.5).astype("int32")
-
-        return pd.DataFrame(self.predictions)
+        preds = pd.DataFrame(self.predictions)
+        return preds
 
     def evaluateModel(self):
 
@@ -77,18 +77,16 @@ if __name__ == "__main__":
 
 
     name = 'Oklahoma'
-    weight = False
+    weight = True
     model = LogReg()
 
     predsList = []
     counter = 1
-    parent = os.path.dirname(os.getcwd())
-
-    while counter <= 50:
+    while (counter <= 50):
 
         X_train = pd.read_csv('Data/' + name + '/092121_X_Train_' + str(counter) + '.csv')
         Y_train = pd.read_csv('Data/' + name + '/092121_Y_Train_' + str(counter) + '.csv')
-        X_test = pd.read_csv('Data/' + name + '/092121_X_Train_' + str(counter) + '.csv')
+        X_test = pd.read_csv('Data/' + name + '/092121_X_Test_' + str(counter) + '.csv')
 
         model.setData(X_train, Y_train, X_test)
         predictions = model.buildModel(weight=weight)

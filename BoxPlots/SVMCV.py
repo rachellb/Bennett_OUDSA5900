@@ -18,21 +18,11 @@ from Preprocess import preProcess
 
 class SVMRBF(preProcess):
 
-    def prepData(self, data):
-
-        self.data = pd.read_csv(data)
-
-        X = self.data.drop(columns='Preeclampsia/Eclampsia')
-        Y = self.data['Preeclampsia/Eclampsia']
-
-        return X, Y
-
-    def setData(self, X_train, X_test, Y_train, Y_test):
+    def setData(self, X_train, Y_train, X_test):
 
         self.X_train = X_train
-        self.X_test = X_test
         self.Y_train = Y_train
-        self.Y_test = Y_test.ravel()
+        self.X_test = X_test
 
     def buildModel(self, weight = False):
 
@@ -44,6 +34,10 @@ class SVMRBF(preProcess):
         clfSG.fit(self.X_train, self.Y_train)
 
         self.predictions = clfSG.predict(self.X_test).ravel()
+
+        self.predictions = (clfSG.predict(self.X_test) > 0.5).astype("int32")
+        preds = pd.DataFrame(self.predictions)
+        return preds
 
     def evaluateModel(self):
 
