@@ -1467,7 +1467,6 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         diseaseDictionary['Obstructive Sleep Apnea'] = ['G4733']
         diseaseDictionary['Sickle cell disease'] = ['D57']
         diseaseDictionary['Thyroid Disease'] = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07']
-
         #diseaseDictionary['Intrauterine Death'] = ['O364']
         diseaseDictionary['Preeclampsia/Eclampsia'] = ['O14', 'O15']
 
@@ -1519,13 +1518,14 @@ def cleanDataOK(dropMetro, age='Ordinal'):
                              'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14',
                              'px15', 'county name'], inplace=True)
 
-        # ok2017 = (ok2017.loc[(ok2017['Multiple Gestations'] == 0)])
-        # ok2018 = (ok2018.loc[(ok2018['Multiple Gestations'] == 0)])
-
-        # ok2017 = (ok2017.loc[(ok2017['Pregnancy resulting from assisted reproductive technology'] == 0)])
-        # ok2018 = (ok2018.loc[(ok2018['Pregnancy resulting from assisted reproductive technology'] == 0)])
 
         data = ok2017.append(ok2018)
+
+        African_Am = data.loc[data['Race'] == 'Black']
+        African_Am.drop(columns=['Race'], inplace=True)
+
+        Native_Am = data.loc[data['Race'] == 'Native American']
+        Native_Am.drop(columns=['Race'], inplace=True)
 
         African_Am = data.loc[data['Race'] == 'Black']
         African_Am.drop(columns=['Race'], inplace=True)
@@ -1616,3 +1616,11 @@ def age_encoderOK(data):
                          'Age__4.0': 'Ages 40+'}, inplace=True)
 
     return data
+
+
+if __name__ == "__main__":
+
+    ok2017, ok2018, native, african = cleanDataOK(dropMetro=True, age='Categorical')
+    parent = os.path.dirname(os.getcwd())
+    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/nativeClean_' + date + '.csv')
+    native.to_csv(dataPath, index=False)

@@ -13,12 +13,21 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 # For Auc
 from sklearn.metrics import roc_curve
 from sklearn import metrics
-from imblearn.metrics import geometric_mean_score
+
+# For additional metrics
+from imblearn.metrics import geometric_mean_score, specificity_score
+from sklearn.metrics import confusion_matrix
 
 from Preprocess import preProcess
 
 
+
 class LogReg(preProcess):
+
+    def setData(self, X_train, X_test):
+
+        self.X_train = X_train
+        self.X_test = X_test
 
     def prepData(self, data):
 
@@ -28,7 +37,6 @@ class LogReg(preProcess):
         Y = self.data['Preeclampsia/Eclampsia']
 
         return X, Y
-
 
     def buildModel(self, weight = False):
 
@@ -40,8 +48,7 @@ class LogReg(preProcess):
         logReg.fit(self.X_train, self.Y_train)
 
         self.predictions = logReg.predict(self.X_test).ravel()
-
-
+        return self.predictions
 
     def evaluateModel(self):
 
@@ -49,7 +56,26 @@ class LogReg(preProcess):
         auc_ = metrics.auc(fpr, tpr)
         gmean = geometric_mean_score(self.Y_test, self.predictions)
 
-        return auc_, gmean
+        specificity = specificity_score(self.Y_test, self.predictions)
+
+        gmean = geometric_mean_score(self.Y_test, self.predictions)
+
+        score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
+        tn, fp, fn, tp = confusion_matrix(self.Y_test, self.predictions).ravel()
+
+        Results = {"Loss": score[0],
+                   "Accuracy": score[1],
+                   "AUC": auc_,
+                   "Gmean": gmean,
+                   "Recall": score[3],
+                   "Precision": score[2],
+                   "Specificity": specificity,
+                   "True Positives": tp,
+                   "True Negatives": tn,
+                   "False Positives": fp,
+                   "False Negatives": fn}
+
+        return Results
 
 
 if __name__ == "__main__":
@@ -63,40 +89,28 @@ if __name__ == "__main__":
               'ValSplit': 0.10,
               'dataset': 'MOMI'}
 
-    # Get path to cleaned data
-    parent = os.path.dirname(os.getcwd())
-    path = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
-
     name = 'MOMI'
     weight = True
     model = LogReg(PARAMS, name='MOMI')
-    X, y = model.prepData(data=path)
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
 
-    aucList = []
-    gmeanList = []
+    predsList = []
+    counter = 1
+    parent = os.path.dirname(os.getcwd())
 
-    for train_index, test_index in rskf.split(X, y):
-        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+    for i in range(10):
 
-        model.setData(X_train, X_test, y_train, y_test)
-        model.imputeData()
-        #model.detectOutliers()
-        model.normalizeData()
-        model.featureSelection()
-        model.encodeData()
-        model.buildModel(weight=weight)
+        X_train = pd.read_csv('Data/' + name + '/092021_X_Train_' + str(counter) + '.csv')
+        X_test = pd.read_csv('Data/' + name + '/092021_X_Train_' + str(counter) + '.csv')
 
-        auc, gmean = model.evaluateModel()
-        aucList.append(auc)
-        gmeanList.append(gmean)
+        model.setData(X_train, X_test)
+        predictions = model.buildModel(weight=weight)
+        predsList.append(predictions)
 
+    allPreds= pd.DataFrame(predsList)
 
     if weight:
-        np.save('AUC/' + name + '/logWeight_auc', aucList)
-        np.save('Gmean/' + name + '/logWeight_gmean', gmeanList)
+        allPreds.to_csv('Predictions/' + name + 'logWeight.csv', index=False, header=False)
     else:
-        np.save('AUC/' + name + '/log_auc', aucList)
-        np.save('Gmean/' + name + '/log_gmean', gmeanList)
+        allPreds.to_csv('Predictions/' + name + 'log.csv', index=False, header=False)
 
+    counter = counter + 1

@@ -51,6 +51,27 @@ class SVMRBF(preProcess):
         auc_ = metrics.auc(fpr, tpr)
         gmean = geometric_mean_score(self.Y_test, self.predictions)
 
+        y_predict = (self.model.predict(self.X_test) > 0.5).astype("int32")
+
+        specificity = specificity_score(self.Y_test, y_predict)
+
+        gmean = geometric_mean_score(self.Y_test, y_predict)
+
+        score = self.model.evaluate(self.X_test, self.Y_test, verbose=0)
+        tn, fp, fn, tp = confusion_matrix(self.Y_test, y_predict).ravel()
+
+        Results = {"Loss": score[0],
+                   "Accuracy": score[1],
+                   "AUC": score[4],
+                   "Gmean": gmean,
+                   "Recall": score[3],
+                   "Precision": score[2],
+                   "Specificity": specificity,
+                   "True Positives": tp,
+                   "True Negatives": tn,
+                   "False Positives": fp,
+                   "False Negatives": fn}
+
         return auc_, gmean
 
 if __name__ == "__main__":
@@ -71,12 +92,22 @@ if __name__ == "__main__":
     path = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
 
     name = 'MOMI'
-    weight = True
+    weight = False
     model = SVMRBF(PARAMS, name='MOMI')
     X, y = model.prepData(data=path)
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
     aucList = []
     gmeanList = []
+    accList = []
+    precisionList = []
+    recallList = []
+    specList = []
+    lossList = []
+    historyList = []
+    tpList = []
+    fpList = []
+    tnList = []
+    fnList = []
 
     for train_index, test_index in rskf.split(X, y):
         X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
@@ -97,6 +128,13 @@ if __name__ == "__main__":
     if weight:
         np.save('AUC/' + name + '/SVMRBFWeight_auc' + date, aucList)
         np.save('Gmean/' + name + '/SVMRBFWeight_gmean'+ date, gmeanList)
+        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, accList)
+        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, precisionList)
+        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, recallList)
+        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, gmeanList)
+        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, gmeanList)
+
+
     else:
         np.save('AUC/' + name + '/SVMRBF_auc'+ date, aucList)
         np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, gmeanList)

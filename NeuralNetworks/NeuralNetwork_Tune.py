@@ -98,14 +98,16 @@ class fullNN():
 
     def prepData(self, data, age=None):
 
-        if (self.name=="MOMI"):
-            data = pd.read_csv(data)
-            self.data = data
+
+        data = pd.read_csv(data)
+        self.data = data
+
+        """
         else:
             self.age = age
             data = pd.read_csv(data)
+        """
 
-        return data
 
     def scaleData(self):
 
@@ -250,18 +252,16 @@ class fullNN():
             self.X_val[self.X_val < 0] = 0
             self.X_test[self.X_test < 0] = 0
 
-        else:
-            if (data2 is not None):  # If running both datasets
-                if (data1.isnull().values.any() == True | data2.isnull().values.any() == True):
-                    data = data1.append(data2)
-                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data)), columns=data.columns)
-                else:
-                    self.data = data1.append(data2)
-            else:
-                if (data1.isnull().values.any() == True):
-                    self.data = pd.DataFrame(np.round(MI_Imp.fit_transform(data1)), columns=data1.columns)
-                else:
-                    self.data = data1
+        elif(self.name=='Oklahoma'):
+            if (self.data.isnull().values.any() == True):
+                self.X_train = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
+                self.X_val = pd.DataFrame(MI_Imp.transform(self.X_val), columns=self.X_val.columns)
+                self.X_test = pd.DataFrame(MI_Imp.transform(self.X_test), columns=self.X_test.columns)
+
+                self.X_train = self.X_train.round()
+                self.X_val = self.X_val.round()
+                self.X_test = self.X_test.round()
+
 
     def splitData(self):
 
@@ -777,68 +777,66 @@ class NoGen(fullNN):
 
 if __name__ == "__main__":
 
-    tuners = ['Random', 'Bayesian', 'Hyperband']
+    tuners = ['Hyperband', 'Bayesian', 'Random']
     for t in tuners:
 
-        outliers = ['iso', 'lof','ocsvm', 'ee']
-        for o in outliers:
 
-            def reset_random_seeds():
-                os.environ['PYTHONHASHSEED'] = str(1)
-                tf.random.set_seed(1)
-                np.random.seed(1)
-                random.seed(1)
+        def reset_random_seeds():
+            os.environ['PYTHONHASHSEED'] = str(1)
+            tf.random.set_seed(1)
+            np.random.seed(1)
+            random.seed(1)
 
 
-            reset_random_seeds()
+        reset_random_seeds()
 
-            PARAMS = {'batch_size': 8096,
-                      'bias_init': False,
-                      'estimator': "BayesianRidge",
-                      'epochs': 30,
-                      'focal': True,
-                      'alpha': 0.91,
-                      'gamma': 0.25,
-                      'class_weights': False,
-                      'initializer': 'RandomUniform',
-                      'Dropout': True,
-                      'Dropout_Rate': 0.20,
-                      'BatchNorm': False,
-                      'Momentum': 0.60,
-                      'Normalize': 'MinMax',
-                      'OutlierRemove': o,
-                      'Feature_Selection': 'Chi2',
-                      'Feature_Num': 1000,
-                      'Generator': False,
-                      'Tuner': t,
-                      'EXECUTIONS_PER_TRIAL': 1,
-                      'MAX_TRIALS': 100,
-                      'TestSplit': 0.10,
-                      'ValSplit': 0.10}
+        PARAMS = {'batch_size': 8192,
+                  'bias_init': False,
+                  'estimator': "BayesianRidge",
+                  'epochs': 30,
+                  'focal': False,
+                  'alpha': 0.5,
+                  'gamma': 1.25,
+                  'class_weights': True,
+                  'initializer': 'RandomUniform',
+                  'Dropout': True,
+                  'Dropout_Rate': 0.20,
+                  'BatchNorm': False,
+                  'Momentum': 0.60,
+                  'Normalize': 'MinMax',
+                  'OutlierRemove': 'None',
+                  'Feature_Selection': 'Chi2',
+                  'Feature_Num': 20,
+                  'Generator': False,
+                  'Tuner': t,
+                  'EXECUTIONS_PER_TRIAL': 1,
+                  'MAX_TRIALS': 100,
+                  'TestSplit': 0.10,
+                  'ValSplit': 0.10}
 
-            neptune.init(project_qualified_name='rachellb/MOMITuner', api_token=api_)
-            neptune.create_experiment(name='MOMI Full', params=PARAMS, send_hardware_metrics=True,
-                                      tags=['Focal Loss', 'Pre only', 'Outlier Remove'],
-                                      description='Standardize and then Normalize')
+        neptune.init(project_qualified_name='rachellb/OKHPSearch', api_token=api_)
+        neptune.create_experiment(name='Oklahoma Native', params=PARAMS, send_hardware_metrics=True,
+                                  tags=['Weighted', 'No Intrauterine Death'])
 
 
 
-            if PARAMS['Generator'] == False:
-                model = NoGen(PARAMS, name="MOMI")
-            else:
-                model = fullNN(PARAMS, name="MOMI")
+        if PARAMS['Generator'] == False:
+            model = NoGen(PARAMS, name='Oklahoma')
+        else:
+            model = fullNN(PARAMS, name='Oklahoma')
 
 
-            # Get data
-            parent = os.path.dirname(os.getcwd())
-            dataPath = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
-            data = model.prepData(data=dataPath)
-            model.splitData()
-            data = model.imputeData()
-            model.detectOutliers()
-            model.scaleData()
-            features = model.featureSelection()
-            model.encodeData()
-            model.hpTuning()
-            model.evaluateModel()
+        # Get data
+        parent = os.path.dirname(os.getcwd())
+        dataPath = os.path.join(parent,
+                                'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/nativeClean_091621.csv')
+        data = model.prepData(data=dataPath)
+        model.splitData()
+        data = model.imputeData()
+        #model.detectOutliers()
+        #model.scaleData()
+        features = model.featureSelection()
+        #model.encodeData()
+        model.hpTuning()
+        model.evaluateModel()
 
