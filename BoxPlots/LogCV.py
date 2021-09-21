@@ -22,21 +22,14 @@ from Preprocess import preProcess
 
 
 
-class LogReg(preProcess):
+class LogReg():
 
-    def setData(self, X_train, X_test):
+    def setData(self, X_train, Y_train, X_test):
 
         self.X_train = X_train
+        self.Y_train = Y_train
         self.X_test = X_test
 
-    def prepData(self, data):
-
-        self.data = pd.read_csv(data)
-
-        X = self.data.drop(columns='Preeclampsia/Eclampsia')
-        Y = self.data['Preeclampsia/Eclampsia']
-
-        return X, Y
 
     def buildModel(self, weight = False):
 
@@ -47,8 +40,10 @@ class LogReg(preProcess):
 
         logReg.fit(self.X_train, self.Y_train)
 
-        self.predictions = logReg.predict(self.X_test).ravel()
-        return self.predictions
+        #self.predictions = logReg.predict(self.X_test).ravel() #For numpy saving
+        self.predictions = (logReg.predict(self.X_test) > 0.5).astype("int32")
+
+        return pd.DataFrame(self.predictions)
 
     def evaluateModel(self):
 
@@ -80,37 +75,27 @@ class LogReg(preProcess):
 
 if __name__ == "__main__":
 
-    PARAMS = {'estimator': "BayesianRidge",
-              'Normalize': 'MinMax',
-              'OutlierRemove': 'None',
-              'Feature_Selection': 'Chi2',
-              'Feature_Num': 1000,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10,
-              'dataset': 'MOMI'}
 
-    name = 'MOMI'
-    weight = True
-    model = LogReg(PARAMS, name='MOMI')
+    name = 'Oklahoma'
+    weight = False
+    model = LogReg()
 
     predsList = []
     counter = 1
     parent = os.path.dirname(os.getcwd())
 
-    for i in range(10):
+    while counter <= 50:
 
-        X_train = pd.read_csv('Data/' + name + '/092021_X_Train_' + str(counter) + '.csv')
-        X_test = pd.read_csv('Data/' + name + '/092021_X_Train_' + str(counter) + '.csv')
+        X_train = pd.read_csv('Data/' + name + '/092121_X_Train_' + str(counter) + '.csv')
+        Y_train = pd.read_csv('Data/' + name + '/092121_Y_Train_' + str(counter) + '.csv')
+        X_test = pd.read_csv('Data/' + name + '/092121_X_Train_' + str(counter) + '.csv')
 
-        model.setData(X_train, X_test)
+        model.setData(X_train, Y_train, X_test)
         predictions = model.buildModel(weight=weight)
-        predsList.append(predictions)
 
-    allPreds= pd.DataFrame(predsList)
+        if weight:
+            predictions.to_csv('Predictions/' + name + '/LR/Weighted/CV_' + str(counter) + '.csv', index=False, header=False)
+        else:
+            predictions.to_csv('Predictions/' + name + '/LR/Unweighted/CV_' + str(counter) + '.csv', index=False, header=False)
 
-    if weight:
-        allPreds.to_csv('Predictions/' + name + 'logWeight.csv', index=False, header=False)
-    else:
-        allPreds.to_csv('Predictions/' + name + 'log.csv', index=False, header=False)
-
-    counter = counter + 1
+        counter = counter + 1

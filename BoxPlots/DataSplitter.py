@@ -41,10 +41,9 @@ date = datetime.today().strftime('%m%d%y')  # For labelling purposes
 
 class dataSplitter():
 
-    def __init__(self, PARAMS, path, name=None):
+    def __init__(self, PARAMS, path):
         self.PARAMS = PARAMS
         self.data = pd.read_csv(path)
-        self.name = name
 
     def prepData(self):
 
@@ -143,7 +142,7 @@ class dataSplitter():
 
         MI_Imp = IterativeImputer(random_state=0, estimator=estimator)
 
-        if (self.name == 'MOMI'):
+        if (self.PARAMS['name'] == 'MOMI'):
             if self.data.isnull().values.any():
                 self.X_train_imputed = pd.DataFrame(MI_Imp.fit_transform(self.X_train), columns=self.X_train.columns)
                 self.X_test_imputed = pd.DataFrame(MI_Imp.transform(self.X_test), columns=self.X_test.columns)
@@ -266,10 +265,10 @@ class dataSplitter():
 
     def saveData(self, counter):
 
-        self.X_train.to_csv('Data/' + self.PARAMS['dataset'] + '/' + date + '_X_Train_' + str(counter) + '.csv', index=False)
-        self.Y_train.to_csv('Data/' + self.PARAMS['dataset'] + '/' + date + '_Y_Train_' + str(counter) + '.csv', index=False)
-        self.X_test.to_csv('Data/' + self.PARAMS['dataset'] + '/' + date + '_X_Test_' + str(counter) + '.csv', index=False)
-        self.Y_test.to_csv('Data/' + self.PARAMS['dataset'] + '/' + date + '_Y_Test_' + str(counter) + '.csv', index=False)
+        self.X_train.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_X_Train_' + str(counter) + '.csv', index=False)
+        self.Y_train.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_Y_Train_' + str(counter) + '.csv', index=False)
+        self.X_test.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_X_Test_' + str(counter) + '.csv', index=False)
+        self.Y_test.to_csv('Data/' + self.PARAMS['name'] + '/' + date + '_Y_Test_' + str(counter) + '.csv', index=False)
 
 
 if __name__ == "__main__":
@@ -281,15 +280,15 @@ if __name__ == "__main__":
               'Feature_Num': 20,
               'TestSplit': 0.10,
               'ValSplit': 0.10,
-              'dataset': 'Texas'}
+              'name': 'Oklahoma'}
 
     # Get path to cleaned data
     parent = os.path.dirname(os.getcwd())
-    path = os.path.join(parent, 'Data/Processed/Texas/Full/Outliers/Complete/Chi2_Categorical_041521.csv')
+    path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
 
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
-    splitter = dataSplitter(PARAMS, path, name='Texas')
+    splitter = dataSplitter(PARAMS, path)
     X, y = splitter.prepData()
 
     xYDict = {}
