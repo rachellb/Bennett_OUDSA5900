@@ -1460,7 +1460,7 @@ def cleanDataOK(dropMetro, age='Ordinal'):
             'O34', 'O340']
         diseaseDictionary['Multiple Gestations'] = ['O30']
         diseaseDictionary['Inadequate Prenatal Care'] = ['O093']
-        diseaseDictionary['Periodontal disease'] = ['E08630', 'E09630', 'E10630', 'E11630', '13630', 'K05', 'K06',
+        diseaseDictionary['Periodontal disease'] = ['E08630', 'E09630', 'E10630', 'E11630', 'E13630', 'K05', 'K06',
                                                     'K08129']
         diseaseDictionary['Other cardiovascular diseases complicating pregnancy and childbirth or the puerperium'] = [
             'O9943']
