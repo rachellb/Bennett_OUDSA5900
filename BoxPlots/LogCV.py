@@ -76,7 +76,7 @@ class LogReg():
 if __name__ == "__main__":
 
 
-    name = 'Oklahoma'
+    name = 'MOMI'
     weight = True
     model = LogReg()
 
@@ -84,9 +84,9 @@ if __name__ == "__main__":
     counter = 1
     while (counter <= 50):
 
-        X_train = pd.read_csv('Data/' + name + '/092121_X_Train_' + str(counter) + '.csv')
-        Y_train = pd.read_csv('Data/' + name + '/092121_Y_Train_' + str(counter) + '.csv')
-        X_test = pd.read_csv('Data/' + name + '/092121_X_Test_' + str(counter) + '.csv')
+        X_train = pd.read_csv('Data/' + name + '/092621_X_Train_' + str(counter) + '.csv')
+        Y_train = pd.read_csv('Data/' + name + '/092621_Y_Train_' + str(counter) + '.csv')
+        X_test = pd.read_csv('Data/' + name + '/092621_X_Test_' + str(counter) + '.csv')
 
         model.setData(X_train, Y_train, X_test)
         predictions = model.buildModel(weight=weight)

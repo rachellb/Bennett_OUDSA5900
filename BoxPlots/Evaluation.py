@@ -32,49 +32,59 @@ def evaluateModel(Y_test, predictions):
 
 if __name__ == "__main__":
 
-    name = 'Oklahoma'
-    model = 'LR'
-    weight = True
 
-    counter = 1
+    names = ['MOMI']
+    weights = [False, True]
+    #models = ['SVMLin']
+    models = ['LR', 'SVMRBF']
 
-    #aucList = []
-    #gmeanList = []
-    accList = []
-    precisionList = []
-    recallList = []
-    specList = []
+    for name in names:
+        for model in models:
+            for weight in weights:
+                """
+                name = 'Oklahoma'
+                model = 'SVMLin'
+                weight = True
+                """
+                counter = 1
 
-    while (counter <= 50):
+                #aucList = []
+                #gmeanList = []
+                accList = []
+                precisionList = []
+                recallList = []
+                specList = []
 
-        if (weight):
-            predictions = pd.read_csv('Predictions/' + name + '/' + model +'/Weighted' + '/CV_' + str(counter) + '.csv', header=None)
-        else:
-            predictions = pd.read_csv(
-                'Predictions/' + name + '/' + model + '/Unweighted' + '/CV_' + str(counter) + '.csv', header=None)
+                while (counter <= 50):
 
-        Y_values = pd.read_csv('Data/' + name + '/092121_Y_Test_' + str(counter) + '.csv')
+                    if (weight):
+                        predictions = pd.read_csv('Predictions/' + name + '/' + model +'/Weighted' + '/CV_' + str(counter) + '.csv')
+                    else:
+                        fileName = 'Predictions/' + name + '/' + model + '/Unweighted' + '/CV_' + str(counter) + '.csv'
+                        predictions = pd.read_csv(fileName)
 
-        Results = evaluateModel(Y_values, predictions)
+                    Y_values = pd.read_csv('Data/' + name + '/092621_Y_Test_' + str(counter) + '.csv')
 
-        #aucList.append(Results["AUC"])
-        #gmeanList.append(Results["Gmean"])
-        accList.append(Results["Accuracy"])
-        precisionList.append(Results["Precision"])
-        recallList.append(Results["Recall"])
-        specList.append(Results["Specificity"])
+                    Results = evaluateModel(Y_values, predictions)
 
-        counter = counter + 1
+                    #aucList.append(Results["AUC"])
+                    #gmeanList.append(Results["Gmean"])
+                    accList.append(Results["Accuracy"])
+                    precisionList.append(Results["Precision"])
+                    recallList.append(Results["Recall"])
+                    specList.append(Results["Specificity"])
 
-    if (weight):
-        np.save('Results/ACC/' + name + '/' + model + 'Weight_acc', accList)
-        np.save('Results/PR/' + name + '/' + model + 'Weight_pr', precisionList)
-        np.save('Results/RE/' + name + '/' + model + 'Weight_re', recallList)
-        np.save('Results/SP/' + name + '/' + model + 'Weight_sp', specList)
+                    counter = counter + 1
 
-    else:
-        np.save('Results/ACC/' + name + '/' + model + 'Unweight_acc', accList)
-        np.save('Results/PR/' + name + '/' + model + 'Unweight_pr', precisionList)
-        np.save('Results/RE/' + name + '/' + model + 'Unweight_re', recallList)
-        np.save('Results/SP/' + name + '/' + model + 'Unweight_sp', specList)
+                if (weight):
+                    np.save('Results/ACC/' + name + '/' + model + 'Weight_acc', accList)
+                    np.save('Results/PR/' + name + '/' + model + 'Weight_pr', precisionList)
+                    np.save('Results/RE/' + name + '/' + model + 'Weight_re', recallList)
+                    np.save('Results/SP/' + name + '/' + model + 'Weight_sp', specList)
+
+                else:
+                    np.save('Results/ACC/' + name + '/' + model + 'Unweight_acc', accList)
+                    np.save('Results/PR/' + name + '/' + model + 'Unweight_pr', precisionList)
+                    np.save('Results/RE/' + name + '/' + model + 'Unweight_re', recallList)
+                    np.save('Results/SP/' + name + '/' + model + 'Unweight_sp', specList)
 

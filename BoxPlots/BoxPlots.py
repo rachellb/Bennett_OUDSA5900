@@ -3,8 +3,62 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+
+
 data = 'Oklahoma'
 
+logSP = np.load('Results/SP/' + data + '/LRUnweight_sp.npy')
+logWeightSP = np.load('Results/SP/' + data + '/LRWeight_sp.npy')
+
+logRE = np.load('Results/RE/' + data + '/LRUnweight_re.npy')
+logWeightRE = np.load('Results/RE/' + data + '/LRWeight_re.npy')
+
+logPR = np.load('Results/PR/' + data + '/LRUnweight_pr.npy')
+logWeightPR = np.load('Results/PR/' + data + '/LRWeight_pr.npy')
+
+SVMLinSP = np.load('Results/SP/' + data + '/SVMLinUnweight_sp.npy')
+SVMLinWeightSP = np.load('Results/SP/' + data + '/SVMLinWeight_sp.npy')
+
+SVMLinRE = np.load('Results/RE/' + data + '/SVMLinUnweight_re.npy')
+SVMLinWeightRE = np.load('Results/RE/' + data + '/SVMLinWeight_re.npy')
+
+SVMLinPR = np.load('Results/PR/' + data + '/SVMLinUnweight_pr.npy')
+SVMLinWeightPR = np.load('Results/PR/' + data + '/SVMLinWeight_pr.npy')
+
+SVMRBFSP = np.load('Results/SP/' + data + '/SVMRBFUnweight_sp.npy')
+SVMRBFWeightSP = np.load('Results/SP/' + data + '/SVMRBFWeight_sp.npy')
+
+SVMRBFRE = np.load('Results/RE/' + data + '/SVMRBFUnweight_re.npy')
+SVMRBFWeightRE = np.load('Results/RE/' + data + '/SVMRBFWeight_re.npy')
+
+SVMRBFPR = np.load('Results/PR/' + data + '/SVMRBFUnweight_pr.npy')
+SVMRBFWeightPR = np.load('Results/PR/' + data + '/SVMRBFWeight_pr.npy')
+
+SPs = pd.DataFrame({"LR": logSP,
+                     "WLR": logWeightSP,
+                    "SVM-Lin": SVMLinSP,
+                    "SVM-Lin-Weight": SVMLinWeightSP,
+                    "SVM-RBF":SVMRBFSP,
+                    "SVM-RBF-Weight": SVMRBFWeightSP})
+
+REs = pd.DataFrame({"LR": logRE,
+                    "WLR": logWeightRE,
+                    "SVM-Lin": SVMLinRE,
+                    "SVM-Lin-Weight": SVMLinWeightRE,
+                    "SVM-RBF": SVMRBFRE,
+                    "SVM-RBF-Weight": SVMRBFWeightRE})
+
+PRs = pd.DataFrame({"LR": logPR,
+                    "WLR": logWeightPR,
+                    "SVM-Lin": SVMLinPR,
+                    "SVM-Lin-Weight": SVMLinWeightPR,
+                    "SVM-RBF":SVMRBFPR,
+                    "SVM-RBF-Weight": SVMRBFWeightPR})
+
+
+g = sns.boxplot(data=REs, color='cornflowerblue')
+
+"""
 logAUC = np.load('AUC/' + data + '/log_auc.npy')
 logWeightAUC = np.load('AUC/' + data + '/logWeight_auc.npy')
 
@@ -87,5 +141,6 @@ g = sns.boxplot(data=gmean, color='cornflowerblue')
 g.set_title('Oklahoma 2017-2018 PUDF', fontsize=14)
 g.set_ylabel('G-mean', fontsize=14)
 g.set_xticklabels(g.get_xticklabels(), rotation=30)
-plt.savefig('GmeanOkBox.png', dpi=400, bbox_inches="tight")
+#plt.savefig('GmeanOkBox.png', dpi=400, bbox_inches="tight")
 plt.show()
+"""

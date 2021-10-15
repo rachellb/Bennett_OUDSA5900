@@ -16,7 +16,7 @@ from sklearn import metrics
 from imblearn.metrics import geometric_mean_score
 from Preprocess import preProcess
 
-class SVMRBF(preProcess):
+class SVMRBF():
 
     def setData(self, X_train, Y_train, X_test):
 
@@ -33,7 +33,7 @@ class SVMRBF(preProcess):
 
         clfSG.fit(self.X_train, self.Y_train)
 
-        self.predictions = clfSG.predict(self.X_test).ravel()
+        #self.predictions = clfSG.predict(self.X_test).ravel()
 
         self.predictions = (clfSG.predict(self.X_test) > 0.5).astype("int32")
         preds = pd.DataFrame(self.predictions)
@@ -72,66 +72,30 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    PARAMS = {'estimator': "BayesianRidge",
-              'Normalize': 'MinMax',
-              'OutlierRemove': 'None',
-              'Feature_Selection': 'Chi2',
-              'Feature_Num': 1000,
-              'TestSplit': 0.10,
-              'ValSplit': 0.10,
-              'dataset': 'MOMI'}
 
-    # Get path to cleaned data
-    parent = os.path.dirname(os.getcwd())
-    path = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
+
 
     name = 'MOMI'
     weight = False
-    model = SVMRBF(PARAMS, name='MOMI')
-    X, y = model.prepData(data=path)
-    rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
-    aucList = []
-    gmeanList = []
-    accList = []
-    precisionList = []
-    recallList = []
-    specList = []
-    lossList = []
-    historyList = []
-    tpList = []
-    fpList = []
-    tnList = []
-    fnList = []
+    model = SVMRBF()
 
-    for train_index, test_index in rskf.split(X, y):
-        X_train, X_test = X.iloc[train_index, :], X.iloc[test_index, :]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+    counter =1
+    while (counter <= 50):
 
-        model.setData(X_train, X_test, y_train, y_test)
-        model.imputeData()
-        #model.detectOutliers()
-        model.normalizeData()
-        model.featureSelection()
-        model.encodeData()
-        model.buildModel(weight=weight)
-        auc, gmean = model.evaluateModel()
+        X_train = pd.read_csv('Data/' + name + '/092021_X_Train_' + str(counter) + '.csv')
+        Y_train = pd.read_csv('Data/' + name + '/092021_Y_Train_' + str(counter) + '.csv')
+        X_test = pd.read_csv('Data/' + name + '/092021_X_Test_' + str(counter) + '.csv')
 
-        aucList.append(auc)
-        gmeanList.append(gmean)
+        model.setData(X_train, Y_train, X_test)
+        predictions = model.buildModel(weight=weight)
 
-    if weight:
-        np.save('AUC/' + name + '/SVMRBFWeight_auc' + date, aucList)
-        np.save('Gmean/' + name + '/SVMRBFWeight_gmean'+ date, gmeanList)
-        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, accList)
-        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, precisionList)
-        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, recallList)
-        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, gmeanList)
-        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, gmeanList)
+        if weight:
+            predictions.to_csv('Predictions/' + name + '/SVMRBF/Weighted/CV_' + str(counter) + '.csv', index=False,
+                               header=False)
+        else:
+            predictions.to_csv('Predictions/' + name + '/SVMRBF/Unweighted/CV_' + str(counter) + '.csv', index=False,
+                               header=False)
+
+        counter = counter + 1
 
 
-    else:
-        np.save('AUC/' + name + '/SVMRBF_auc'+ date, aucList)
-        np.save('Gmean/' + name + '/SVMRBF_gmean'+ date, gmeanList)
-
-    mins = (time.time() - start_time) / 60  # Time in seconds
-    print(mins)

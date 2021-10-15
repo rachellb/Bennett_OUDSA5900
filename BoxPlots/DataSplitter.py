@@ -278,14 +278,14 @@ if __name__ == "__main__":
               'Normalize': 'MinMax',
               'OutlierRemove': 'lof',
               'Feature_Selection': 'Chi2',
-              'Feature_Num': 20,
+              'Feature_Num': 1000,
               'TestSplit': 0.10,
               'ValSplit': 0.10,
-              'name': 'Oklahoma'}
+              'name': 'MOMI'}
 
     # Get path to cleaned data
     parent = os.path.dirname(os.getcwd())
-    path = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Chi2_Categorical_042021.csv')
+    path = os.path.join(parent, 'Preprocess/momiEncoded_061521.csv')
 
 
     rskf = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=36851234)
@@ -301,10 +301,10 @@ if __name__ == "__main__":
 
         splitter.setData(X_train, X_test, y_train, y_test)
         splitter.imputeData()
-        #splitter.detectOutliers()
-        #splitter.normalizeData()
+        splitter.detectOutliers()
+        splitter.normalizeData()
         splitter.featureSelection()
-        #splitter.encodeData()
+        splitter.encodeData()
         splitter.saveData(counter)
         counter = counter + 1
 
