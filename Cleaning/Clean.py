@@ -15,8 +15,8 @@ def cleanBC():
     dataPath = os.path.join(parent, 'Data/Breastcancer/breast-cancer-wisconsin.data')
     df = pd.read_csv(dataPath, header=None)
     df.columns = ['SampleCodeNumber', 'ClumpThickness', 'UniformityOfCellSize', 'UniformityOfCellShape',
-                    'MarinalAdhesion', 'SingleEpithelialCellSize', 'BareNuclei', 'BlandChromatin',
-                    'NormalNucleoli', 'Mitosis', 'Class']
+                  'MarinalAdhesion', 'SingleEpithelialCellSize', 'BareNuclei', 'BlandChromatin',
+                  'NormalNucleoli', 'Mitosis', 'Class']
 
     # Replace question marks with NaN for easier imputing
     df.replace(to_replace='?', value=np.NaN, inplace=True)
@@ -30,6 +30,7 @@ def cleanBC():
     df.rename(columns={"Class": "Label"}, inplace=True)
 
     return df
+
 
 def cleanPima():
     # Get data
@@ -68,6 +69,7 @@ def cleanPima():
 
     return df
 
+
 def cleanSpect():
     # Get data
     parent = os.path.dirname(os.getcwd())
@@ -83,6 +85,7 @@ def cleanSpect():
     df.rename(columns={0: "Label"}, inplace=True)
 
     return df
+
 
 def cleanHepatitis():
     # Get data
@@ -100,8 +103,8 @@ def cleanHepatitis():
     df.replace(to_replace=1, value=0, inplace=True)  # Binary variables set no=1 for some reason
     df.replace(to_replace=2, value=1, inplace=True)  # Binary variables set yes=2 for some reason
 
-
     return df
+
 
 def cleanHeartDisease():
     # Get data
@@ -111,12 +114,13 @@ def cleanHeartDisease():
     df.columns = ['Age', 'Sex', 'CP', 'Trestbps', 'chol', 'fbs', 'restecg',
                   'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal', 'num']
 
-    df.replace(to_replace=-9.0, value=np.NaN, inplace=True) # Missing coded as -9.0
+    df.replace(to_replace=-9.0, value=np.NaN, inplace=True)  # Missing coded as -9.0
     df['num'] = np.where(df['num'].isin([1, 2, 3, 4]), 1, df['num'])  # Collapse smaller classes into one class
 
     df.rename(columns={"num": "Label"}, inplace=True)
 
     return df
+
 
 def cleanTransfusion():
     # Get data
@@ -129,8 +133,9 @@ def cleanTransfusion():
 
     return df
 
-def cleanDataMomi(weeks):
-    system = 'linux'
+
+def cleanDataMomi(weeks=14, system='linux'):
+
     # Prenatal Data
     parent = os.path.dirname(os.getcwd())
     if system == 'windows':
@@ -343,7 +348,6 @@ def cleanDataMomi(weeks):
 
     momi['ICNSANAT'] = momi['ICNSANAT'].map(anoAnoMap)
     """
-    
 
     # Ordinal Encoding Education
     education_map = {'8th grade or less': 1,
@@ -475,12 +479,10 @@ def cleanDataMomi(weeks):
     join.drop(columns=['MOMI_ID', 'Delivery_Number_Per_Mother', 'InfantWeightGrams', 'Eclampsia',
                        'GestAgeDelivery', 'DeliveryMethod', 'FetalDeath', 'OutcomeOfDelivery', 'DeliveryMethod',
                        'PregRelatedHypertension', 'Mild_PE', 'Severe_PE', 'SIPE', 'High', 'PNV_BP', 'Has_Prenatal_Data',
-                       'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams','GestWeightCompare',
-                       'DELWKSGT', 'MMULGSTD', 'Systolic', 'Diastolic', 'Race', 'DeliveryYear',
-                       'PNV_Total_Number', 'MPostPartumComplications'], inplace=True)
-
-
-
+                       'Has_Ultrasound_PlacLoc', 'NICULOS', 'InfantWeightGrams', 'GestWeightCompare',
+                       'DELWKSGT', 'MMULGSTD', 'Systolic', 'Diastolic', 'Race',
+                       'PNV_Total_Number', 'MPostPartumComplications', 'Thrombocytopenia', 'TransfusionOfPRBC',
+                       'AcuteRenalFailure'], inplace=True)
 
     # Renaming Hypertensive variables for easier comparison
     hypMap = {'African': 0, 'Asian': 1,
@@ -492,11 +494,12 @@ def cleanDataMomi(weeks):
     hypMap = {'F': 0, 'M': 1}
     join['InfSex'] = join['InfSex'].map(hypMap)
 
+    joinAfrican = join[join['RaceCollapsed'] == 0]
+    joinAfrican.drop(columns=['RaceCollapsed'], inplace=True)
+    #joinAfrican.to_csv('momiEncodedAfrican_111921.csv', index=False)
 
-    join.to_csv('momiEncoded_091621.csv', index=False)
 
     return join
-
 
 
 def cleanDataTX(age):
@@ -506,322 +509,97 @@ def cleanDataTX(age):
     dataPathq3 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_3q2013_tab.txt")
     dataPathq4 = os.path.join(parent, r"Data/Texas_PUDF/PUDF_base1_4q2013_tab.txt")
 
+    cols = ['RECORD_ID',
+            'DISCHARGE',
+            'SOURCE_OF_ADMISSION',
+            'PAT_STATUS',
+            'PAT_STATE',
+            'COUNTY',
+            'SEX_CODE',
+            'RACE',
+            'ETHNICITY',
+            'PAT_AGE',
+            'FIRST_PAYMENT_SRC',
+            'SECONDARY_PAYMENT_SRC',
+            'LENGTH_OF_STAY',
+            'ADMITTING_DIAGNOSIS',
+            'PRINC_DIAG_CODE',
+            'OTH_DIAG_CODE_1',
+            'OTH_DIAG_CODE_2',
+            'OTH_DIAG_CODE_3',
+            'OTH_DIAG_CODE_4',
+            'OTH_DIAG_CODE_5',
+            'OTH_DIAG_CODE_6',
+            'OTH_DIAG_CODE_7',
+            'OTH_DIAG_CODE_8',
+            'OTH_DIAG_CODE_9',
+            'OTH_DIAG_CODE_10',
+            'OTH_DIAG_CODE_11',
+            'OTH_DIAG_CODE_12',
+            'OTH_DIAG_CODE_13',
+            'OTH_DIAG_CODE_14',
+            'OTH_DIAG_CODE_15',
+            'OTH_DIAG_CODE_16',
+            'OTH_DIAG_CODE_17',
+            'OTH_DIAG_CODE_18',
+            'OTH_DIAG_CODE_19',
+            'OTH_DIAG_CODE_20',
+            'OTH_DIAG_CODE_21',
+            'OTH_DIAG_CODE_22',
+            'OTH_DIAG_CODE_23',
+            'OTH_DIAG_CODE_24', ]
+    dtype = {'RECORD_ID': object,
+             'DISCHARGE': object,
+             'PAT_STATUS': object,
+             'PAT_STATE': str,
+             'COUNTY': str,
+             'SOURCE_OF_ADMISSION': object,
+             'SEX_CODE': object,
+             'RACE': object,
+             'ETHNICITY': object,
+             'PAT_AGE': object,
+             'FIRST_PAYMENT_SRC': object,
+             'SECONDARY_PAYMENT_SRC': object,
+             'LENGTH_OF_STAY': float,
+             'ADMITTING_DIAGNOSIS': str,
+             'PRINC_DIAG_CODE': str,
+             'OTH_DIAG_CODE_1': str,
+             'OTH_DIAG_CODE_2': str,
+             'OTH_DIAG_CODE_3': str,
+             'OTH_DIAG_CODE_4': str,
+             'OTH_DIAG_CODE_5': str,
+             'OTH_DIAG_CODE_6': str,
+             'OTH_DIAG_CODE_7': str,
+             'OTH_DIAG_CODE_8': str,
+             'OTH_DIAG_CODE_9': str,
+             'OTH_DIAG_CODE_10': str,
+             'OTH_DIAG_CODE_11': str,
+             'OTH_DIAG_CODE_12': str,
+             'OTH_DIAG_CODE_13': str,
+             'OTH_DIAG_CODE_14': str,
+             'OTH_DIAG_CODE_15': str,
+             'OTH_DIAG_CODE_16': str,
+             'OTH_DIAG_CODE_17': str,
+             'OTH_DIAG_CODE_18': str,
+             'OTH_DIAG_CODE_19': str,
+             'OTH_DIAG_CODE_20': str,
+             'OTH_DIAG_CODE_21': str,
+             'OTH_DIAG_CODE_22': str,
+             'OTH_DIAG_CODE_23': str,
+             'OTH_DIAG_CODE_24': str}
 
-    quarter1 = pd.read_csv('file://' + dataPathq1, delimiter="\t", usecols=['RECORD_ID',
-                                                                                                 'DISCHARGE',
-                                                                                                 'SOURCE_OF_ADMISSION',
-                                                                                                 'PAT_STATUS',
-                                                                                                 'PAT_STATE',
-                                                                                                 'COUNTY',
-                                                                                                 'SEX_CODE',
-                                                                                                 'RACE',
-                                                                                                 'ETHNICITY',
-                                                                                                 'PAT_AGE',
-                                                                                                 'FIRST_PAYMENT_SRC',
-                                                                                                 'SECONDARY_PAYMENT_SRC',
-                                                                                                 'LENGTH_OF_STAY',
-                                                                                                 'ADMITTING_DIAGNOSIS',
-                                                                                                 'PRINC_DIAG_CODE',
-                                                                                                 'OTH_DIAG_CODE_1',
-                                                                                                 'OTH_DIAG_CODE_2',
-                                                                                                 'OTH_DIAG_CODE_3',
-                                                                                                 'OTH_DIAG_CODE_4',
-                                                                                                 'OTH_DIAG_CODE_5',
-                                                                                                 'OTH_DIAG_CODE_6',
-                                                                                                 'OTH_DIAG_CODE_7',
-                                                                                                 'OTH_DIAG_CODE_8',
-                                                                                                 'OTH_DIAG_CODE_9',
-                                                                                                 'OTH_DIAG_CODE_10',
-                                                                                                 'OTH_DIAG_CODE_11',
-                                                                                                 'OTH_DIAG_CODE_12',
-                                                                                                 'OTH_DIAG_CODE_13',
-                                                                                                 'OTH_DIAG_CODE_14',
-                                                                                                 'OTH_DIAG_CODE_15',
-                                                                                                 'OTH_DIAG_CODE_16',
-                                                                                                 'OTH_DIAG_CODE_17',
-                                                                                                 'OTH_DIAG_CODE_18',
-                                                                                                 'OTH_DIAG_CODE_19',
-                                                                                                 'OTH_DIAG_CODE_20',
-                                                                                                 'OTH_DIAG_CODE_21',
-                                                                                                 'OTH_DIAG_CODE_22',
-                                                                                                 'OTH_DIAG_CODE_23',
-                                                                                                 'OTH_DIAG_CODE_24', ],
-                           dtype={'RECORD_ID': object,
-                                  'DISCHARGE': object,
-                                  'PAT_STATUS': object,
-                                  'PAT_STATE': str,
-                                  'COUNTY': str,
-                                  'SOURCE_OF_ADMISSION': object,
-                                  'SEX_CODE': object,
-                                  'RACE': object,
-                                  'ETHNICITY': object,
-                                  'PAT_AGE': object,
-                                  'FIRST_PAYMENT_SRC': object,
-                                  'SECONDARY_PAYMENT_SRC': object,
-                                  'LENGTH_OF_STAY': float,
-                                  'ADMITTING_DIAGNOSIS': str,
-                                  'PRINC_DIAG_CODE': str,
-                                  'OTH_DIAG_CODE_1': str,
-                                  'OTH_DIAG_CODE_2': str,
-                                  'OTH_DIAG_CODE_3': str,
-                                  'OTH_DIAG_CODE_4': str,
-                                  'OTH_DIAG_CODE_5': str,
-                                  'OTH_DIAG_CODE_6': str,
-                                  'OTH_DIAG_CODE_7': str,
-                                  'OTH_DIAG_CODE_8': str,
-                                  'OTH_DIAG_CODE_9': str,
-                                  'OTH_DIAG_CODE_10': str,
-                                  'OTH_DIAG_CODE_11': str,
-                                  'OTH_DIAG_CODE_12': str,
-                                  'OTH_DIAG_CODE_13': str,
-                                  'OTH_DIAG_CODE_14': str,
-                                  'OTH_DIAG_CODE_15': str,
-                                  'OTH_DIAG_CODE_16': str,
-                                  'OTH_DIAG_CODE_17': str,
-                                  'OTH_DIAG_CODE_18': str,
-                                  'OTH_DIAG_CODE_19': str,
-                                  'OTH_DIAG_CODE_20': str,
-                                  'OTH_DIAG_CODE_21': str,
-                                  'OTH_DIAG_CODE_22': str,
-                                  'OTH_DIAG_CODE_23': str,
-                                  'OTH_DIAG_CODE_24': str})
+    quarter1 = pd.read_csv('file://' + dataPathq1, delimiter="\t", usecols=cols,
+                           dtype=dtype)
 
-    quarter2 = pd.read_csv('file://' + dataPathq2, delimiter="\t", usecols=['RECORD_ID',
-                                                                                                 'DISCHARGE',
-                                                                                                 'SOURCE_OF_ADMISSION',
-                                                                                                 'PAT_STATUS',
-                                                                                                 'PAT_STATE',
-                                                                                                 'COUNTY',
-                                                                                                 'SEX_CODE',
-                                                                                                 'RACE',
-                                                                                                 'ETHNICITY',
-                                                                                                 'PAT_AGE',
-                                                                                                 'FIRST_PAYMENT_SRC',
-                                                                                                 'SECONDARY_PAYMENT_SRC',
-                                                                                                 'LENGTH_OF_STAY',
-                                                                                                 'ADMITTING_DIAGNOSIS',
-                                                                                                 'PRINC_DIAG_CODE',
-                                                                                                 'OTH_DIAG_CODE_1',
-                                                                                                 'OTH_DIAG_CODE_2',
-                                                                                                 'OTH_DIAG_CODE_3',
-                                                                                                 'OTH_DIAG_CODE_4',
-                                                                                                 'OTH_DIAG_CODE_5',
-                                                                                                 'OTH_DIAG_CODE_6',
-                                                                                                 'OTH_DIAG_CODE_7',
-                                                                                                 'OTH_DIAG_CODE_8',
-                                                                                                 'OTH_DIAG_CODE_9',
-                                                                                                 'OTH_DIAG_CODE_10',
-                                                                                                 'OTH_DIAG_CODE_11',
-                                                                                                 'OTH_DIAG_CODE_12',
-                                                                                                 'OTH_DIAG_CODE_13',
-                                                                                                 'OTH_DIAG_CODE_14',
-                                                                                                 'OTH_DIAG_CODE_15',
-                                                                                                 'OTH_DIAG_CODE_16',
-                                                                                                 'OTH_DIAG_CODE_17',
-                                                                                                 'OTH_DIAG_CODE_18',
-                                                                                                 'OTH_DIAG_CODE_19',
-                                                                                                 'OTH_DIAG_CODE_20',
-                                                                                                 'OTH_DIAG_CODE_21',
-                                                                                                 'OTH_DIAG_CODE_22',
-                                                                                                 'OTH_DIAG_CODE_23',
-                                                                                                 'OTH_DIAG_CODE_24', ],
-                           dtype={'RECORD_ID': object,
-                                  'DISCHARGE': object,
-                                  'SOURCE_OF_ADMISSION': object,
-                                  'PAT_STATUS': object,
-                                  'PAT_STATE': str,
-                                  'COUNTY': str,
-                                  'SEX_CODE': object,
-                                  'RACE': object,
-                                  'ETHNICITY': object,
-                                  'PAT_AGE': object,
-                                  'FIRST_PAYMENT_SRC': object,
-                                  'SECONDARY_PAYMENT_SRC': object,
-                                  'LENGTH_OF_STAY': float,
-                                  'ADMITTING_DIAGNOSIS': str,
-                                  'PRINC_DIAG_CODE': str,
-                                  'OTH_DIAG_CODE_1': str,
-                                  'OTH_DIAG_CODE_2': str,
-                                  'OTH_DIAG_CODE_3': str,
-                                  'OTH_DIAG_CODE_4': str,
-                                  'OTH_DIAG_CODE_5': str,
-                                  'OTH_DIAG_CODE_6': str,
-                                  'OTH_DIAG_CODE_7': str,
-                                  'OTH_DIAG_CODE_8': str,
-                                  'OTH_DIAG_CODE_9': str,
-                                  'OTH_DIAG_CODE_10': str,
-                                  'OTH_DIAG_CODE_11': str,
-                                  'OTH_DIAG_CODE_12': str,
-                                  'OTH_DIAG_CODE_13': str,
-                                  'OTH_DIAG_CODE_14': str,
-                                  'OTH_DIAG_CODE_15': str,
-                                  'OTH_DIAG_CODE_16': str,
-                                  'OTH_DIAG_CODE_17': str,
-                                  'OTH_DIAG_CODE_18': str,
-                                  'OTH_DIAG_CODE_19': str,
-                                  'OTH_DIAG_CODE_20': str,
-                                  'OTH_DIAG_CODE_21': str,
-                                  'OTH_DIAG_CODE_22': str,
-                                  'OTH_DIAG_CODE_23': str,
-                                  'OTH_DIAG_CODE_24': str})
+    quarter2 = pd.read_csv('file://' + dataPathq2, delimiter="\t", usecols=cols,
+                           dtype=dtype)
 
-    quarter3 = pd.read_csv('file://' + dataPathq3, delimiter="\t", usecols=['RECORD_ID',
-                                                                                                 'DISCHARGE',
-                                                                                                 'SOURCE_OF_ADMISSION',
-                                                                                                 'PAT_STATUS',
-                                                                                                 'PAT_STATE',
-                                                                                                 'COUNTY',
-                                                                                                 'SEX_CODE',
-                                                                                                 'RACE',
-                                                                                                 'ETHNICITY',
-                                                                                                 'PAT_AGE',
-                                                                                                 'FIRST_PAYMENT_SRC',
-                                                                                                 'SECONDARY_PAYMENT_SRC',
-                                                                                                 'LENGTH_OF_STAY',
-                                                                                                 'ADMITTING_DIAGNOSIS',
-                                                                                                 'PRINC_DIAG_CODE',
-                                                                                                 'OTH_DIAG_CODE_1',
-                                                                                                 'OTH_DIAG_CODE_2',
-                                                                                                 'OTH_DIAG_CODE_3',
-                                                                                                 'OTH_DIAG_CODE_4',
-                                                                                                 'OTH_DIAG_CODE_5',
-                                                                                                 'OTH_DIAG_CODE_6',
-                                                                                                 'OTH_DIAG_CODE_7',
-                                                                                                 'OTH_DIAG_CODE_8',
-                                                                                                 'OTH_DIAG_CODE_9',
-                                                                                                 'OTH_DIAG_CODE_10',
-                                                                                                 'OTH_DIAG_CODE_11',
-                                                                                                 'OTH_DIAG_CODE_12',
-                                                                                                 'OTH_DIAG_CODE_13',
-                                                                                                 'OTH_DIAG_CODE_14',
-                                                                                                 'OTH_DIAG_CODE_15',
-                                                                                                 'OTH_DIAG_CODE_16',
-                                                                                                 'OTH_DIAG_CODE_17',
-                                                                                                 'OTH_DIAG_CODE_18',
-                                                                                                 'OTH_DIAG_CODE_19',
-                                                                                                 'OTH_DIAG_CODE_20',
-                                                                                                 'OTH_DIAG_CODE_21',
-                                                                                                 'OTH_DIAG_CODE_22',
-                                                                                                 'OTH_DIAG_CODE_23',
-                                                                                                 'OTH_DIAG_CODE_24', ],
-                           dtype={'RECORD_ID': object,
-                                  'DISCHARGE': object,
-                                  'SOURCE_OF_ADMISSION': object,
-                                  'PAT_STATUS': object,
-                                  'PAT_STATE': str,
-                                  'COUNTY': str,
-                                  'SEX_CODE': object,
-                                  'RACE': object,
-                                  'ETHNICITY': object,
-                                  'PAT_AGE': object,
-                                  'FIRST_PAYMENT_SRC': object,
-                                  'SECONDARY_PAYMENT_SRC': object,
-                                  'LENGTH_OF_STAY': float,
-                                  'ADMITTING_DIAGNOSIS': str,
-                                  'PRINC_DIAG_CODE': str,
-                                  'OTH_DIAG_CODE_1': str,
-                                  'OTH_DIAG_CODE_2': str,
-                                  'OTH_DIAG_CODE_3': str,
-                                  'OTH_DIAG_CODE_4': str,
-                                  'OTH_DIAG_CODE_5': str,
-                                  'OTH_DIAG_CODE_6': str,
-                                  'OTH_DIAG_CODE_7': str,
-                                  'OTH_DIAG_CODE_8': str,
-                                  'OTH_DIAG_CODE_9': str,
-                                  'OTH_DIAG_CODE_10': str,
-                                  'OTH_DIAG_CODE_11': str,
-                                  'OTH_DIAG_CODE_12': str,
-                                  'OTH_DIAG_CODE_13': str,
-                                  'OTH_DIAG_CODE_14': str,
-                                  'OTH_DIAG_CODE_15': str,
-                                  'OTH_DIAG_CODE_16': str,
-                                  'OTH_DIAG_CODE_17': str,
-                                  'OTH_DIAG_CODE_18': str,
-                                  'OTH_DIAG_CODE_19': str,
-                                  'OTH_DIAG_CODE_20': str,
-                                  'OTH_DIAG_CODE_21': str,
-                                  'OTH_DIAG_CODE_22': str,
-                                  'OTH_DIAG_CODE_23': str,
-                                  'OTH_DIAG_CODE_24': str})
+    quarter3 = pd.read_csv('file://' + dataPathq3, delimiter="\t", usecols=cols,
+                           dtype=dtype)
 
-    quarter4 = pd.read_csv('file://' + dataPathq4, delimiter="\t", usecols=['RECORD_ID',
-                                                                            'DISCHARGE',
-                                                                            'SOURCE_OF_ADMISSION',
-                                                                            'PAT_STATUS',
-                                                                            'PAT_STATE',
-                                                                            'COUNTY',
-                                                                            'SEX_CODE',
-                                                                            'RACE',
-                                                                            'ETHNICITY',
-                                                                            'PAT_AGE',
-                                                                            'FIRST_PAYMENT_SRC',
-                                                                            'SECONDARY_PAYMENT_SRC',
-                                                                            'LENGTH_OF_STAY',
-                                                                            'ADMITTING_DIAGNOSIS',
-                                                                            'PRINC_DIAG_CODE',
-                                                                            'OTH_DIAG_CODE_1',
-                                                                            'OTH_DIAG_CODE_2',
-                                                                            'OTH_DIAG_CODE_3',
-                                                                            'OTH_DIAG_CODE_4',
-                                                                            'OTH_DIAG_CODE_5',
-                                                                            'OTH_DIAG_CODE_6',
-                                                                            'OTH_DIAG_CODE_7',
-                                                                            'OTH_DIAG_CODE_8',
-                                                                            'OTH_DIAG_CODE_9',
-                                                                            'OTH_DIAG_CODE_10',
-                                                                            'OTH_DIAG_CODE_11',
-                                                                            'OTH_DIAG_CODE_12',
-                                                                            'OTH_DIAG_CODE_13',
-                                                                            'OTH_DIAG_CODE_14',
-                                                                            'OTH_DIAG_CODE_15',
-                                                                            'OTH_DIAG_CODE_16',
-                                                                            'OTH_DIAG_CODE_17',
-                                                                            'OTH_DIAG_CODE_18',
-                                                                            'OTH_DIAG_CODE_19',
-                                                                            'OTH_DIAG_CODE_20',
-                                                                            'OTH_DIAG_CODE_21',
-                                                                            'OTH_DIAG_CODE_22',
-                                                                            'OTH_DIAG_CODE_23',
-                                                                            'OTH_DIAG_CODE_24', ],
-                           dtype={'RECORD_ID': object,
-                                  'DISCHARGE': object,
-                                  'SOURCE_OF_ADMISSION': object,
-                                  'PAT_STATUS': object,
-                                  'PAT_STATE': str,
-                                  'COUNTY': str,
-                                  'SEX_CODE': object,
-                                  'RACE': object,
-                                  'ETHNICITY': object,
-                                  'PAT_AGE': object,
-                                  'FIRST_PAYMENT_SRC': object,
-                                  'SECONDARY_PAYMENT_SRC': object,
-                                  'LENGTH_OF_STAY': float,
-                                  'ADMITTING_DIAGNOSIS': str,
-                                  'PRINC_DIAG_CODE': str,
-                                  'OTH_DIAG_CODE_1': str,
-                                  'OTH_DIAG_CODE_2': str,
-                                  'OTH_DIAG_CODE_3': str,
-                                  'OTH_DIAG_CODE_4': str,
-                                  'OTH_DIAG_CODE_5': str,
-                                  'OTH_DIAG_CODE_6': str,
-                                  'OTH_DIAG_CODE_7': str,
-                                  'OTH_DIAG_CODE_8': str,
-                                  'OTH_DIAG_CODE_9': str,
-                                  'OTH_DIAG_CODE_10': str,
-                                  'OTH_DIAG_CODE_11': str,
-                                  'OTH_DIAG_CODE_12': str,
-                                  'OTH_DIAG_CODE_13': str,
-                                  'OTH_DIAG_CODE_14': str,
-                                  'OTH_DIAG_CODE_15': str,
-                                  'OTH_DIAG_CODE_16': str,
-                                  'OTH_DIAG_CODE_17': str,
-                                  'OTH_DIAG_CODE_18': str,
-                                  'OTH_DIAG_CODE_19': str,
-                                  'OTH_DIAG_CODE_20': str,
-                                  'OTH_DIAG_CODE_21': str,
-                                  'OTH_DIAG_CODE_22': str,
-                                  'OTH_DIAG_CODE_23': str,
-                                  'OTH_DIAG_CODE_24': str})
+    quarter4 = pd.read_csv('file://' + dataPathq4, delimiter="\t", usecols=cols,
+                           dtype=dtype)
+
 
     # Combining all the quarters into one dataframe
     frames = [quarter1, quarter2, quarter3, quarter4]
@@ -1145,7 +923,7 @@ def cleanDataTX(age):
         year2013["RACE__nan"] == 1, year2013.columns.str.startswith("RACE__")] = np.nan
 
     year2013 = year2013.drop(['RACE__nan'], axis=1)
-
+    """
     # Create new combined race and ethnicity columns
     year2013['White Hispanic'] = 0
     year2013['Black Hispanic'] = 0
@@ -1184,294 +962,294 @@ def cleanDataTX(age):
     year2013['Other Race Non-Hispanic'] = np.where(
         ((year2013['RACE__5'] == 1) & (year2013['ETHNICITY__2'] == 1)), 1, year2013['Other Race Non-Hispanic'])
 
-    """
+
     # Drop original race and ethnicity columns
     year2013.drop(columns=['RACE__1', 'RACE__2', 'RACE__3', 'RACE__4',
                            'RACE__5', 'ETHNICITY__1', 'ETHNICITY__2'], axis=1, inplace=True)
+
     """
 
 
-    #year2013.to_csv('Data/year2013_' + date + '.csv', index=False)
-
     return year2013
 
+
 def cleanDataOK(dropMetro, age='Ordinal'):
-        system = 'linux'
+    system = 'linux'
 
-        if system == 'windows':
-            parent = os.path.dirname(os.getcwd())
-            dataPath2017 = os.path.join(parent, r'Data\Oklahom_PUDF_2020.08.27\2017_IP\pudf_cd.txt')
-            dataPath2018 = os.path.join(parent, r'Data\Oklahom_PUDF_2020.08.27\2018_IP\pudf_cdv2.txt')
+    if system == 'windows':
+        parent = os.path.dirname(os.getcwd())
+        dataPath2017 = os.path.join(parent, r'Data\Oklahom_PUDF_2020.08.27\2017_IP\pudf_cd.txt')
+        dataPath2018 = os.path.join(parent, r'Data\Oklahom_PUDF_2020.08.27\2018_IP\pudf_cdv2.txt')
 
-            ok2017 = pd.read_csv(dataPath2017)
-            ok2018 = pd.read_csv(dataPath2018)
+        ok2017 = pd.read_csv(dataPath2017)
+        ok2018 = pd.read_csv(dataPath2018)
 
-        else:
-            parent = os.path.dirname(os.getcwd())
-            dataPath2017 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2017_IP/pudf_cd.txt")
-            dataPath2018 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2018_IP/pudf_cdv2.txt")
+    else:
+        parent = os.path.dirname(os.getcwd())
+        dataPath2017 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2017_IP/pudf_cd.txt")
+        dataPath2018 = os.path.join(parent, r"Data/Oklahom_PUDF_2020.08.27/2018_IP/pudf_cdv2.txt")
 
-            ok2017 = pd.read_csv(dataPath2017)
-            ok2018 = pd.read_csv(dataPath2018)
+        ok2017 = pd.read_csv(dataPath2017)
+        ok2018 = pd.read_csv(dataPath2018)
 
-        # Dropping unneeded columns
-        ok2017.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',
-                             'cd_drg_hci', 'cd_mdc', 'cd_ecode_cause_1',
-                             'cd_ecode_cause_2', 'cd_ecode_cause_3'], inplace=True)
-        ok2018.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',
-                             'cd_drg_hci', 'cd_mdc', 'cd_ecode_cause_1',
-                             'cd_ecode_cause_2', 'cd_ecode_cause_3'], inplace=True)
+    # Dropping unneeded columns
+    ok2017.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',
+                         'cd_drg_hci', 'cd_mdc', 'cd_ecode_cause_1',
+                         'cd_ecode_cause_2', 'cd_ecode_cause_3'], inplace=True)
+    ok2018.drop(columns=['pk_pudf', 'id_hups', 'cd_hospital_type', 'cd_admission_type_src', 'no_total_chgs',
+                         'cd_drg_hci', 'cd_mdc', 'cd_ecode_cause_1',
+                         'cd_ecode_cause_2', 'cd_ecode_cause_3'], inplace=True)
 
-        ok2017.columns = ['State', 'Zip', 'County', 'Sex', 'Race', 'Marital_status', 'Age', 'admit_year',
-                          'admit_month', 'admit_day',
-                          'discharge_year', 'discharge_month', 'discharge_day', 'Length_of_stay', 'Status',
-                          'Insurance', 'pdx', 'dx1', 'dx2', 'dx3',
-                          'dx4', 'dx5', 'dx6', 'dx7', 'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14', 'dx15',
-                          'ppoa', 'poa1', 'poa2', 'poa3', 'poa4', 'poa5',
-                          'poa6', 'poa7', 'poa8', 'poa9', 'poa10', 'poa11', 'poa12', 'poa13',
-                          'poa14', 'poa15', 'ppx', 'px1', 'px2', 'px3', 'px4', 'px5', 'px6',
-                          'px7', 'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14', 'px15']
+    ok2017.columns = ['State', 'Zip', 'County', 'Sex', 'Race', 'Marital_status', 'Age', 'admit_year',
+                      'admit_month', 'admit_day',
+                      'discharge_year', 'discharge_month', 'discharge_day', 'Length_of_stay', 'Status',
+                      'Insurance', 'pdx', 'dx1', 'dx2', 'dx3',
+                      'dx4', 'dx5', 'dx6', 'dx7', 'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14', 'dx15',
+                      'ppoa', 'poa1', 'poa2', 'poa3', 'poa4', 'poa5',
+                      'poa6', 'poa7', 'poa8', 'poa9', 'poa10', 'poa11', 'poa12', 'poa13',
+                      'poa14', 'poa15', 'ppx', 'px1', 'px2', 'px3', 'px4', 'px5', 'px6',
+                      'px7', 'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14', 'px15']
 
-        ok2018.columns = ['State', 'Zip', 'County', 'Sex', 'Race', 'Marital_status', 'Age', 'admit_year',
-                          'admit_month', 'admit_day',
-                          'discharge_year', 'discharge_month', 'discharge_day', 'Length_of_stay', 'Status',
-                          'Insurance', 'pdx', 'dx1', 'dx2', 'dx3',
-                          'dx4', 'dx5', 'dx6', 'dx7', 'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14', 'dx15',
-                          'ppoa', 'poa1', 'poa2', 'poa3', 'poa4', 'poa5',
-                          'poa6', 'poa7', 'poa8', 'poa9', 'poa10', 'poa11', 'poa12', 'poa13',
-                          'poa14', 'poa15', 'ppx', 'px1', 'px2', 'px3', 'px4', 'px5', 'px6',
-                          'px7', 'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14', 'px15']
+    ok2018.columns = ['State', 'Zip', 'County', 'Sex', 'Race', 'Marital_status', 'Age', 'admit_year',
+                      'admit_month', 'admit_day',
+                      'discharge_year', 'discharge_month', 'discharge_day', 'Length_of_stay', 'Status',
+                      'Insurance', 'pdx', 'dx1', 'dx2', 'dx3',
+                      'dx4', 'dx5', 'dx6', 'dx7', 'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14', 'dx15',
+                      'ppoa', 'poa1', 'poa2', 'poa3', 'poa4', 'poa5',
+                      'poa6', 'poa7', 'poa8', 'poa9', 'poa10', 'poa11', 'poa12', 'poa13',
+                      'poa14', 'poa15', 'ppx', 'px1', 'px2', 'px3', 'px4', 'px5', 'px6',
+                      'px7', 'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14', 'px15']
 
-        ok2017 = (ok2017.loc[(ok2017['pdx'].str.startswith('Z37'))
-                             | ok2017['dx1'].str.startswith('Z37')
-                             | ok2017['dx2'].str.startswith('Z37')
-                             | ok2017['dx3'].str.startswith('Z37')
-                             | ok2017['dx4'].str.startswith('Z37')
-                             | ok2017['dx5'].str.startswith('Z37')
-                             | ok2017['dx6'].str.startswith('Z37')
-                             | ok2017['dx8'].str.startswith('Z37')
-                             | ok2017['dx9'].str.startswith('Z37')
-                             | ok2017['dx10'].str.startswith('Z37')
-                             | ok2017['dx11'].str.startswith('Z37')
-                             | ok2017['dx12'].str.startswith('Z37')
-                             | ok2017['dx13'].str.startswith('Z37')
-                             | ok2017['dx14'].str.startswith('Z37')
-                             | ok2017['dx15'].str.startswith('Z37')])
+    ok2017 = (ok2017.loc[(ok2017['pdx'].str.startswith('Z37'))
+                         | ok2017['dx1'].str.startswith('Z37')
+                         | ok2017['dx2'].str.startswith('Z37')
+                         | ok2017['dx3'].str.startswith('Z37')
+                         | ok2017['dx4'].str.startswith('Z37')
+                         | ok2017['dx5'].str.startswith('Z37')
+                         | ok2017['dx6'].str.startswith('Z37')
+                         | ok2017['dx8'].str.startswith('Z37')
+                         | ok2017['dx9'].str.startswith('Z37')
+                         | ok2017['dx10'].str.startswith('Z37')
+                         | ok2017['dx11'].str.startswith('Z37')
+                         | ok2017['dx12'].str.startswith('Z37')
+                         | ok2017['dx13'].str.startswith('Z37')
+                         | ok2017['dx14'].str.startswith('Z37')
+                         | ok2017['dx15'].str.startswith('Z37')])
 
-        ok2018 = (ok2018.loc[(ok2018['pdx'].str.startswith('Z37'))
-                             | ok2018['dx1'].str.startswith('Z37')
-                             | ok2018['dx2'].str.startswith('Z37')
-                             | ok2018['dx3'].str.startswith('Z37')
-                             | ok2018['dx4'].str.startswith('Z37')
-                             | ok2018['dx5'].str.startswith('Z37')
-                             | ok2018['dx6'].str.startswith('Z37')
-                             | ok2018['dx8'].str.startswith('Z37')
-                             | ok2018['dx9'].str.startswith('Z37')
-                             | ok2018['dx10'].str.startswith('Z37')
-                             | ok2018['dx11'].str.startswith('Z37')
-                             | ok2018['dx12'].str.startswith('Z37')
-                             | ok2018['dx13'].str.startswith('Z37')
-                             | ok2018['dx14'].str.startswith('Z37')
-                             | ok2018['dx15'].str.startswith('Z37')])
+    ok2018 = (ok2018.loc[(ok2018['pdx'].str.startswith('Z37'))
+                         | ok2018['dx1'].str.startswith('Z37')
+                         | ok2018['dx2'].str.startswith('Z37')
+                         | ok2018['dx3'].str.startswith('Z37')
+                         | ok2018['dx4'].str.startswith('Z37')
+                         | ok2018['dx5'].str.startswith('Z37')
+                         | ok2018['dx6'].str.startswith('Z37')
+                         | ok2018['dx8'].str.startswith('Z37')
+                         | ok2018['dx9'].str.startswith('Z37')
+                         | ok2018['dx10'].str.startswith('Z37')
+                         | ok2018['dx11'].str.startswith('Z37')
+                         | ok2018['dx12'].str.startswith('Z37')
+                         | ok2018['dx13'].str.startswith('Z37')
+                         | ok2018['dx14'].str.startswith('Z37')
+                         | ok2018['dx15'].str.startswith('Z37')])
 
-        # Fix missing values
-        ok2017['State'] = np.where(ok2017['State'] == '99', np.NaN, ok2017['State'])
-        ok2018['State'] = np.where(ok2018['State'] == '99', np.NaN, ok2018['State'])
+    # Fix missing values
+    ok2017['State'] = np.where(ok2017['State'] == '99', np.NaN, ok2017['State'])
+    ok2018['State'] = np.where(ok2018['State'] == '99', np.NaN, ok2018['State'])
 
-        ok2017['Zip'] = np.where(ok2017['Zip'] == 99999.0, np.NaN, ok2017['Zip'])
-        ok2018['Zip'] = np.where(ok2018['Zip'] == 99999.0, np.NaN, ok2018['Zip'])
+    ok2017['Zip'] = np.where(ok2017['Zip'] == 99999.0, np.NaN, ok2017['Zip'])
+    ok2018['Zip'] = np.where(ok2018['Zip'] == 99999.0, np.NaN, ok2018['Zip'])
 
-        ok2017['Marital_status'] = np.where(ok2017['Marital_status'] == 'U', np.NaN, ok2017['Marital_status'])
-        ok2018['Marital_status'] = np.where(ok2018['Marital_status'] == 'U', np.NaN, ok2018['Marital_status'])
+    ok2017['Marital_status'] = np.where(ok2017['Marital_status'] == 'U', np.NaN, ok2017['Marital_status'])
+    ok2018['Marital_status'] = np.where(ok2018['Marital_status'] == 'U', np.NaN, ok2018['Marital_status'])
 
-        ok2017['Sex'] = np.where(ok2017['Sex'] == 'U', np.NaN, ok2017['Sex'])
-        ok2018['Sex'] = np.where(ok2018['Sex'] == 'U', np.NaN, ok2018['Sex'])
+    ok2017['Sex'] = np.where(ok2017['Sex'] == 'U', np.NaN, ok2017['Sex'])
+    ok2018['Sex'] = np.where(ok2018['Sex'] == 'U', np.NaN, ok2018['Sex'])
 
-        ok2017['Age'] = np.where(ok2017['Age'] == '99', np.NaN, ok2017['Age'])
-        ok2018['Age'] = np.where(ok2018['Age'] == '99', np.NaN, ok2018['Age'])
+    ok2017['Age'] = np.where(ok2017['Age'] == '99', np.NaN, ok2017['Age'])
+    ok2018['Age'] = np.where(ok2018['Age'] == '99', np.NaN, ok2018['Age'])
 
-        ok2017['Status'] = np.where(ok2017['Status'] == '99', np.NaN, ok2017['Status'])
-        ok2018['Status'] = np.where(ok2018['Status'] == '99', np.NaN, ok2018['Status'])
+    ok2017['Status'] = np.where(ok2017['Status'] == '99', np.NaN, ok2017['Status'])
+    ok2018['Status'] = np.where(ok2018['Status'] == '99', np.NaN, ok2018['Status'])
 
-        # Creating Insurance Binary Columns
-        ok2017['Medicaid'] = 0
-        ok2017['Medicare'] = 0
-        ok2017['Self-pay'] = 0
-        ok2017['Other Insurance'] = 0
+    # Creating Insurance Binary Columns
+    ok2017['Medicaid'] = 0
+    ok2017['Medicare'] = 0
+    ok2017['Self-pay'] = 0
+    ok2017['Other Insurance'] = 0
 
-        # Creating Insurance Binary Columns
-        ok2018['Medicaid'] = 0
-        ok2018['Medicare'] = 0
-        ok2018['Self-pay'] = 0
-        ok2018['Other Insurance'] = 0
+    # Creating Insurance Binary Columns
+    ok2018['Medicaid'] = 0
+    ok2018['Medicare'] = 0
+    ok2018['Self-pay'] = 0
+    ok2018['Other Insurance'] = 0
 
-        # Filling out appropriate Columns
-        ok2017['Medicaid'] = np.where(ok2017['Insurance'] == 3, 1,
-                                      ok2017['Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        ok2017['Medicare'] = np.where(ok2017['Insurance'] == 2, 1, ok2017['Medicare'])
-        ok2017['Self-pay'] = np.where(ok2017['Insurance'] == 6, 1, ok2017['Self-pay'])
-        ok2017['Other Insurance'] = np.where(ok2017['Insurance'].isin([1, 4, 5, 7]), int(1),
-                                             ok2017['Other Insurance'])
+    # Filling out appropriate Columns
+    ok2017['Medicaid'] = np.where(ok2017['Insurance'] == 3, 1,
+                                  ok2017['Medicaid'])  # Change to 1 if 1, otherwise leave as is
+    ok2017['Medicare'] = np.where(ok2017['Insurance'] == 2, 1, ok2017['Medicare'])
+    ok2017['Self-pay'] = np.where(ok2017['Insurance'] == 6, 1, ok2017['Self-pay'])
+    ok2017['Other Insurance'] = np.where(ok2017['Insurance'].isin([1, 4, 5, 7]), int(1),
+                                         ok2017['Other Insurance'])
 
-        # For Missing Values, 9 is unknown in their dictionary
-        ok2017['Medicaid'] = np.where(ok2017['Insurance'] == 9, np.NaN,
-                                      ok2017['Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        ok2017['Medicare'] = np.where(ok2017['Insurance'] == 9, np.NaN, ok2017['Medicare'])
-        ok2017['Self-pay'] = np.where(ok2017['Insurance'] == 9, np.NaN, ok2017['Self-pay'])
-        ok2017['Other Insurance'] = np.where(ok2017['Insurance'] == 9, np.NaN, ok2017['Other Insurance'])
+    # For Missing Values, 9 is unknown in their dictionary
+    ok2017['Medicaid'] = np.where(ok2017['Insurance'] == 9, np.NaN,
+                                  ok2017['Medicaid'])  # Change to 1 if 1, otherwise leave as is
+    ok2017['Medicare'] = np.where(ok2017['Insurance'] == 9, np.NaN, ok2017['Medicare'])
+    ok2017['Self-pay'] = np.where(ok2017['Insurance'] == 9, np.NaN, ok2017['Self-pay'])
+    ok2017['Other Insurance'] = np.where(ok2017['Insurance'] == 9, np.NaN, ok2017['Other Insurance'])
 
-        # Filling out appropriate Columns
-        ok2018['Medicaid'] = np.where(ok2018['Insurance'] == 3, 1,
-                                      ok2018['Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        ok2018['Medicare'] = np.where(ok2018['Insurance'] == 2, 1, ok2018['Medicare'])
-        ok2018['Self-pay'] = np.where(ok2018['Insurance'] == 6, 1, ok2018['Self-pay'])
-        ok2018['Other Insurance'] = np.where(ok2018['Insurance'].isin([1, 4, 5, 7]), int(1),
-                                             ok2018['Other Insurance'])
+    # Filling out appropriate Columns
+    ok2018['Medicaid'] = np.where(ok2018['Insurance'] == 3, 1,
+                                  ok2018['Medicaid'])  # Change to 1 if 1, otherwise leave as is
+    ok2018['Medicare'] = np.where(ok2018['Insurance'] == 2, 1, ok2018['Medicare'])
+    ok2018['Self-pay'] = np.where(ok2018['Insurance'] == 6, 1, ok2018['Self-pay'])
+    ok2018['Other Insurance'] = np.where(ok2018['Insurance'].isin([1, 4, 5, 7]), int(1),
+                                         ok2018['Other Insurance'])
 
-        # For Missing Values, 9 is unkown in their dictionary
-        ok2018['Medicaid'] = np.where(ok2018['Insurance'] == 9, np.NaN,
-                                      ok2018['Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        ok2018['Medicare'] = np.where(ok2018['Insurance'] == 9, np.NaN, ok2018['Medicare'])
-        ok2018['Self-pay'] = np.where(ok2018['Insurance'] == 9, np.NaN, ok2018['Self-pay'])
-        ok2018['Other Insurance'] = np.where(ok2018['Insurance'] == 9, np.NaN, ok2018['Other Insurance'])
+    # For Missing Values, 9 is unkown in their dictionary
+    ok2018['Medicaid'] = np.where(ok2018['Insurance'] == 9, np.NaN,
+                                  ok2018['Medicaid'])  # Change to 1 if 1, otherwise leave as is
+    ok2018['Medicare'] = np.where(ok2018['Insurance'] == 9, np.NaN, ok2018['Medicare'])
+    ok2018['Self-pay'] = np.where(ok2018['Insurance'] == 9, np.NaN, ok2018['Self-pay'])
+    ok2018['Other Insurance'] = np.where(ok2018['Insurance'] == 9, np.NaN, ok2018['Other Insurance'])
 
-        # Fixing incorrect values
-        ok2018['Medicaid'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN,
-                                      ok2018['Medicaid'])  # Change to 1 if 1, otherwise leave as is
-        ok2018['Medicare'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN, ok2018['Medicare'])
-        ok2018['Self-pay'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN, ok2018['Self-pay'])
-        ok2018['Other Insurance'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN, ok2018['Other Insurance'])
+    # Fixing incorrect values
+    ok2018['Medicaid'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN,
+                                  ok2018['Medicaid'])  # Change to 1 if 1, otherwise leave as is
+    ok2018['Medicare'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN, ok2018['Medicare'])
+    ok2018['Self-pay'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN, ok2018['Self-pay'])
+    ok2018['Other Insurance'] = np.where(ok2018['Insurance'].isin([11, 14]), np.NaN, ok2018['Other Insurance'])
 
-        # Dropping Insurance column
-        ok2017.drop(columns=['Insurance'], inplace=True)
-        ok2018.drop(columns=['Insurance'], inplace=True)
+    # Dropping Insurance column
+    ok2017.drop(columns=['Insurance'], inplace=True)
+    ok2018.drop(columns=['Insurance'], inplace=True)
 
-        # Re-label Invalid gender rows
-        ok2017['Sex'] = ok2017['Sex'].replace('M', 'F')
-        ok2018['Sex'] = ok2018['Sex'].replace('M', 'F')
+    # Re-label Invalid gender rows
+    ok2017['Sex'] = ok2017['Sex'].replace('M', 'F')
+    ok2018['Sex'] = ok2018['Sex'].replace('M', 'F')
 
-        # Selecting appropriate age groups
-        ok2017 = ok2017.query('Age >= "01" & Age <= "50-54" | Age == "99"')
-        ok2018 = ok2018.query('Age >= "01" & Age <= "50-54" | Age == "99"')
+    # Selecting appropriate age groups
+    ok2017 = ok2017.query('Age >= "01" & Age <= "50-54" | Age == "99"')
+    ok2018 = ok2018.query('Age >= "01" & Age <= "50-54" | Age == "99"')
 
-        if age == 'Ordinal':
+    if age == 'Ordinal':
 
-            # Ordinal Encode Age
-            enc = OrdinalEncoder()
-            ok2017[["Age"]] = enc.fit_transform(ok2017[["Age"]])
-            ok2018[["Age"]] = enc.fit_transform(ok2018[["Age"]])
+        # Ordinal Encode Age
+        enc = OrdinalEncoder()
+        ok2017[["Age"]] = enc.fit_transform(ok2017[["Age"]])
+        ok2018[["Age"]] = enc.fit_transform(ok2018[["Age"]])
 
-        elif age == 'Categorical':
-            ok2017 = age_encoderOK(ok2017)
-            ok2018 = age_encoderOK(ok2018)
+    elif age == 'Categorical':
+        ok2017 = age_encoderOK(ok2017)
+        ok2018 = age_encoderOK(ok2018)
 
-        # Re-label Race
-        ok2017['Race'].replace('W', 'White', inplace=True)
-        ok2017['Race'].replace('B', 'Black', inplace=True)
-        ok2017['Race'].replace('I', 'Native American', inplace=True)
-        ok2017['Race'].replace('O', 'Other/Unknown', inplace=True)
+    # Re-label Race
+    ok2017['Race'].replace('W', 'White', inplace=True)
+    ok2017['Race'].replace('B', 'Black', inplace=True)
+    ok2017['Race'].replace('I', 'Native American', inplace=True)
+    ok2017['Race'].replace('O', 'Other/Unknown', inplace=True)
 
-        ok2018['Race'].replace('W', 'White', inplace=True)
-        ok2018['Race'].replace('B', 'Black', inplace=True)
-        ok2018['Race'].replace('I', 'Native American', inplace=True)
-        ok2018['Race'].replace('O', 'Other/Unknown', inplace=True)
+    ok2018['Race'].replace('W', 'White', inplace=True)
+    ok2018['Race'].replace('B', 'Black', inplace=True)
+    ok2018['Race'].replace('I', 'Native American', inplace=True)
+    ok2018['Race'].replace('O', 'Other/Unknown', inplace=True)
 
-        # Read in list of Counties and their designation
+    # Read in list of Counties and their designation
 
-        ruralPath = '/home/rachel/PycharmProjects/Bennett_OUDSA5900/Data/County_Metropolitan_Classification.csv'
+    ruralPath = '/home/rachel/PycharmProjects/Bennett_OUDSA5900/Data/County_Metropolitan_Classification.csv'
 
-        urbanRural = pd.read_csv(ruralPath)
-        urbanRural['county name'] = urbanRural['county name'].str.replace(' County', '')
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 1)
-        urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 0)
-        urbanRural.drop(columns='value', inplace=True)
+    urbanRural = pd.read_csv(ruralPath)
+    urbanRural['county name'] = urbanRural['county name'].str.replace(' County', '')
+    urbanRural['Metro status'] = urbanRural['Metro status'].replace('Metropolitan', 1)
+    urbanRural['Metro status'] = urbanRural['Metro status'].replace('Nonmetropolitan', 0)
+    urbanRural.drop(columns='value', inplace=True)
 
-        # Match capitalization
-        ok2017['County'] = ok2017.County.str.capitalize()
-        ok2018['County'] = ok2018.County.str.capitalize()
+    # Match capitalization
+    ok2017['County'] = ok2017.County.str.capitalize()
+    ok2018['County'] = ok2018.County.str.capitalize()
 
-        # Join to include whether county is urban or rural
-        ok2017 = ok2017.merge(urbanRural, left_on=['County', 'State'], right_on=['county name', 'State'],
-                              how='left')
-        ok2018 = ok2018.merge(urbanRural, left_on=['County', 'State'], right_on=['county name', 'State'],
-                              how='left')
+    # Join to include whether county is urban or rural
+    ok2017 = ok2017.merge(urbanRural, left_on=['County', 'State'], right_on=['county name', 'State'],
+                          how='left')
+    ok2018 = ok2018.merge(urbanRural, left_on=['County', 'State'], right_on=['county name', 'State'],
+                          how='left')
 
-        # Keeping admit month as proxy for whether when they developed preeclampsia
-        ok2017.drop(columns=['admit_year', 'admit_day', 'discharge_month', 'discharge_year', 'discharge_day'],
-                    inplace=True)
-        ok2018.drop(columns=['admit_year', 'admit_day', 'discharge_month', 'discharge_year', 'discharge_day'],
-                    inplace=True)
+    # Keeping admit month as proxy for whether when they developed preeclampsia
+    ok2017.drop(columns=['admit_year', 'admit_day', 'discharge_month', 'discharge_year', 'discharge_day'],
+                inplace=True)
+    ok2018.drop(columns=['admit_year', 'admit_day', 'discharge_month', 'discharge_year', 'discharge_day'],
+                inplace=True)
 
-        # Re-label marriage status
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 1)
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 1)
-        ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 0)
-        ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 0)
+    # Re-label marriage status
+    ok2017['Marital_status'] = ok2017['Marital_status'].replace('M', 1)
+    ok2018['Marital_status'] = ok2018['Marital_status'].replace('M', 1)
+    ok2017['Marital_status'] = ok2017['Marital_status'].replace('N', 0)
+    ok2018['Marital_status'] = ok2018['Marital_status'].replace('N', 0)
 
-        # A list of relevant columns
-        diagnosisColumns = ['pdx', 'dx1', 'dx2', 'dx3',
-                            'dx4', 'dx5', 'dx6', 'dx7',
-                            'dx8', 'dx9', 'dx10', 'dx11',
-                            'dx12', 'dx13', 'dx14', 'dx15']
+    # A list of relevant columns
+    diagnosisColumns = ['pdx', 'dx1', 'dx2', 'dx3',
+                        'dx4', 'dx5', 'dx6', 'dx7',
+                        'dx8', 'dx9', 'dx10', 'dx11',
+                        'dx12', 'dx13', 'dx14', 'dx15']
 
-        # Creating a dictionary to hold keys and values
-        diseaseDictionary = {}
+    # Creating a dictionary to hold keys and values
+    diseaseDictionary = {}
 
-        diseaseDictionary['Obesity'] = ['E66', 'O9921', 'O9981', 'O9984', 'Z683', 'Z684', 'Z713', 'Z9884']
-        diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['O0981']
-        diseaseDictionary['Cocaine dependence'] = ['F14', 'T405']
-        diseaseDictionary['Amphetamine dependence'] = ['F15', 'F19', 'P044', 'T4362']
-        diseaseDictionary['Gestational diabetes mellitus'] = ['O244', 'P700']
-        diseaseDictionary['Pre-existing diabetes mellitus'] = ['E10', 'E11', 'O240', 'O241', 'O243', 'O248', 'O249']
-        diseaseDictionary['Anxiety'] = ['F064', 'F41']
-        diseaseDictionary['Anemia NOS'] = ['D51']
-        diseaseDictionary['Iron deficiency anemia'] = ['D50']
-        diseaseDictionary['Other anemia'] = ['D64', 'D59', 'D489', 'D53', 'O990']
-        diseaseDictionary['Depression'] = ['F32', 'F341', 'F33', 'F0631', 'Z139', 'Z1331', 'Z1332']
-        diseaseDictionary['Primigravidas at the extremes of maternal age'] = ['O095', 'O096']
-        diseaseDictionary['Hemorrhagic disorders due to intrinsic circulating antibodies'] = ['D683']
-        diseaseDictionary['Systemic lupus erythematosus'] = ['M32']
-        diseaseDictionary['Lupus erythematosus'] = ['L93', 'D6862']
-        diseaseDictionary['Autoimmune disease not elsewhere classified'] = ['D89']
-        diseaseDictionary['Pure hypercholesterolemia'] = ['E780']
-        diseaseDictionary['Unspecified vitamin D deficiency'] = ['E55']
-        diseaseDictionary['Proteinuria'] = ['D511', 'N06', 'O121', 'O122', 'R80']
-        diseaseDictionary['Current Smoker'] = ['F172']
-        diseaseDictionary['Hypertension'] = ['G932', 'I10', 'I14', 'I15', 'I272', 'I674', 'I973', 'O10', 'O13',
-                                             'O16', 'R030']
-        diseaseDictionary['Hypertensive heart disease'] = ['I11']
-        diseaseDictionary['Chronic venous hypertension'] = ['I873']
-        diseaseDictionary['Unspecified renal disease in pregnancy without mention of hypertension'] = ['O2683',
-                                                                                                       'O9089']
-        diseaseDictionary['Chronic kidney disease'] = ['D631', 'E0822', 'E0922', 'E0922', 'E1022', 'E1122', 'E1322',
-                                                       'N18']
-        diseaseDictionary['Hypertensive kidney disease'] = ['I12']
-        diseaseDictionary['Hypertensive heart and chronic kidney disease'] = ['I13']
-        diseaseDictionary['Renal failure not elsewhere classified'] = ['N19']
-        diseaseDictionary['Infections of genitourinary tract in pregnancy'] = ['O23', 'O861', 'O862', 'O868']
-        diseaseDictionary['UTI'] = ['O0338', 'O0388', 'O0488', 'O0788', 'O0883', 'N136', 'N390', 'N99521', 'N99531']
-        diseaseDictionary['Personal history of trophoblastic disease'] = ['Z8759', 'O01']
-        diseaseDictionary['Supervision of high-risk pregnancy with history of trophoblastic disease'] = ['O091']
-        diseaseDictionary['Thrombophilia'] = ['D685', 'D686']
-        diseaseDictionary['History of premature delivery'] = ['Z8751']
-        diseaseDictionary['Hemorrhage in early pregnancy'] = ['O20']
-        diseaseDictionary[
-            'Congenital abnormalities of the uterus including those complicating pregnancy, childbirth, or the puerperium'] = [
-            'O34', 'O340']
-        diseaseDictionary['Multiple Gestations'] = ['O30']
-        diseaseDictionary['Inadequate Prenatal Care'] = ['O093']
-        diseaseDictionary['Periodontal disease'] = ['E08630', 'E09630', 'E10630', 'E11630', 'E13630', 'K05', 'K06',
-                                                    'K08129']
-        diseaseDictionary['Other cardiovascular diseases complicating pregnancy and childbirth or the puerperium'] = [
-            'O9943']
-        diseaseDictionary['Obstructive Sleep Apnea'] = ['G4733']
-        diseaseDictionary['Sickle cell disease'] = ['D57']
-        diseaseDictionary['Thyroid Disease'] = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07']
-        #diseaseDictionary['Intrauterine Death'] = ['O364']
-        diseaseDictionary['Preeclampsia/Eclampsia'] = ['O14', 'O15']
+    diseaseDictionary['Obesity'] = ['E66', 'O9921', 'O9981', 'O9984', 'Z683', 'Z684', 'Z713', 'Z9884']
+    diseaseDictionary['Pregnancy resulting from assisted reproductive technology'] = ['O0981']
+    diseaseDictionary['Cocaine dependence'] = ['F14', 'T405']
+    diseaseDictionary['Amphetamine dependence'] = ['F15', 'F19', 'P044', 'T4362']
+    diseaseDictionary['Gestational diabetes mellitus'] = ['O244', 'P700']
+    diseaseDictionary['Pre-existing diabetes mellitus'] = ['E10', 'E11', 'O240', 'O241', 'O243', 'O248', 'O249']
+    diseaseDictionary['Anxiety'] = ['F064', 'F41']
+    diseaseDictionary['Anemia NOS'] = ['D51']
+    diseaseDictionary['Iron deficiency anemia'] = ['D50']
+    diseaseDictionary['Other anemia'] = ['D64', 'D59', 'D489', 'D53', 'O990']
+    diseaseDictionary['Depression'] = ['F32', 'F341', 'F33', 'F0631', 'Z139', 'Z1331', 'Z1332']
+    diseaseDictionary['Primigravidas at the extremes of maternal age'] = ['O095', 'O096']
+    diseaseDictionary['Hemorrhagic disorders due to intrinsic circulating antibodies'] = ['D683']
+    diseaseDictionary['Systemic lupus erythematosus'] = ['M32']
+    diseaseDictionary['Lupus erythematosus'] = ['L93', 'D6862']
+    diseaseDictionary['Autoimmune disease not elsewhere classified'] = ['D89']
+    diseaseDictionary['Pure hypercholesterolemia'] = ['E780']
+    diseaseDictionary['Unspecified vitamin D deficiency'] = ['E55']
+    diseaseDictionary['Proteinuria'] = ['D511', 'N06', 'O121', 'O122', 'R80']
+    diseaseDictionary['Current Smoker'] = ['F172']
+    diseaseDictionary['Hypertension'] = ['G932', 'I10', 'I14', 'I15', 'I272', 'I674', 'I973', 'O10', 'O13',
+                                         'O16', 'R030']
+    diseaseDictionary['Hypertensive heart disease'] = ['I11']
+    diseaseDictionary['Chronic venous hypertension'] = ['I873']
+    diseaseDictionary['Unspecified renal disease in pregnancy without mention of hypertension'] = ['O2683',
+                                                                                                   'O9089']
+    diseaseDictionary['Chronic kidney disease'] = ['D631', 'E0822', 'E0922', 'E0922', 'E1022', 'E1122', 'E1322',
+                                                   'N18']
+    diseaseDictionary['Hypertensive kidney disease'] = ['I12']
+    diseaseDictionary['Hypertensive heart and chronic kidney disease'] = ['I13']
+    diseaseDictionary['Renal failure not elsewhere classified'] = ['N19']
+    diseaseDictionary['Infections of genitourinary tract in pregnancy'] = ['O23', 'O861', 'O862', 'O868']
+    diseaseDictionary['UTI'] = ['O0338', 'O0388', 'O0488', 'O0788', 'O0883', 'N136', 'N390', 'N99521', 'N99531']
+    diseaseDictionary['Personal history of trophoblastic disease'] = ['Z8759', 'O01']
+    diseaseDictionary['Supervision of high-risk pregnancy with history of trophoblastic disease'] = ['O091']
+    diseaseDictionary['Thrombophilia'] = ['D685', 'D686']
+    diseaseDictionary['History of premature delivery'] = ['Z8751']
+    diseaseDictionary['Hemorrhage in early pregnancy'] = ['O20']
+    diseaseDictionary[
+        'Congenital abnormalities of the uterus including those complicating pregnancy, childbirth, or the puerperium'] = [
+        'O34', 'O340']
+    diseaseDictionary['Multiple Gestations'] = ['O30']
+    diseaseDictionary['Inadequate Prenatal Care'] = ['O093']
+    diseaseDictionary['Periodontal disease'] = ['E08630', 'E09630', 'E10630', 'E11630', 'E13630', 'K05', 'K06',
+                                                'K08129']
+    diseaseDictionary['Other cardiovascular diseases complicating pregnancy and childbirth or the puerperium'] = [
+        'O9943']
+    diseaseDictionary['Obstructive Sleep Apnea'] = ['G4733']
+    diseaseDictionary['Sickle cell disease'] = ['D57']
+    diseaseDictionary['Thyroid Disease'] = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07']
+    # diseaseDictionary['Intrauterine Death'] = ['O364']
+    diseaseDictionary['Preeclampsia/Eclampsia'] = ['O14', 'O15']
 
-        # New Additions
-        """
+    # New Additions
+    """
         diseaseDictionary['Edema'] = ['R609']
         diseaseDictionary['Hyperreflexia'] = ['R292']
         diseaseDictionary['Oliguria'] = ['R34']
@@ -1479,100 +1257,106 @@ def cleanDataOK(dropMetro, age='Ordinal'):
         diseaseDictionary['Vomiting'] = ['R1110']
         """
 
+    # Adds Disease column
+    for disease in diseaseDictionary:
+        ok2017[disease] = 0  # This is how to add columns and default to 0
+
         # Adds Disease column
-        for disease in diseaseDictionary:
-            ok2017[disease] = 0  # This is how to add columns and default to 0
+    for disease in diseaseDictionary:
+        ok2018[disease] = 0  # This is how to add columns and default to 0
 
-            # Adds Disease column
-        for disease in diseaseDictionary:
-            ok2018[disease] = 0  # This is how to add columns and default to 0
+    # Filling out the diseases
+    for disease in diseaseDictionary:
+        for codes in diseaseDictionary[disease]:
+            for col in diagnosisColumns:
+                ok2017.loc[ok2017[col].str.startswith(codes, na=False), [disease]] = 1
 
-        # Filling out the diseases
-        for disease in diseaseDictionary:
-            for codes in diseaseDictionary[disease]:
-                for col in diagnosisColumns:
-                    ok2017.loc[ok2017[col].str.startswith(codes, na=False), [disease]] = 1
+    for disease in diseaseDictionary:
+        for codes in diseaseDictionary[disease]:
+            for col in diagnosisColumns:
+                ok2018.loc[ok2018[col].str.startswith(codes, na=False), [disease]] = 1
 
-        for disease in diseaseDictionary:
-            for codes in diseaseDictionary[disease]:
-                for col in diagnosisColumns:
-                    ok2018.loc[ok2018[col].str.startswith(codes, na=False), [disease]] = 1
+    ok2017.drop(columns=['State', 'Zip', 'Sex', 'County', 'Length_of_stay', 'Status', 'pdx',
+                         'dx1', 'dx2', 'dx3', 'dx4', 'dx5', 'dx6', 'dx7',
+                         'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14',
+                         'dx15', 'ppoa', 'poa1', 'poa2', 'poa3', 'poa4',
+                         'poa5', 'poa6', 'poa7', 'poa8', 'poa9', 'poa10',
+                         'poa11', 'poa12', 'poa13', 'poa14', 'poa15', 'ppx',
+                         'px1', 'px2', 'px3', 'px4', 'px5', 'px6', 'px7',
+                         'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14',
+                         'px15', 'county name'], inplace=True)
 
-        ok2017.drop(columns=['State', 'Zip', 'Sex', 'County', 'Length_of_stay', 'Status', 'pdx',
-                             'dx1', 'dx2', 'dx3', 'dx4', 'dx5', 'dx6', 'dx7',
-                             'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14',
-                             'dx15', 'ppoa', 'poa1', 'poa2', 'poa3', 'poa4',
-                             'poa5', 'poa6', 'poa7', 'poa8', 'poa9', 'poa10',
-                             'poa11', 'poa12', 'poa13', 'poa14', 'poa15', 'ppx',
-                             'px1', 'px2', 'px3', 'px4', 'px5', 'px6', 'px7',
-                             'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14',
-                             'px15', 'county name'], inplace=True)
+    ok2018.drop(columns=['State', 'Zip', 'Sex', 'County', 'Length_of_stay', 'Status', 'pdx',
+                         'dx1', 'dx2', 'dx3', 'dx4', 'dx5', 'dx6', 'dx7',
+                         'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14',
+                         'dx15', 'ppoa', 'poa1', 'poa2', 'poa3', 'poa4',
+                         'poa5', 'poa6', 'poa7', 'poa8', 'poa9', 'poa10',
+                         'poa11', 'poa12', 'poa13', 'poa14', 'poa15', 'ppx',
+                         'px1', 'px2', 'px3', 'px4', 'px5', 'px6', 'px7',
+                         'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14',
+                         'px15', 'county name'], inplace=True)
 
-        ok2018.drop(columns=['State', 'Zip', 'Sex', 'County', 'Length_of_stay', 'Status', 'pdx',
-                             'dx1', 'dx2', 'dx3', 'dx4', 'dx5', 'dx6', 'dx7',
-                             'dx8', 'dx9', 'dx10', 'dx11', 'dx12', 'dx13', 'dx14',
-                             'dx15', 'ppoa', 'poa1', 'poa2', 'poa3', 'poa4',
-                             'poa5', 'poa6', 'poa7', 'poa8', 'poa9', 'poa10',
-                             'poa11', 'poa12', 'poa13', 'poa14', 'poa15', 'ppx',
-                             'px1', 'px2', 'px3', 'px4', 'px5', 'px6', 'px7',
-                             'px8', 'px9', 'px10', 'px11', 'px12', 'px13', 'px14',
-                             'px15', 'county name'], inplace=True)
+    data = ok2017.append(ok2018)
 
+    African_Am = data.loc[data['Race'] == 'Black']
+    African_Am.drop(columns=['Race'], inplace=True)
 
-        data = ok2017.append(ok2018)
+    Native_Am = data.loc[data['Race'] == 'Native American']
+    Native_Am.drop(columns=['Race'], inplace=True)
 
-        African_Am = data.loc[data['Race'] == 'Black']
-        African_Am.drop(columns=['Race'], inplace=True)
+    African_Am = data.loc[data['Race'] == 'Black']
+    African_Am.drop(columns=['Race'], inplace=True)
 
-        Native_Am = data.loc[data['Race'] == 'Native American']
-        Native_Am.drop(columns=['Race'], inplace=True)
+    Native_Am = data.loc[data['Race'] == 'Native American']
+    Native_Am.drop(columns=['Race'], inplace=True)
 
-        African_Am = data.loc[data['Race'] == 'Black']
-        African_Am.drop(columns=['Race'], inplace=True)
+    White = data.loc[data['Race'] == 'White']
+    White.drop(columns=['Race'], inplace=True)
 
-        Native_Am = data.loc[data['Race'] == 'Native American']
-        Native_Am.drop(columns=['Race'], inplace=True)
+    """
+    # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+    ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
+                            columns=['Race'])
 
-        # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
-        ok2017 = pd.get_dummies(ok2017, prefix_sep="__", dummy_na=True,
-                                columns=['Race'])
+    # Propogates the missing values via the indicator columns
+    ok2017.loc[ok2017["Race__nan"] == 1, ok2017.columns.str.startswith("Race__")] = np.nan
 
-        # Propogates the missing values via the indicator columns
-        ok2017.loc[ok2017["Race__nan"] == 1, ok2017.columns.str.startswith("Race__")] = np.nan
+    # Drops the missingness indicator columns
+    ok2017 = ok2017.drop(['Race__nan'], axis=1)
 
-        # Drops the missingness indicator columns
-        ok2017 = ok2017.drop(['Race__nan'], axis=1)
+    # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
+    ok2018 = pd.get_dummies(ok2018, prefix_sep="__", dummy_na=True,
+                            columns=['Race'])
 
-        # Setting dummies to true makes a column for each category that states whether or not it is missing (0 or 1).
-        ok2018 = pd.get_dummies(ok2018, prefix_sep="__", dummy_na=True,
-                                columns=['Race'])
+    # Propogates the missing values via the indicator columns
+    ok2018.loc[ok2018["Race__nan"] == 1, ok2018.columns.str.startswith("Race__")] = np.nan
 
-        # Propogates the missing values via the indicator columns
-        ok2018.loc[ok2018["Race__nan"] == 1, ok2018.columns.str.startswith("Race__")] = np.nan
+    # Drops the missingness indicator columns
+    ok2018 = ok2018.drop(['Race__nan'], axis=1)
 
-        # Drops the missingness indicator columns
-        ok2018 = ok2018.drop(['Race__nan'], axis=1)
+    ok2017.rename(columns={'Race__White': 'White',
+                           'Race__Native American': 'Native American',
+                           'Race__Black': 'Black',
+                           'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
-        ok2017.rename(columns={'Race__White': 'White',
-                               'Race__Native American': 'Native American',
-                               'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
+    ok2018.rename(columns={'Race__White': 'White',
+                           'Race__Native American': 'Native American',
+                           'Race__Black': 'Black',
+                           'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
 
-        ok2018.rename(columns={'Race__White': 'White',
-                               'Race__Native American': 'Native American',
-                               'Race__Black': 'Black',
-                               'Race__Other/Unknown': 'Other/Unknown Race'}, inplace=True)
+    if (dropMetro == True):
+        African_Am.drop(columns=['Metro status'], inplace=True)
+        Native_Am.drop(columns=['Metro status'], inplace=True)
+        White.drop(columns=['Metro status'], inplace=True)
+        ok2017.drop(columns=['Metro status'], inplace=True)
+        ok2018.drop(columns=['Metro status'], inplace=True)
 
-        if (dropMetro == True):
-            African_Am.drop(columns=['Metro status'], inplace=True)
-            Native_Am.drop(columns=['Metro status'], inplace=True)
-            ok2017.drop(columns=['Metro status'], inplace=True)
-            ok2018.drop(columns=['Metro status'], inplace=True)
+    # ok2017.to_csv('Data/Oklahoma_Clean/ok2017_Incomplete.csv', index=False)
+    # ok2018.to_csv('Data/Oklahoma_Clean/ok2018_Incomplete.csv', index=False)
+    """
 
-        # ok2017.to_csv('Data/Oklahoma_Clean/ok2017_Incomplete.csv', index=False)
-        # ok2018.to_csv('Data/Oklahoma_Clean/ok2018_Incomplete.csv', index=False)
+    return ok2017.append(ok2018)
 
-        return ok2017, ok2018, African_Am, Native_Am
 
 def age_encoderTX(data):
     age_map = {'04': 1, '05': 1, '06': 1,
@@ -1595,8 +1379,8 @@ def age_encoderTX(data):
 
     return data
 
-def age_encoderOK(data):
 
+def age_encoderOK(data):
     age_map = {'10-14': 1, '15-19': 1, '20-24': 2,
                '25-29': 2, '30-34': 3, '35-39': 3,
                '40-44': 4, '45-49': 4, '50-54': 4}
@@ -1604,7 +1388,7 @@ def age_encoderOK(data):
     data['Age'] = data['Age'].map(age_map)
 
     data = pd.get_dummies(data, prefix_sep="__", dummy_na=True,
-                            columns=['Age'])
+                          columns=['Age'])
 
     data.loc[data["Age__nan"] == 1, data.columns.str.startswith("Age__")] = np.nan
 
@@ -1620,7 +1404,15 @@ def age_encoderOK(data):
 
 if __name__ == "__main__":
 
-    ok2017, ok2018, native, african = cleanDataOK(dropMetro=True, age='Categorical')
-    parent = os.path.dirname(os.getcwd())
-    dataPath = os.path.join(parent, 'Data/Processed/Oklahoma/Complete/Full/Outliers/Native/nativeClean_' + date + '.csv')
-    native.to_csv(dataPath, index=False)
+    """
+    IMPORTANT: I commented out the sections that turn race into dummy variables in OkClean. Uncomment
+    to set it to the setup used for regular analysis. 
+    """
+
+    data = cleanDataTX(dropMetro=True, age='Categorical')
+
+    data.to_csv('../Data/Cleaned/Texas/TxCleaned_NoDummyRace_' + date + '.csv', index=False)
+
+    #data = cleanDataOK(dropMetro=True, age='Categorical')
+
+    #data.to_csv('../Data/Cleaned/Oklahoma/okCleaned_NoDummyRace_' + date + '.csv', index=False)
